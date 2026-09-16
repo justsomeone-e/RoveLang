@@ -28,6 +28,11 @@
       return { output: [], error: preSyntaxError };
     }
 
+    // Nyx examples call main() explicitly. Only synthesize the entry-point
+    // call when the source defines main without an explicit top-level call.
+    const sourceWithoutMainDefinition = source.replace(/\bfn\s+main\s*\([^)]*\)/g, '');
+    const hasExplicitMainCall = /\bmain\s*\([ \t]*\)/.test(sourceWithoutMainDefinition);
+
     const output = [];
     const printFn = (...args) => {
       output.push(args.map(a => formatValue(a)).join(' '));
@@ -183,7 +188,7 @@
       runner = new Function('print', 'assert', 'len', 'map', 'filter', 'fold', 'Ok', 'Err', 'base64_encode', 'base64_decode', 'get_string', 'get_int', `
         try {
           ${jsCode}
-          if (typeof main === 'function') {
+          if (typeof main === 'function' && ${!hasExplicitMainCall}) {
             main();
           }
         } catch(e) {

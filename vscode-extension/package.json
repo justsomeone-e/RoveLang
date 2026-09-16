@@ -2,7 +2,7 @@
   "name": "nyx-language-support",
   "displayName": "Nyx Language Toolchain",
   "description": "Native compiler tooling, IntelliSense, and one-click multi-target workflows for Nyx.",
-  "version": "5.0.2",
+  "version": "5.0.3",
   "publisher": "nyx",
   "license": "Apache-2.0",
   "repository": {

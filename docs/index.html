@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nyx — From source to something useful</title>
-  <meta name="description" content="Nyx v5.0 Daydream is the stable systems toolchain release: native applications, direct LLVM IR, JavaScript, Python, Rust, and WebAssembly from one Typed HIR.">
+  <meta name="description" content="Nyx v5.0.3 Daydream is the current stable systems toolchain maintenance release: native applications, direct LLVM IR, JavaScript, Python, Rust, and WebAssembly from one Typed HIR.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -560,6 +560,53 @@
       .reveal{opacity:1;transform:none}
       #bg-canvas{display:none}
     }
+
+    /* RELEASE SNAPSHOT */
+    .hero-grid{
+      width:100%;display:grid;grid-template-columns:minmax(0,1fr) 292px;
+      gap:64px;align-items:center;
+    }
+    .hero-main{min-width:0}
+    .hero-title{font-size:clamp(3rem,6.8vw,6.5rem);margin-bottom:32px}
+    .hero-body{gap:48px}
+    .hero-proof{
+      align-self:center;padding:22px;border:1px solid var(--border-accent);
+      border-radius:14px;background:rgba(17,20,25,.88);
+      box-shadow:var(--shadow);opacity:0;animation:fadeUp .8s ease .45s forwards;
+    }
+    .proof-topline,.proof-list div{
+      display:flex;align-items:center;justify-content:space-between;gap:16px;
+    }
+    .proof-topline,.proof-list dt,.proof-list dd,.proof-link{
+      font-family:var(--mono);font-size:.625rem;letter-spacing:.08em;text-transform:uppercase;
+    }
+    .proof-topline{color:var(--text-dim)}
+    .proof-state{color:var(--green)}
+    .proof-version{
+      margin-top:28px;color:var(--text);font-size:3.3rem;line-height:1;
+      font-weight:500;letter-spacing:-.06em;
+    }
+    .proof-name{margin-top:8px;color:var(--accent);font-family:var(--mono);font-size:.8rem}
+    .proof-rule{height:1px;background:var(--border);margin:22px 0 8px}
+    .proof-list{display:grid;gap:0}
+    .proof-list div{padding:11px 0;border-bottom:1px solid rgba(39,45,54,.7)}
+    .proof-list dt{color:var(--text-dim);font-weight:400;letter-spacing:.03em;text-transform:none}
+    .proof-list dd{color:var(--text-muted);font-weight:500;letter-spacing:.03em}
+    .proof-link{
+      display:flex;justify-content:space-between;align-items:center;gap:12px;
+      margin-top:20px;color:var(--accent);text-decoration:none;letter-spacing:.03em;
+      transition:color .2s;
+    }
+    .proof-link:hover{color:var(--text)}
+    .proof-link span{font-size:.9rem;letter-spacing:0}
+    @media(max-width:900px){
+      .hero-grid{grid-template-columns:1fr;gap:44px}
+      .hero-proof{max-width:460px;width:100%;justify-self:start}
+    }
+    @media(max-width:768px){
+      .hero-title{font-size:clamp(2.9rem,13vw,5rem)}
+      .hero-proof{padding:18px}
+    }
   </style>
 </head>
 <body>
@@ -572,8 +619,8 @@
       <nav aria-label="Main navigation">
         <a href="#applications">Applications</a>
         <a href="#targets">Targets</a>
-        <a href="#release">v5.0</a>
-        <a href="#">Learn</a>
+        <a href="#release">v5.0.3</a>
+        <a href="studio.html">Studio</a>
         <a href="https://github.com/justsomeone-e/nyx" class="nav-gh">GitHub ↗</a>
       </nav>
     </div>
@@ -582,6 +629,8 @@
   <main id="main">
     <!-- HERO -->
     <section class="hero wrap">
+      <div class="hero-grid">
+      <div class="hero-main">
       <div class="eyebrow">
         <span class="status-dot" aria-hidden="true"></span>
         NYX / THE V5 LINE
@@ -596,6 +645,7 @@
         </p>
         <div class="hero-actions">
           <a class="btn-primary" href="#applications">Try a real application ↘</a>
+          <a class="btn-text" href="studio.html">Open Nyx Studio ↗</a>
           <a class="btn-text" href="https://github.com/justsomeone-e/nyx/blob/main/GETTING_STARTED.md">Build locally ↗</a>
         </div>
       </div>
@@ -608,6 +658,24 @@
         <span class="pip-arrow" aria-hidden="true"></span>
         <span class="pip-step" id="ps3">JS / PYTHON / WASM</span>
       </div>
+    </div>
+    <aside class="hero-proof" aria-label="Nyx release snapshot">
+      <div class="proof-topline">
+        <span>RELEASE CHANNEL</span>
+        <span class="proof-state">STABLE</span>
+      </div>
+      <div class="proof-version">v5.0.3</div>
+      <p class="proof-name">Daydream</p>
+      <div class="proof-rule"></div>
+      <dl class="proof-list">
+        <div><dt>Default native</dt><dd>C++20</dd></div>
+        <div><dt>Portable targets</dt><dd>JS / Python</dd></div>
+        <div><dt>Browser target</dt><dd>WASM</dd></div>
+        <div><dt>Experimental</dt><dd>LLVM / C17</dd></div>
+      </dl>
+      <a class="proof-link" href="#release">Read the release record <span aria-hidden="true">↗</span></a>
+    </aside>
+  </div>
     </section>
 
     <!-- ANALYZER -->
@@ -745,8 +813,8 @@ python -m http.server 8080 --directory docs</code></pre>
         <div class="sec-label" style="margin-bottom:0;flex:1">04 / RELEASE STATUS</div>
         <span class="mono-tag">STABLE RELEASE</span>
       </div>
-      <h2 class="sec-title reveal d1" id="release-title" style="margin-bottom:16px">v5.0 Daydream has shipped.</h2>
-      <p class="sec-intro reveal d2">Nyx v5.0.0 is the stable Daydream language and toolchain release. It preserves C++20, JavaScript, Python, Typed HIR v1, and Bundle ABI v1 contracts while adding direct LLVM IR generation as an explicitly experimental backend.</p>
+      <h2 class="sec-title reveal d1" id="release-title" style="margin-bottom:16px">v5.0.3 Daydream is current.</h2>
+      <p class="sec-intro reveal d2">Nyx v5.0.3 is the current stable Daydream maintenance release. It fixes duplicate browser preview execution, separates Studio and Tour state, and preserves C++20, JavaScript, Python, Typed HIR v1, and Bundle ABI v1 contracts while keeping direct LLVM IR generation explicitly experimental.</p>
       <div class="release-grid reveal d3">
         <div class="r-item"><span class="r-num">01</span><h3>Direct LLVM IR pipeline</h3><p>Native scalar arithmetic, IEEE double, structured control flow, and Clang compilation without C++ hops.</p></div>
         <div class="r-item"><span class="r-num">02</span><h3>LLVM aggregate types</h3><p>Value-semantic structs, stack-owned scalar arrays, bounds verification, element copy semantics, and for-loop iteration.</p></div>
@@ -760,7 +828,7 @@ python -m http.server 8080 --directory docs</code></pre>
       </div>
       <div class="release-footer reveal d4">
         <p>LLVM and C17 are included for experimentation, not promoted to stable backends. Go, JVM, .NET, Lua, and retiring the C++ bootstrap path remain future work.</p>
-        <a class="btn-primary" href="https://github.com/justsomeone-e/nyx/releases/tag/v5.0.0" style="flex-shrink:0">Download v5.0.0 ↗</a>
+        <a class="btn-primary" href="https://github.com/justsomeone-e/nyx/releases/tag/v5.0.3" style="flex-shrink:0">Download v5.0.3 ↗</a>
       </div>
     </section>
 

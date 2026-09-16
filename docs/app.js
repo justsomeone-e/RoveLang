@@ -14,6 +14,8 @@
   const state = {
     mode: 'tour', // 'tour' | 'playground'
     currentExerciseIndex: 0,
+    playgroundTemplateIndex: 0,
+    activePanel: 'output',
     exercises: window.NYX_TOUR_DATA || [],
     completed: JSON.parse(localStorage.getItem('nyx_tour_completed') || '{}'),
     userCodeCache: JSON.parse(localStorage.getItem('nyx_tour_code_cache') || '{}'),
@@ -42,12 +44,28 @@
     lessonCounter: document.getElementById('lessonCounter'),
     editorFilename: document.getElementById('editorFilename'),
     btnRun: document.getElementById('btnRun'),
+    btnInspect: document.getElementById('btnInspect'),
     btnResetCode: document.getElementById('btnResetCode'),
+    targetSelect: document.getElementById('targetSelect'),
+    templateSelect: document.getElementById('templateSelect'),
     paneResizer: document.getElementById('paneResizer'),
     terminalSection: document.getElementById('terminalSection'),
     execStatusBadge: document.getElementById('execStatusBadge'),
     btnClearTerminal: document.getElementById('btnClearTerminal'),
     terminalView: document.getElementById('terminalView'),
+    inspectionView: document.getElementById('inspectionView'),
+    buildView: document.getElementById('buildView'),
+    sourceStats: document.getElementById('sourceStats'),
+    pipelineTarget: document.getElementById('pipelineTarget'),
+    inspectionStatus: document.getElementById('inspectionStatus'),
+    inspectionNote: document.getElementById('inspectionNote'),
+    buildTargetStatus: document.getElementById('buildTargetStatus'),
+    buildNote: document.getElementById('buildNote'),
+    buildCommand: document.getElementById('buildCommand'),
+    btnCopyBuildCommand: document.getElementById('btnCopyBuildCommand'),
+    btnOutputTab: document.getElementById('btnOutputTab'),
+    btnInspectTab: document.getElementById('btnInspectTab'),
+    btnBuildTab: document.getElementById('btnBuildTab'),
     progressText: document.getElementById('progressText'),
     progressBarFill: document.getElementById('progressBarFill'),
     btnModeTour: document.getElementById('btnModeTour'),
@@ -60,20 +78,11 @@
   // --- Playground Templates ---
   const PLAYGROUND_TEMPLATES = [
     {
-      title: '01. Functional Pipelines',
-      code: `// Functional composition with the forward pipe operator |>
-fn double(x: int) -> int = x * 2
-fn add_ten(x: int) -> int = x + 10
-fn format_score(score: int) -> string = $"[Player Score: {score}]"
-
+      title: '01. Hello, Nyx Studio',
+      code: `// A small program you can run immediately in the browser preview
 fn main() {
-    let initial = 25
-    let result = initial 
-        |> double 
-        |> add_ten 
-        |> format_score
-
-    print(result)
+    var name: string = "Nyx Studio"
+    print("Hello, " + name)
 }
 
 main()`
@@ -131,6 +140,118 @@ fn main() {
 main()`
     }
   ];
+
+  const TARGETS = {
+    preview: {
+      label: 'Browser preview',
+      command: null,
+      note: 'The browser evaluator can show output for the supported teaching subset. It is not a type checker or a native backend.'
+    },
+    cpp: {
+      label: 'C++20 / native',
+      command: (file) => `nyx run ${file} --target cpp`,
+      note: 'Build with the stable default native target and inspect the generated binary locally.'
+    },
+    js: {
+      label: 'JavaScript / Node',
+      command: (file) => `nyx run ${file} --target js`,
+      note: 'Build and run the JavaScript target with the local Nyx CLI and Node.js.'
+    },
+    wasm: {
+      label: 'WebAssembly / bundle',
+      command: (file) => `nyx bundle ${file} --target wasm --output build/wasm`,
+      note: 'Use the local bundle command to produce the WASM package and its host bindings.'
+    },
+    llvm: {
+      label: 'LLVM IR / experimental',
+      command: (file) => `nyx run ${file} --target llvm`,
+      note: 'LLVM is experimental. Check the target capability contract before relying on the generated artifact.'
+    }
+  };
+
+  function populateTemplateSelect() {
+    if (!el.templateSelect) return;
+    el.templateSelect.innerHTML = '';
+    PLAYGROUND_TEMPLATES.forEach((template, index) => {
+      const option = document.createElement('option');
+      option.value = String(index);
+      option.innerText = template.title;
+      el.templateSelect.appendChild(option);
+    });
+    el.templateSelect.value = String(state.playgroundTemplateIndex);
+  }
+
+  function selectedTarget() {
+    return (el.targetSelect && TARGETS[el.targetSelect.value]) ? el.targetSelect.value : 'preview';
+  }
+
+  function setActivePanel(panel) {
+    state.activePanel = panel;
+    const views = {
+      output: el.terminalView,
+      inspect: el.inspectionView,
+      build: el.buildView
+    };
+    Object.keys(views).forEach((name) => {
+      if (views[name]) views[name].hidden = name !== panel;
+    });
+    [
+      [el.btnOutputTab, 'output'],
+      [el.btnInspectTab, 'inspect'],
+      [el.btnBuildTab, 'build']
+    ].forEach(([button, name]) => {
+      if (!button) return;
+      const active = name === panel;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', String(active));
+    });
+  }
+
+  function updateBuildGuide() {
+    if (!el.buildCommand || !el.buildTargetStatus) return;
+    const target = selectedTarget();
+    const config = TARGETS[target];
+    const filename = (el.editorFilename.innerText || 'scratchpad.nyx').trim();
+    el.buildTargetStatus.innerText = config.label;
+    if (config.command) {
+      el.buildCommand.innerText = config.command(filename);
+      el.buildNote.innerHTML = `The browser cannot invoke your local compiler. Save the editor as <code>${escapeHtml(filename)}</code>, then run. ${escapeHtml(config.note)}`;
+    } else {
+      el.buildCommand.innerText = 'Select a local target to see its command';
+      el.buildNote.innerHTML = 'Browser preview is intentionally limited. Select C++, JavaScript, WASM or LLVM to get a local compiler command.';
+    }
+  }
+
+  function updateTargetUi() {
+    const target = selectedTarget();
+    const isPreview = target === 'preview';
+    const runLabel = document.getElementById('runLabel');
+    if (runLabel) runLabel.innerText = isPreview ? 'Run Preview' : 'Show Build';
+    el.btnRun.title = isPreview ? 'Run browser preview (Ctrl+Enter)' : 'Show the local build command';
+    updateBuildGuide();
+  }
+
+  function renderSourceInspection(source) {
+    const code = String(source || '');
+    const nonEmptyLines = code.split(/\r?\n/).filter((line) => line.trim()).length;
+    const functions = (code.match(/\b(?:async\s+)?fn\s+[A-Za-z_][A-Za-z0-9_]*/g) || []).length;
+    const imports = (code.match(/^\s*import\b/gm) || []).length;
+    const declarations = (code.match(/^\s*(?:let|var|const|struct|enum|type|trait)\b/gm) || []).length;
+    const directive = code.match(/^\s*#target\s+([A-Za-z0-9_-]+)/m);
+    const sourceTarget = directive ? directive[1] : 'cpp (default)';
+    const target = selectedTarget();
+
+    el.sourceStats.innerHTML = [
+      ['Lines', nonEmptyLines],
+      ['Functions', functions],
+      ['Imports', imports],
+      ['Declarations', declarations]
+    ].map(([label, value]) => `<div class="source-stat"><span class="source-stat-label">${label}</span><strong class="source-stat-value">${value}</strong></div>`).join('');
+    el.pipelineTarget.innerText = TARGETS[target].label;
+    el.inspectionStatus.innerText = target === 'preview' ? 'Browser analysis' : 'Local build planned';
+    el.inspectionNote.innerHTML = `Detected source target: <code>${escapeHtml(sourceTarget)}</code>. This lightweight view counts source constructs; the native compiler remains authoritative for typing, HIR, MIR and backend validation.`;
+    setActivePanel('inspect');
+  }
 
   // --- Ace Editor Initialization ---
   function initAce() {
@@ -267,9 +388,13 @@ main()`
       state.completed = {};
     }
 
+    populateTemplateSelect();
+    el.templateSelect.closest('.template-control').style.display = 'none';
     buildExerciseTree();
     setupEventListeners();
     updateProgressUI();
+    updateTargetUi();
+    setActivePanel('output');
     initAce();
   }
 
@@ -334,7 +459,7 @@ main()`
     if (index < 0 || index >= state.exercises.length) return;
 
     // Save previous exercise code IF non-empty
-    if (state.editor) {
+    if (state.editor && state.mode === 'tour') {
       const prevEx = state.exercises[state.currentExerciseIndex];
       const currentCode = getEditorCode();
       if (prevEx && currentCode && currentCode.trim().length > 0) {
@@ -399,7 +524,7 @@ main()`
   // --- Code Execution & Verification Engine ---
   function runPreview(source) {
     return new Promise((resolve, reject) => {
-      const worker = new Worker('preview-worker.js');
+      const worker = new Worker('preview-worker.js?v=5.0.3-studio-1');
       const timeout = setTimeout(() => {
         worker.terminate();
         reject(new Error('Preview stopped after 2 seconds. Check for an unbounded loop.'));
@@ -413,6 +538,15 @@ main()`
 
   async function runCode() {
     if (el.btnRun.disabled) return;
+    if (selectedTarget() !== 'preview') {
+      clearTerminal();
+      updateBuildGuide();
+      setActivePanel('build');
+      el.execStatusBadge.innerText = 'Local CLI required';
+      el.execStatusBadge.className = 'status-badge';
+      logTerminal(`[Build guide] ${TARGETS[selectedTarget()].label} is not executed in the browser.`, 'term-info');
+      return;
+    }
     el.btnRun.disabled = true;
     const code = getEditorCode();
     const runMode = state.mode;
@@ -422,6 +556,7 @@ main()`
 
     el.execStatusBadge.innerText = 'Running...';
     el.execStatusBadge.className = 'status-badge';
+    setActivePanel('output');
 
     const startTime = performance.now();
     try {
@@ -431,8 +566,8 @@ main()`
       if (res.error) {
         el.execStatusBadge.innerText = 'Failed';
         el.execStatusBadge.className = 'status-badge failed';
-        logTerminal(`❌ ${res.error}`, 'term-error');
-        logTerminal(`[i] Hint: Check the code in the editor or click '↺ Reset' to restore the starter template.`, 'term-hint');
+        logTerminal(`[Error] ${res.error}`, 'term-error');
+        logTerminal(`[Hint] Check the code in the editor or click 'Reset' to restore the starter template.`, 'term-hint');
         return;
       }
 
@@ -510,8 +645,8 @@ main()`
       } else {
         el.execStatusBadge.innerText = 'Failed';
         el.execStatusBadge.className = 'status-badge failed';
-        logTerminal(`\n❌ Not passed: ${reason}`, 'term-error');
-        logTerminal(`[i] Tip: Review the 🎯 Objective and 📋 Expected Output in the left card.`, 'term-hint');
+        logTerminal(`\n[Error] Not passed: ${reason}`, 'term-error');
+        logTerminal(`[Tip] Review the Objective and Expected Output in the left card.`, 'term-hint');
       }
     } catch (e) {
       logTerminal(`Verification diagnostic: ${e.message}`, 'term-error');
@@ -548,6 +683,43 @@ main()`
     // Run Code
     el.btnRun.addEventListener('click', runCode);
 
+    // Studio inspection and local-build guidance
+    el.btnInspect.addEventListener('click', () => renderSourceInspection(getEditorCode()));
+    el.btnOutputTab.addEventListener('click', () => setActivePanel('output'));
+    el.btnInspectTab.addEventListener('click', () => renderSourceInspection(getEditorCode()));
+    el.btnBuildTab.addEventListener('click', () => {
+      updateBuildGuide();
+      setActivePanel('build');
+    });
+    el.targetSelect.addEventListener('change', () => {
+      updateTargetUi();
+      if (selectedTarget() !== 'preview') {
+        updateBuildGuide();
+      }
+    });
+    el.templateSelect.addEventListener('change', (event) => {
+      const index = Number(event.target.value);
+      const template = PLAYGROUND_TEMPLATES[index];
+      if (!template) return;
+      state.playgroundTemplateIndex = index;
+      el.editorFilename.innerText = 'scratchpad.nyx';
+      setEditorCode(template.code);
+      clearTerminal();
+      logTerminal(`[Studio] Loaded example: ${template.title}`, 'term-info');
+      updateBuildGuide();
+    });
+    el.btnCopyBuildCommand.addEventListener('click', async () => {
+      const command = el.buildCommand.innerText;
+      if (!command || command.startsWith('Select a local target')) return;
+      try {
+        await navigator.clipboard.writeText(command);
+        el.btnCopyBuildCommand.innerText = 'Copied';
+        setTimeout(() => { el.btnCopyBuildCommand.innerText = 'Copy'; }, 1200);
+      } catch (e) {
+        logTerminal('[Build guide] Clipboard access is unavailable. Select the command manually.', 'term-hint');
+      }
+    });
+
     // Keyboard Shortcuts
     window.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -571,6 +743,14 @@ main()`
 
     // Reset Code
     el.btnResetCode.addEventListener('click', () => {
+      if (state.mode === 'playground') {
+        const template = PLAYGROUND_TEMPLATES[state.playgroundTemplateIndex];
+        if (template && confirm('Reset code to the selected Studio example?')) {
+          setEditorCode(template.code);
+          logTerminal('[Editor] Code reset to the selected Studio example.', 'term-info');
+        }
+        return;
+      }
       const ex = state.exercises[state.currentExerciseIndex];
       if (ex && confirm('Reset code to original exercise state?')) {
         setEditorCode(ex.code);
@@ -649,6 +829,7 @@ main()`
       state.mode = 'tour';
       el.btnModeTour.classList.add('active');
       el.btnModePlayground.classList.remove('active');
+      el.templateSelect.closest('.template-control').style.display = 'none';
       el.leftPane.style.display = 'flex';
       switchExercise(state.currentExerciseIndex);
       if (state.editor) setTimeout(() => state.editor.resize(), 100);
@@ -658,11 +839,13 @@ main()`
       state.mode = 'playground';
       el.btnModePlayground.classList.add('active');
       el.btnModeTour.classList.remove('active');
+      el.templateSelect.closest('.template-control').style.display = 'inline-flex';
       el.leftPane.style.display = 'none';
 
-      const tmpl = PLAYGROUND_TEMPLATES[0];
+      const tmpl = PLAYGROUND_TEMPLATES[state.playgroundTemplateIndex];
       el.editorFilename.innerText = 'scratchpad.nyx';
       setEditorCode(tmpl.code);
+      updateBuildGuide();
       if (state.editor) setTimeout(() => state.editor.resize(), 100);
     });
 

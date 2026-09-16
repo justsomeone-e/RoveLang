@@ -1,6 +1,6 @@
 [metadata]
 schema_version = 1
-language_version = "5.0.2"
+language_version = "5.0.3"
 default_backend = "cpp"
 capability_schema_version = 1
 hir_schema_version = 1

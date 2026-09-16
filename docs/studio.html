@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nyx Tour | Learning Preview</title>
-  <meta name="description" content="Explore Nyx syntax with a limited JavaScript learning preview. Use the native compiler to validate real Nyx programs.">
+  <title>Nyx Studio | Learn, inspect, build</title>
+  <meta name="description" content="Write Nyx code, inspect its source shape, preview it safely in the browser, and build it locally with the native compiler.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=4.5-preview-1">
+  <link rel="stylesheet" href="styles.css?v=5.0.3-studio-1">
   <!-- Ace Editor & Language Tools (Fast, Synchronous, Zero CORS / Zero WebWorker dependency) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ace.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ext-language_tools.js"></script>
@@ -23,15 +23,15 @@
         <div class="brand-icon">N</div>
         <span>nyx</span>
       </a>
-      <span class="version-badge">v5.0.2 Daydream</span>
+      <span class="version-badge">v5.0.3 Daydream</span>
 
       <!-- Main Mode Switcher -->
       <nav class="mode-nav">
         <button class="mode-btn active" id="btnModeTour" title="Interactive 81-step guided curriculum">
-          <span>🎓</span> Tour of Nyx
+          <span class="mode-mark" aria-hidden="true">01</span> Learn
         </button>
-        <button class="mode-btn" id="btnModePlayground" title="Free-form code playground">
-          <span>⚡</span> Playground
+        <button class="mode-btn" id="btnModePlayground" title="Free-form Nyx Studio">
+          <span class="mode-mark" aria-hidden="true">02</span> Studio
         </button>
       </nav>
     </div>
@@ -45,16 +45,16 @@
       </div>
 
       <button class="btn-secondary" id="btnOpenInstall">
-        <span>📦</span> Install CLI
+        Install CLI
       </button>
 
       <a href="https://github.com/justsomeone-e/nyx" class="btn-secondary" target="_blank" rel="noopener">
-        <span>★</span> Star on GitHub
+        Star on GitHub
       </a>
     </div>
   </header>
 
-  <p class="preview-notice">Learning preview: a limited JavaScript evaluator, not the Nyx compiler. Output matches do not prove type safety or backend parity. <a href="index.html#applications">Open real compiled applications</a>.</p>
+  <p class="preview-notice"><strong>Browser preview:</strong> this page uses a limited JavaScript evaluator, not the Nyx compiler. Output matches do not prove type safety or backend parity. Use <em>Build locally</em> for a real target build. <a href="index.html#applications">Open compiled applications</a>.</p>
 
   <!-- Main Studio Workbench Layout -->
   <main class="workbench">
@@ -85,7 +85,7 @@
           <div class="lesson-title-row">
             <h1 class="lesson-title" id="exerciseTitle">Welcome to Nyx</h1>
             <button class="btn-secondary btn-sm" id="btnToggleDrawer" title="Open Curriculum List">
-              <span>📚</span> All Exercises
+              All Exercises
             </button>
           </div>
         </div>
@@ -93,25 +93,25 @@
         <div class="lesson-card-body">
           <!-- Objective -->
           <div class="lesson-box">
-            <div class="box-label">🎯 Objective</div>
+            <div class="box-label">Objective</div>
             <p class="lesson-text" id="exerciseDesc">Run your very first Nyx program to verify your environment.</p>
           </div>
 
           <!-- Expected Output -->
           <div class="lesson-box" id="sectionExpectedOutput">
-            <div class="box-label">📋 Expected Output</div>
+            <div class="box-label">Expected Output</div>
             <pre class="expected-output-box" id="expectedOutputBox">Hello, Nyx Explorer! Welcome to the Tour of Nyx.</pre>
           </div>
 
           <!-- Hints & Solutions Drawer -->
           <div class="lesson-box">
-            <div class="box-label">💡 Help &amp; Reference</div>
+            <div class="box-label">Help &amp; Reference</div>
             <div class="drawer-buttons">
               <button class="btn-hint" id="btnToggleHint">
-                <span>💡</span> <span id="hintBtnText">Show Hint</span>
+                <span id="hintBtnText">Show Hint</span>
               </button>
               <button class="btn-hint" id="btnShowSolution">
-                <span>👁️</span> Show Solution
+                Show Solution
               </button>
             </div>
             <div class="hint-box" id="hintBox"></div>
@@ -136,22 +136,39 @@
       
       <!-- Editor Section -->
       <div class="editor-section" id="editorSection">
-        <div class="editor-toolbar">
-          <div class="editor-tabs">
+          <div class="editor-toolbar">
+            <div class="editor-tabs">
             <div class="editor-tab active">
-              <span class="tab-icon">📄</span>
+              <span class="tab-icon" aria-hidden="true"></span>
               <span id="editorFilename">intro01.nyx</span>
             </div>
-          </div>
+            </div>
 
-          <div class="editor-actions">
-            <button class="btn-secondary btn-sm" id="btnResetCode" title="Reset code to original template">
-              <span>↺</span> Reset
-            </button>
-            <button class="btn-run" id="btnRun" title="Run syntax preview (Ctrl+Enter)">
-              <span>▶</span> Run Preview <kbd>Ctrl+Enter</kbd>
-            </button>
-          </div>
+            <div class="editor-actions">
+              <label class="target-control" for="targetSelect">
+                <span>Target</span>
+                <select id="targetSelect" aria-label="Compilation target">
+                  <option value="preview">Browser preview</option>
+                  <option value="cpp">C++20 / native</option>
+                  <option value="js">JavaScript / Node</option>
+                  <option value="wasm">WebAssembly / bundle</option>
+                  <option value="llvm">LLVM IR / experimental</option>
+                </select>
+              </label>
+              <label class="template-control" for="templateSelect">
+                <span>Example</span>
+                <select id="templateSelect" aria-label="Studio example"></select>
+              </label>
+              <button class="btn-secondary btn-sm" id="btnInspect" title="Inspect source shape">
+                Inspect
+              </button>
+              <button class="btn-secondary btn-sm" id="btnResetCode" title="Reset code to original template">
+                Reset
+              </button>
+              <button class="btn-run" id="btnRun" title="Run syntax preview (Ctrl+Enter)">
+                <span id="runLabel">Run Preview</span> <kbd>Ctrl+Enter</kbd>
+              </button>
+            </div>
         </div>
 
         <!-- Ace Editor Mount -->
@@ -165,10 +182,15 @@
       <div class="terminal-section" id="terminalSection">
         <div class="terminal-toolbar">
           <div class="terminal-title">
-            <span>📟</span> Terminal Output
+            <span class="panel-mark" aria-hidden="true">></span> Studio panels
           </div>
 
           <div class="terminal-status">
+            <div class="panel-tabs" role="tablist" aria-label="Studio panels">
+              <button class="panel-tab active" id="btnOutputTab" role="tab" aria-selected="true">Output</button>
+              <button class="panel-tab" id="btnInspectTab" role="tab" aria-selected="false">Inspect</button>
+              <button class="panel-tab" id="btnBuildTab" role="tab" aria-selected="false">Build locally</button>
+            </div>
             <span class="status-badge" id="execStatusBadge">Ready</span>
             <button class="btn-secondary btn-sm" id="btnClearTerminal">Clear</button>
           </div>
@@ -176,9 +198,38 @@
 
         <div class="terminal-content">
           <div class="term-console" id="terminalView">
-            <div class="term-line term-info">⚡ Nyx syntax preview initialized. Validate programs with nyx check / nyx run.</div>
-            <div class="term-line term-info">Press 'Run Preview' or hit Ctrl+Enter to test your code.</div>
+            <div class="term-line term-info">Nyx Studio preview initialized.</div>
+            <div class="term-line term-info">Run the browser preview, inspect the source, or build the same file locally.</div>
           </div>
+          <section class="studio-view" id="inspectionView" hidden aria-labelledby="inspectionTitle">
+            <div class="studio-view-header">
+              <div>
+                <p class="view-kicker">SOURCE INSPECTION</p>
+                <h3 id="inspectionTitle">What is in this file?</h3>
+              </div>
+              <span class="status-badge" id="inspectionStatus">Browser analysis</span>
+            </div>
+            <div class="source-stats" id="sourceStats"></div>
+            <div class="pipeline-mini" aria-label="Local compiler pipeline">
+              <span>Source</span><i aria-hidden="true">→</i><span>Typed HIR</span><i aria-hidden="true">→</i><span>MIR</span><i aria-hidden="true">→</i><span id="pipelineTarget">Target</span>
+            </div>
+            <p class="view-note" id="inspectionNote">This is a lightweight browser inspection. It does not replace the native compiler's type checker or MIR verifier.</p>
+          </section>
+          <section class="studio-view" id="buildView" hidden aria-labelledby="buildTitle">
+            <div class="studio-view-header">
+              <div>
+                <p class="view-kicker">REPRODUCIBLE LOCAL BUILD</p>
+                <h3 id="buildTitle">Run the real compiler</h3>
+              </div>
+              <span class="status-badge" id="buildTargetStatus">C++20 / native</span>
+            </div>
+            <p class="view-note" id="buildNote">The browser cannot invoke your local compiler. Save the editor as <code>scratchpad.nyx</code>, then run:</p>
+            <div class="build-command-box">
+              <code id="buildCommand">nyx run scratchpad.nyx --target cpp</code>
+              <button class="btn-copy" id="btnCopyBuildCommand" type="button">Copy</button>
+            </div>
+            <p class="view-note">The target selector changes this command only; the preview panel never claims a native build succeeded.</p>
+          </section>
         </div>
       </div>
 
@@ -212,7 +263,7 @@
 
   <!-- Load Curriculum Data and Studio Application Script -->
   <script src="tour_data.js"></script>
-  <script src="evaluator.js"></script>
-  <script src="app.js?v=4.5-preview-1"></script>
+  <script src="evaluator.js?v=5.0.3-studio-1"></script>
+  <script src="app.js?v=5.0.3-studio-1"></script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <!-- Generated from compiler/features.toml; do not edit by hand. -->
 
 - Registry schema: `1`
-- Language version: `5.0.2`
+- Language version: `5.0.3`
 - Typed HIR schema: `1`
 - Bundle ABI: `1`
 

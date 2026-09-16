@@ -1,5 +1,11 @@
 # Change Log
 
+## 5.0.3 — Daydream
+
+- Fix duplicate preview execution when a source file explicitly calls `main()`.
+- Keep Tour exercise edits isolated from Studio example state.
+- Refresh the extension and documentation version surfaces.
+
 ## 5.0.2 — Daydream
 
 - Highlight embedded C++, JavaScript, and Rust inside the corresponding

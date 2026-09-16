@@ -132,13 +132,13 @@ If `SHA256(nyxc_stage2) != SHA256(nyxc_stage3)`, the build is rejected immediate
 
 Nyx is free, open source, and available under the Apache 2.0 license:
 
-* 🌐 **Interactive Browser Playground & Tour:** [justsomeone-e.github.io/nyx](https://justsomeone-e.github.io/nyx/)
-* 📦 **GitHub Repository:** [github.com/justsomeone-e/nyx](https://github.com/justsomeone-e/nyx)
-* ⚡ **Quick Install (Linux/macOS):**
+* **Interactive Browser Playground & Tour:** [justsomeone-e.github.io/nyx](https://justsomeone-e.github.io/nyx/)
+* **GitHub Repository:** [github.com/justsomeone-e/nyx](https://github.com/justsomeone-e/nyx)
+* **Quick Install (Linux/macOS):**
   ```bash
   curl -fsSL https://raw.githubusercontent.com/justsomeone-e/nyx/main/install.sh | bash
   ```
-* ⚡ **Quick Install (Windows PowerShell):**
+* **Quick Install (Windows PowerShell):**
   ```powershell
   irm https://raw.githubusercontent.com/justsomeone-e/nyx/main/install.ps1 | iex
   ```

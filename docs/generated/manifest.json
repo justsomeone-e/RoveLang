@@ -1,5 +1,5 @@
 {
-  "compilerVersion": "5.0.2",
+  "compilerVersion": "5.0.3",
   "rebuild": "python -m src.toolchain.docs_site",
   "artifacts": [
     {

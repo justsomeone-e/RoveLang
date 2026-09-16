@@ -17,7 +17,7 @@ milestone toward v5.
 ## Verification evidence
 
 - All 48 test suites and 138-point exhaustive regression battery executed and passed with 100% success rate on the final revision (`python tests/run_all_tests.py`).
-- Unicode test fixtures verified with authentic UTF-8 literals (`"ş😀e\u0301\0"`) and compile-time byte sizing (`sizeof("literal") - 1`) across typed HIR, C++ codegen, self-host bootstrap, and Stage 2/3 native pipeline.
+- Unicode test fixtures verified with authentic UTF-8 literals covering U+015F, U+1F600, U+0065, U+0301, and NUL, plus compile-time byte sizing (`sizeof("literal") - 1`) across typed HIR, C++ codegen, self-host bootstrap, and Stage 2/3 native pipeline.
 - Release workflow title and release naming in `.github/workflows/release.yml` aligned to `Nyx v4.0.0 — Nirvana`.
 - Native Windows self-host Stage 2/3 compiler builds and runs cleanly.
 - Language tour curriculum, 20 exercises, and solutions validated.

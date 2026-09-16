@@ -969,10 +969,10 @@ window.NYX_TOUR_DATA = [
     "description": "Build readable Unicode text with typed interpolation instead of manual concatenation.",
     "hints": [
       "Interpolated strings begin with `$\"` and evaluate expressions inside `{...}`.",
-      "Use `$\"{city}: {signals} signals 🌙\"`; Nyx preserves the Unicode text without normalization."
+      "Use `$\"{city}: {signals} signals [night]\"`; Nyx preserves the Unicode text without normalization."
     ],
-    "code": "// I AM NOT DONE\n// Interpolation keeps values typed until they are formatted and avoids long\n// chains of string concatenation. Unicode text remains intact.\n// TODO: build exactly \"İstanbul: 3 signals 🌙\" with one interpolated string.\n\nfn main() {\n    let city = \"İstanbul\"\n    let signals = 3\n    let summary = city\n\n    assert(summary == \"İstanbul: 3 signals 🌙\", \"summary must include both values\")\n    print(summary)\n}\n\nmain()\n",
-    "solution": "fn main() {\n    let city = \"İstanbul\"\n    let signals = 3\n    let summary = $\"{city}: {signals} signals 🌙\"\n\n    assert(summary == \"İstanbul: 3 signals 🌙\", \"summary must include both values\")\n    print(summary)\n}\n\nmain()\n"
+    "code": "// I AM NOT DONE\n// Interpolation keeps values typed until they are formatted and avoids long\n// chains of string concatenation. Unicode text remains intact.\n// TODO: build exactly \"İstanbul: 3 signals [night]\" with one interpolated string.\n\nfn main() {\n    let city = \"İstanbul\"\n    let signals = 3\n    let summary = city\n\n    assert(summary == \"İstanbul: 3 signals [night]\", \"summary must include both values\")\n    print(summary)\n}\n\nmain()\n",
+    "solution": "fn main() {\n    let city = \"İstanbul\"\n    let signals = 3\n    let summary = $\"{city}: {signals} signals [night]\"\n\n    assert(summary == \"İstanbul: 3 signals [night]\", \"summary must include both values\")\n    print(summary)\n}\n\nmain()\n"
   },
   {
     "id": "navigation01",
@@ -1151,8 +1151,8 @@ window.NYX_TOUR_DATA = [
       "Encode the original text, then pass that encoded value to `base64_decode`.",
       "Check `is_ok` before calling `unwrap()`; malformed input must remain a failed Result."
     ],
-    "code": "// I AM NOT DONE\n// Decoding external text can fail, so the API returns Result<string, string>.\n// TODO: decode the encoded message rather than malformed input.\n\nimport \"std/encoding\"\n\nfn main() {\n    let original = \"Nyx 🌙\"\n    let encoded = base64_encode(original)\n    let decoded = base64_decode(\"%%%\")\n\n    assert(decoded.is_ok, \"the generated Base64 text must decode\")\n    assert(decoded.unwrap() == original, \"valid encoded text must round-trip\")\n    print(encoded, decoded.unwrap())\n}\n\nmain()\n",
-    "solution": "import \"std/encoding\"\n\nfn main() {\n    let original = \"Nyx 🌙\"\n    let encoded = base64_encode(original)\n    let decoded = base64_decode(encoded)\n    let malformed = base64_decode(\"%%%\")\n\n    assert(decoded.is_ok, \"the generated Base64 text must decode\")\n    assert(decoded.unwrap() == original, \"valid encoded text must round-trip\")\n    assert(not malformed.is_ok, \"malformed input must remain an error\")\n    print(encoded, decoded.unwrap())\n}\n\nmain()\n"
+    "code": "// I AM NOT DONE\n// Decoding external text can fail, so the API returns Result<string, string>.\n// TODO: decode the encoded message rather than malformed input.\n\nimport \"std/encoding\"\n\nfn main() {\n    let original = \"Nyx\"\n    let encoded = base64_encode(original)\n    let decoded = base64_decode(\"%%%\")\n\n    assert(decoded.is_ok, \"the generated Base64 text must decode\")\n    assert(decoded.unwrap() == original, \"valid encoded text must round-trip\")\n    print(encoded, decoded.unwrap())\n}\n\nmain()\n",
+    "solution": "import \"std/encoding\"\n\nfn main() {\n    let original = \"Nyx\"\n    let encoded = base64_encode(original)\n    let decoded = base64_decode(encoded)\n    let malformed = base64_decode(\"%%%\")\n\n    assert(decoded.is_ok, \"the generated Base64 text must decode\")\n    assert(decoded.unwrap() == original, \"valid encoded text must round-trip\")\n    assert(not malformed.is_ok, \"malformed input must remain an error\")\n    print(encoded, decoded.unwrap())\n}\n\nmain()\n"
   },
   {
     "id": "modules03",

@@ -1,8 +1,9 @@
 # Nyx
 
 <p align="left">
+  <a href="https://justsomeone-e.github.io/nyx/studio.html"><img src="https://img.shields.io/badge/Nyx%20Studio-learn%20%26%20inspect-22C55E?style=for-the-badge&amp;logoColor=0F172A&amp;labelColor=0E1318" alt="Open Nyx Studio"></a>
   <a href="https://justsomeone-e.github.io/nyx/"><img src="https://img.shields.io/badge/interactive%20tour-try%20in%20browser-00F0FF?style=for-the-badge&amp;logoColor=05070A&amp;labelColor=0E1318" alt="Try Tour of Nyx Online"></a>
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-5.0.2-0E1318?style=for-the-badge&amp;logoColor=00F0FF&amp;labelColor=05070A" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-5.0.3-0E1318?style=for-the-badge&amp;logoColor=00F0FF&amp;labelColor=05070A" alt="Version"></a>
   <a href="https://github.com/justsomeone-e/nyx/releases"><img src="https://img.shields.io/badge/status-stable-0E1318?style=for-the-badge&amp;logoColor=00F0FF&amp;labelColor=05070A" alt="Stable Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0E1318?style=for-the-badge&amp;logoColor=00F0FF&amp;labelColor=05070A" alt="Apache 2.0 License"></a>
   <a href="#backends"><img src="https://img.shields.io/badge/platforms-linux%20%7C%20win%20%7C%20macos-0E1318?style=for-the-badge&amp;labelColor=05070A" alt="Platforms"></a>
@@ -31,10 +32,10 @@ underneath it.**
 A single compiler model lowers to native C++20, WebAssembly (WASM ABI v1), Node.js, and Python through an authoritative typed intermediate representation (**Typed HIR v1**) with byte-identical native self-hosting.
 
 > [!IMPORTANT]
-> **Nyx `v5.0.2` "Daydream"** is the current stable v5 language and toolchain patch. It adds checked MIR/compiler foundations, module-graph and generic-instance validation, installer hardening, and Tour improvements without promoting experimental backends. C++20, JavaScript, and Python remain the stable backends; LLVM and C17 remain explicitly experimental.
+> **Nyx `v5.0.3` "Daydream"** is the current stable v5 maintenance release. It fixes duplicate browser preview execution, separates Studio and Tour state, and refreshes the documentation UI without promoting experimental backends. C++20, JavaScript, and Python remain the stable backends; LLVM and C17 remain explicitly experimental.
 
 <div align="center">
-  <img src="assets/terminal_animated.svg?v=5.0.2" width="92%" alt="nyx interactive live execution"/>
+  <img src="assets/terminal_animated.svg?v=5.0.3" width="92%" alt="nyx interactive live execution"/>
 </div>
 
 <p align="left">
@@ -354,7 +355,7 @@ The repository checks language invariants across target boundaries with an autom
 
 ```text
 ╔══════════════════════════════════════════════════════════════════════╗
-║                   NYX v5.0.2 VERIFICATION BATTERY                  ║
+║                   NYX v5.0.3 VERIFICATION BATTERY                  ║
 ╠══════════════════════════════════════════════════════════════════════╣
 ║                                                                      ║
 ║  Edge-case regression test suite              ──► 138 / 138 PASS    ║
@@ -413,7 +414,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 *Or install directly via the release script:*
 
 ```powershell
-$env:NYX_RELEASE_TAG = 'v5.0.2'; irm https://raw.githubusercontent.com/justsomeone-e/nyx/main/install.ps1 | iex
+$env:NYX_RELEASE_TAG = 'v5.0.3'; irm https://raw.githubusercontent.com/justsomeone-e/nyx/main/install.ps1 | iex
 ```
 
 ### Linux & macOS (Bash)
@@ -426,7 +427,7 @@ chmod +x install.sh
 *Or install directly via curl:*
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/justsomeone-e/nyx/main/install.sh | NYX_RELEASE_TAG=v5.0.2 bash
+curl -fsSL https://raw.githubusercontent.com/justsomeone-e/nyx/main/install.sh | NYX_RELEASE_TAG=v5.0.3 bash
 ```
 
 ### Toolchain Dependencies
@@ -459,7 +460,7 @@ Nyx's editor support covers diagnostics, navigation, and common build commands.
 
 ### Local Visual Studio Code Extension
 
-Nyx ships with a fully integrated, zero-telemetry local extension (`nyx-language-support-v5.0.2.vsix`):
+Nyx ships with a fully integrated, zero-telemetry local extension (`nyx-language-support-v5.0.3.vsix`):
 
 * **Language Server Protocol**: Built-in JSON-RPC server powering syntax diagnostics, hover documentation, completion, and definition lookups.
 * **Persistent Execution Console**: Windows executables run in an integrated persistent shell—never closing abruptly before you inspect output.
@@ -468,7 +469,7 @@ Nyx ships with a fully integrated, zero-telemetry local extension (`nyx-language
 Install locally with:
 
 ```bash
-code --install-extension nyx-language-support-v5.0.2.vsix
+code --install-extension nyx-language-support-v5.0.3.vsix
 ```
 
 The Windows and Unix installers also register the bundled extension
@@ -534,7 +535,8 @@ The Nyx release lifecycle is bound to verifiable technical milestones rather tha
 | `v4.5.0` | **Ivory** | *Purity / Bridge* | Compatible tooling, library parity, package manager, and experimental C17/LLVM IR emitters | Release |
 | `v5.0.0` | **Daydream** | *The next form imagined* | Direct LLVM pipeline, aggregate lowering, CLI integration, and preserved stable backend contracts | Official Release |
 | `v5.0.1` | **Daydream** | *Reliability patch* | Windows installer resilience, native foreign imports, optional-null lowering, and corrected examples | Official Patch |
-| `v5.0.2` | **Daydream** | *Checked compiler foundations* | MIR contracts, module/generic validation, backend pilots, installer hardening, and Tour learning path | Current Release |
+| `v5.0.2` | **Daydream** | *Checked compiler foundations* | MIR contracts, module/generic validation, backend pilots, installer hardening, and Tour learning path | Official Patch |
+| `v5.0.3` | **Daydream** | *Studio maintenance* | Single-run browser preview, isolated Tour/Studio state, emoji-free site UI, and release surface synchronization | Current Release |
 | `v6.0.0` | **Sepia** | *Memory / Preservation* | Future compiler milestone | Planned |
 | `v7.0.0` | **Solace** | *Calm after complexity* | Future ecosystem milestone | Planned |
 | `v8.0.0` | **Last Signal** | *The final transmission* | Long-term language-platform milestone | Long-term |

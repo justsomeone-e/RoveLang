@@ -1,8 +1,30 @@
-# 📝 Nyx Changelog
+# Nyx Changelog
 
 All notable changes to the Nyx compiler, toolchain, and standard library are documented in this file.
 
 ---
+
+## [5.0.3] - 2026-09-16 (Daydream)
+
+### Fixed
+
+* Prevent the browser preview from executing `main()` twice when the source
+  already contains an explicit `main()` call.
+* Bust evaluator and Worker caches so published Studio pages receive the fix.
+* Keep Studio examples separate from Tour exercise edits and local progress.
+* Remove decorative emoji from the documentation and public site surfaces.
+
+### Site
+
+* Refine the landing page hierarchy with a compact release snapshot.
+* Replace the overloaded Studio layout with clearer target, example, inspect,
+  output, and local-build controls.
+
+### Verification
+
+* Browser preview and Node evaluator smoke checks confirm one output for one
+  explicit `main()` call.
+* HTML/JavaScript syntax, emoji scan, and diff checks pass.
 
 ## [5.0.2] - 2026-09-16 (Daydream)
 
