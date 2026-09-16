@@ -1,0 +1,8 @@
+#target cpp
+
+var number: int = 10
+
+while number >= 0 {
+    print(number)
+    set number = number - 1
+}
