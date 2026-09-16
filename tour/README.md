@@ -1,6 +1,6 @@
-# Tour of Nyx 🌙
+# Tour of Nyx
 
-> An interactive, guided terminal tour of the Nyx programming language, inspired by `rustlings`, with high-fidelity ANSI graphics, instant diagnostics, and live file-watching.
+> A guided terminal tour of the Nyx programming language, with compiler diagnostics and live file-watching.
 
 ```text
   ████████╗ ██████╗ ██╗   ██╗██████╗      ██████╗ ███████╗    ███╗   ██╗██╗   ██╗██╗  ██╗
@@ -13,7 +13,7 @@
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 From the repository root:
 ```bash
@@ -37,7 +37,7 @@ Or double-click **`Tour of Nyx.bat`** on your Desktop!
 
 ---
 
-## 🎮 Interactive Controls in Watch Mode
+## Interactive Controls in Watch Mode
 
 While in watch mode, the Tour monitors your current exercise file in real-time. Whenever you save changes in your code editor (like VS Code), the compiler immediately verifies your solution.
 
@@ -235,6 +235,6 @@ Tour of Nyx - Autonomous Verification Suite (81 Exercises)
 [81/81] ✅ PASS modules03      (Unsolved: FAIL as expected | Solved: OK in 404ms)
 ======================================================================
 Verification Summary: 81/81 passed.
-🎉 ALL 81 EXERCISES AND SOLUTIONS VERIFIED 100% CLEANLY!
+All 81 exercises and their solution checks passed.
 ======================================================================
 ```

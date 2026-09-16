@@ -2,7 +2,8 @@
 
 ## 1. Architecture Overview
 
-Nyx is a statically analyzed, multi-target programming language designed with an emphasis on deterministic type inference, zero-cost abstractions, robust error diagnostics, and seamless native transpilation.
+Nyx is a statically analyzed, multi-target programming language with deterministic
+type inference, structured diagnostics, and native code-generation targets.
 
 ```text
               Nyx Source (*.nyx)

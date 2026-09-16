@@ -56,11 +56,10 @@ A single compiler model lowers to native C++20, WebAssembly (WASM ABI v1), Node.
 
 ## `01` — The Engineering Manifesto
 
-**Nyx is a compiled, statically typed systems programming language engineered to make high-level code effortlessly expressive without obscuring the underlying hardware.**
+**Nyx is a compiled, statically typed language for readable source code and explicit native targets.**
 
-Most programming languages force an ultimatum: either surrender control to a heavyweight managed runtime, garbage collector, and bloated abstractions, or retreat into the manual ceremony, undefined behaviors, and boilerplate of legacy systems languages.
-
-**Nyx rejects this dichotomy.**
+Nyx keeps the source surface small while exposing target choices, generated code,
+and runtime boundaries to the programmer.
 
 ```text
        High-Level Ergonomics                   Low-Level Machine Control
@@ -76,16 +75,19 @@ Most programming languages force an ultimatum: either surrender control to a hea
                        ONE UNIFIED COMPILER CONTRACT
 ```
 
-Nyx is **not** a thin syntactic sugar over C, a grab-bag of transpiler macros, or an interpreter hiding behind runtime dispatch. Parsing, type checking, module resolution, and optimizations are enforced by a single, canonical, typed intermediate representation (**Typed HIR v1**). Target backends are strictly prohibited from reinterpreting program semantics: they act as faithful mechanical translators of a verified semantic model.
+Nyx parses, type-checks, resolves modules, and lowers programs through one typed
+intermediate representation (**Typed HIR v1**). Backends consume that checked
+representation and report unsupported capabilities instead of silently changing
+program semantics.
 
 ### Core Axioms
 
 1. **Semantic Sovereignty**: The language semantics are established by the HIR v1 contract. Backends serve the specification; the specification never bends to target convenience.
-2. **Correctness Before Feature Count**: A feature does not exist until it survives the unbroken gauntlet:
+2. **Correctness Before Feature Count**: A feature enters the language only after its lexer, parser, checker, HIR, verifier, backend, and differential tests pass:
    $$\text{Syntax} \longrightarrow \text{Lexer} \longrightarrow \text{Parser} \longrightarrow \text{Type Checker} \longrightarrow \text{HIR v1} \longrightarrow \text{Verifier} \longrightarrow \text{Backend} \longrightarrow \text{Differential Parity}$$
 3. **No Leaky Boundaries**: When compiling to WebAssembly, memory and UTF-8 strings cross a versioned, pointer-free ABI without leaking raw pointers or allocator internals to host JavaScript/TypeScript.
 4. **Reproducible Self-Hosting**: The production compiler compiles itself. A native stage-1 binary compiles stage 2, and stage 2 emits byte-identical stage-3 C++ output. Native `check`, `emit-cpp`, and `compile` work without Python; optional orchestration commands and the Python target still require it.
-5. **Scope Discipline**: A language cannot excel everywhere simultaneously. The v4 line intentionally decouples embedded microcontroller targets to focus on absolute compiler precision across native binaries (C++20), modern web infrastructure (WASM/Node.js), and scientific tooling (Python/Rust).
+5. **Scope Discipline**: The v4 line intentionally decouples embedded microcontroller targets and focuses on native binaries (C++20), WebAssembly/Node.js, and Python/Rust tooling.
 
 ---
 
@@ -93,7 +95,7 @@ Nyx is **not** a thin syntactic sugar over C, a grab-bag of transpiler macros, o
 
 ## `02` — Language Tour
 
-Nyx scales seamlessly from zero-ceremony top-level scripts to high-assurance systems architecture without mode switching or dialect forks.
+Nyx supports top-level scripts and larger typed programs on the same language surface.
 
 ### Zero-Ceremony Scripting
 
@@ -131,7 +133,7 @@ fn normalize_input(val: int) -> int =
     val * 2
 
 fn main() {
-    // Elegant pipe composition with string interpolation
+    // Pipe composition with string interpolation
     let status = 200 |> classify
     let score  = 120 |> clamp_score |> normalize_input
 
@@ -163,7 +165,7 @@ impl Show for Build {
 
 // Typed, non-blocking Task primitive
 async fn evaluate_metric(value: int) -> int {
-    // Explicit precondition gate: guarantees invariants early
+    // Reject invalid input before the calculation
     guard value >= 0 else {
         throw "Metric value cannot be negative"
     }
@@ -175,7 +177,7 @@ fn transform_metric(v: int) -> int = v * 2
 async fn main() {
     let build = Build("production-host", 42)
 
-    // Guaranteed LIFO deterministic scope cleanup (RAII semantics)
+    // LIFO scope cleanup (RAII semantics)
     defer print("[teardown] scope exited cleanly")
 
     // Concurrent task scheduling and resolution
@@ -333,7 +335,7 @@ export function VerificationWidget() {
 }
 ```
 
-*The generated Promise cache completely eliminates double-instantiation penalties under React Strict Mode.*
+*The generated Promise cache reuses the module instance under React Strict Mode.*
 
 ### Browser host API
 
@@ -346,13 +348,13 @@ and animation-loop example lives in [`examples/web_pong`](examples/web_pong/READ
 
 <a id="verification"></a>
 
-## `06` — Industrial Verification Suite
+## `06` — Verification
 
-Nirvana is guarded by a comprehensive automated test battery. We test language invariants across target boundaries under hostile conditions:
+The repository checks language invariants across target boundaries with an automated test battery:
 
 ```text
 ╔══════════════════════════════════════════════════════════════════════╗
-║                   NYX v4 CONFORMANCE BATTERY                        ║
+║                   NYX v5.0.2 VERIFICATION BATTERY                  ║
 ╠══════════════════════════════════════════════════════════════════════╣
 ║                                                                      ║
 ║  Edge-case regression test suite              ──► 138 / 138 PASS    ║
@@ -449,7 +451,7 @@ nyx doctor
 
 ## `09` — Developer Tooling & VS Code
 
-Modern languages demand exceptional developer tooling from day zero.
+Nyx's editor support covers diagnostics, navigation, and common build commands.
 
 <div align="center">
   <img src="assets/features_animated.svg?v=4.0.0" width="98%" alt="nyx features"/>
@@ -461,7 +463,7 @@ Nyx ships with a fully integrated, zero-telemetry local extension (`nyx-language
 
 * **Language Server Protocol**: Built-in JSON-RPC server powering syntax diagnostics, hover documentation, completion, and definition lookups.
 * **Persistent Execution Console**: Windows executables run in an integrated persistent shell—never closing abruptly before you inspect output.
-* **One-Click Commands**: Instant **Run**, **Build**, **Check**, and **Doctor** shortcuts with clean keybindings.
+* **Commands**: **Run**, **Build**, **Check**, and **Doctor** shortcuts with configurable keybindings.
 
 Install locally with:
 

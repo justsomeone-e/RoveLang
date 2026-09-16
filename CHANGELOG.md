@@ -182,7 +182,7 @@ Verification evidence and test battery metrics are recorded in
 * Add the Metrics CLI/JS/Python/WASM example, generated documentation-site
   bundles and checksums, and isolated worker-based learning previews.
 * Rebuild Metrics/Pong artifacts after the WASM lowering correction.
-* Four comprehensive real-world consumer applications:
+* Added four consumer applications:
   - `examples/file_inspector/`: Native CLI tool consuming `std/path`, `std/process`, and `std/str`.
   - `examples/host_embedding/`: Polyglot data transformer module embedded in both Node.js (WASM ABI v1 package) and Python 3 hosts.
   - `examples/wasm_interactive/`: Interactive WebAssembly arithmetic and combinatorics engine with browser UI.
@@ -287,7 +287,7 @@ Verification evidence and test battery metrics are recorded in
 
 ### Validation
 
-* The unified local test framework passed completely: self-host, 194-case HIR
+* The unified local test framework passed: self-host, 194-case HIR
   parity, backend runtime/compile gates, installer/LSP/fuzz checks, and the
   138-point regression battery.
 * The tagged GitHub workflow is the source of release-asset checksums, SBOM,
@@ -400,7 +400,7 @@ a target-neutral language RFC.
 
 ## [2.0.0-beta.1] - 2026-08-28 (Beta 1 Public Release)
 
-### 🚀 Major Additions
+### Major Additions
 * **Multi-Backend Architecture**:
   * `cpp`: ISO C++20 backend frozen at Gate 8 (Production Native `.exe` via LLVM Clang / MinGW-w64).
   * `python`: Canonical reference evaluation engine.
