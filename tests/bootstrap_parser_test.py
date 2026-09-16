@@ -277,6 +277,7 @@ def run_bootstrap_parser_test() -> bool:
         ("lambda_empty", "var answer = () => 42;"),
         ("lambda_multi", "var add = (left, right) => left + right;"),
         ("generic_channel_and_input", "var ch = channel<int>(); var name = input();"),
+        ("nested_generic_closers_and_shift", "struct Matrix { rows: Array<Array<Array<int>>> } fn half(x: int) -> int { return x >> 1; }"),
         ("unary_pointer_bit_not_and_plus", "var value = *ptr; var inverted = ~mask; var positive = +1;"),
         ("signed_i64_min_literals", "let decimal: int = -9223372036854775808; let hex: int = -0x8000000000000000;"),
         ("async_generic_with_doc", "/// identity docs\nasync fn identity<T>(value: T) -> T { return value; }"),

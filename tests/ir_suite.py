@@ -40,6 +40,10 @@ from src.ir import (
     array_of,
     collect_hir_issues,
     fingerprint,
+    is_abi_compatible,
+    is_assignable,
+    is_coercible,
+    is_exact_type,
     lower_to_hir,
     optimize_hir,
     to_json,
@@ -111,6 +115,22 @@ def _run_canonical_and_scope_checks() -> None:
     assert len(set(local_symbols)) == 1
     parameter_symbols = [symbol for symbol in _symbols(shadowed) if "::param::" in symbol]
     assert parameter_symbols and set(local_symbols).isdisjoint(parameter_symbols)
+
+
+def _run_type_relation_checks() -> None:
+    nested_int = array_of(array_of(INT))
+    nested_string = array_of(array_of(STRING))
+    assert is_exact_type(nested_int, array_of(array_of(INT)))
+    assert not is_exact_type(nested_int, nested_string)
+    assert is_assignable(INT.with_optional(), INT)
+    assert not is_assignable(IRType("i32"), INT)
+    assert is_coercible(IRType("i32"), INT)
+    assert is_coercible(INT, IRType("float"))
+    assert not is_coercible(IRType("int", pointer=True), IRType("string", pointer=True))
+    assert is_abi_compatible(IRType("i64"), IRType("u64"), "cpp")
+    assert is_abi_compatible(IRType("uintptr"), IRType("u32"), "wasm")
+    assert is_abi_compatible(IRType("uintptr"), IRType("u64"), "c")
+    assert not is_abi_compatible(STRING, IRType("int", pointer=True), "cpp")
 
 
 def _run_nyx_authored_hir_parity() -> int:
@@ -772,6 +792,7 @@ def run_ir_suite() -> bool:
     print("=" * 70)
     corpus_count = _run_corpus()
     _run_canonical_and_scope_checks()
+    _run_type_relation_checks()
     hir_parity_count = _run_nyx_authored_hir_parity()
     _run_negative_verifier_checks()
     _run_optimizer_checks()
@@ -780,7 +801,7 @@ def run_ir_suite() -> bool:
     stdlib_count = _run_stdlib_hir_contract()
     print(
         f"[PASS] {corpus_count} programs, {stdlib_count} stdlib modules, canonical snapshot, "
-        f"{hir_parity_count}-case Nyx/Python HIR byte parity, negative verifier, "
+        f"{hir_parity_count}-case Nyx/Python HIR byte parity, exact/assignable/coercible/ABI type relations, negative verifier, "
         "idempotent passes, WASM equivalence, "
         "and plugin HIR contract"
     )

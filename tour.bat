@@ -38,4 +38,8 @@ echo Please install Python from https://www.python.org/ or ensure it is added to
 exit /b 1
 
 :RUN
-%PY_EXE% "%~dp0tour\tour.py" %*
+if "%~1"=="" (
+    %PY_EXE% "%~dp0tour\tour.py" core
+) else (
+    %PY_EXE% "%~dp0tour\tour.py" %*
+)

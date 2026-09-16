@@ -129,6 +129,15 @@ impl Parser {
         return self.advance()
     }
 
+    fn expect_type_gt(self) -> Token {
+        var tok = self.current()
+        if tok.type_name == "SHR" {
+            self.tokens[self.pos] = Token("GT", ">", tok.line, tok.col + 1)
+            return Token("GT", ">", tok.line, tok.col)
+        }
+        return self.expect("GT")
+    }
+
     fn is_name_token(self, tok: Token) -> bool {
         if len(tok.value) == 0 { return false }
         var first = tok.value[0]
@@ -180,7 +189,7 @@ impl Parser {
         if self.match_type("LT") {
             var rendered_args = ""
             var count = 0
-            while self.current().type_name != "GT" and self.current().type_name != "EOF" {
+            while self.current().type_name != "GT" and self.current().type_name != "SHR" and self.current().type_name != "EOF" {
                 if count > 0 { rendered_args = rendered_args + ", " }
                 if self.current().type_name == "NUMBER" {
                     rendered_args = rendered_args + self.advance().value
@@ -190,7 +199,7 @@ impl Parser {
                 count = count + 1
                 if not self.match_type("COMMA") { break }
             }
-            self.expect("GT")
+            self.expect_type_gt()
             name = name + "<" + rendered_args + ">"
         }
         if is_ptr { name = "*" + name }
@@ -366,7 +375,7 @@ impl Parser {
             var generic_args: Array<string> = []
             if self.match_type("LT") {
                 generic_args.push(self.parse_type())
-                self.expect("GT")
+                self.expect_type_gt()
             }
             self.expect("LPAREN")
             var args: Array<ASTNode> = []

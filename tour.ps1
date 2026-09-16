@@ -19,5 +19,9 @@ if (-not $python) {
 }
 
 $tourScript = Join-Path $PSScriptRoot "tour\tour.py"
-& $python $tourScript @args
+if ($args.Count -eq 0) {
+    & $python $tourScript core
+} else {
+    & $python $tourScript @args
+}
 exit $LASTEXITCODE

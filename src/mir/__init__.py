@@ -55,6 +55,8 @@ from .model import *
 from .passes import MIRPass, MIRPassManager, MIRPassRecord, MIRPassResult
 from .printer import print_mir
 from .serialization import fingerprint, from_data, from_json, to_data, to_json
+from .effects import MIR_EFFECT_ORDER, VALID_MIR_EFFECTS, infer_module_effects
+from .coroutines import elaborate_coroutine, elaborate_coroutines
 from .types import MIRType, from_hir_type
 from .verifier import (
     MIRVerificationError,

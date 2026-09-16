@@ -1,14 +1,14 @@
 # Nyx Package Manifest
 [package]
 name = "nyx"
-version = "5.0.1"
+version = "5.0.2"
 edition = "2026"
 authors = ["Nyx Authors"]
 description = "Systems-oriented programming language with multi-target compilation"
 license = "Apache-2.0"
 
 [dependencies]
-std = "5.0.1"
+std = "5.0.2"
 
 [build]
 target = "cpp"

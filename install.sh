@@ -2,7 +2,7 @@
 set -euo pipefail
 
 echo "==================================================================="
-echo "Installing nyx native toolchain (v4 development channel)..."
+echo "Installing Nyx native toolchain..."
 echo "==================================================================="
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
@@ -252,6 +252,59 @@ for command_name in nyx; do
         'exit 2' > "$wrapper"
     chmod +x "$wrapper"
 done
+
+install_editor_extension() {
+    if [ "${NYX_SKIP_EDITOR_INSTALL:-0}" = "1" ] || [ ! -d "$EXTENSION_DIR" ]; then
+        return
+    fi
+
+    extension_runtime=0
+    if command -v npm >/dev/null 2>&1; then
+        if (cd "$EXTENSION_DIR" && npm ci --omit=dev --ignore-scripts >/dev/null 2>&1); then
+            extension_runtime=1
+        else
+            echo "[!] npm could not install the Nyx language-server client; syntax highlighting will still be installed." >&2
+        fi
+    else
+        echo "[!] npm not found; installing Nyx syntax highlighting without the language-server client." >&2
+    fi
+
+    editor_found=0
+    sync_extension() {
+        destination="$1"
+        mkdir -p "$destination"
+        cp -R "$EXTENSION_DIR/." "$destination/"
+        editor_found=1
+        echo "[OK] Installed Nyx editor support at: $destination"
+    }
+
+    if command -v code >/dev/null 2>&1 || [ -d "$HOME/.vscode/extensions" ]; then
+        sync_extension "$HOME/.vscode/extensions/nyx-lang-support"
+    fi
+    if command -v code-insiders >/dev/null 2>&1 || [ -d "$HOME/.vscode-insiders/extensions" ]; then
+        sync_extension "$HOME/.vscode-insiders/extensions/nyx-lang-support"
+    fi
+    if command -v codium >/dev/null 2>&1 || [ -d "$HOME/.vscode-oss/extensions" ]; then
+        sync_extension "$HOME/.vscode-oss/extensions/nyx-lang-support"
+    fi
+
+    if [ "$editor_found" -eq 0 ]; then
+        echo "[*] VS Code/VSCodium was not detected. Editor files remain at: $EXTENSION_DIR"
+    elif [ "$extension_runtime" -eq 0 ]; then
+        echo "[*] Nyx highlighting is available; install Node.js/npm and rerun the installer to enable LSP features."
+    fi
+}
+
+install_editor_extension
+
+if command -v clang++ >/dev/null 2>&1 || command -v g++ >/dev/null 2>&1 || command -v c++ >/dev/null 2>&1; then
+    echo "[OK] Host C++ compiler detected for '#target cpp'."
+else
+    echo "[!] No host C++20 compiler was found; 'nyx run --target cpp' cannot link executables yet." >&2
+    echo "    Arch: sudo pacman -S --needed base-devel" >&2
+    echo "    Debian/Ubuntu: sudo apt install g++" >&2
+    echo "    Then run: nyx doctor" >&2
+fi
 
 if ! validate_native "$NATIVE_EXE"; then
     echo "[!] Installed native nyxc failed final validation." >&2

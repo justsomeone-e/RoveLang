@@ -229,6 +229,14 @@
       ]
     },
     {
+      "name": "std/http",
+      "detail": "Nyx stdlib · experimental",
+      "documentation": "Hosted HTTP through a shell-free curl subprocess with bounded requests and responses.",
+      "targets": [
+        "cpp"
+      ]
+    },
+    {
       "name": "std/io",
       "detail": "Nyx stdlib · stable",
       "documentation": "Standard library module std/io.",
@@ -513,6 +521,26 @@
         "cpp",
         "js",
         "python"
+      ]
+    },
+    {
+      "label": "http_get",
+      "kind": "function",
+      "detail": "fn http_get(url: string) -> string",
+      "module": "std/http",
+      "documentation": "Declared by std/http.",
+      "targets": [
+        "cpp"
+      ]
+    },
+    {
+      "label": "http_post",
+      "kind": "function",
+      "detail": "fn http_post(url: string, body: string, content_type: string) -> string",
+      "module": "std/http",
+      "documentation": "Declared by std/http.",
+      "targets": [
+        "cpp"
       ]
     },
     {

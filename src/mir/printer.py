@@ -31,6 +31,7 @@ from .model import (
     StorageLiveStatement,
     SwitchIntTerminator,
     SwitchValueTerminator,
+    SuspendTerminator,
     ThrowTerminator,
     UnaryRValue,
     UnreachableTerminator,
@@ -140,6 +141,12 @@ def _terminator(value: object) -> str:
             return f"throw {_operand(value.value)} -> unwind"
         destination = _place(value.destination) if value.destination is not None else "_"
         return f"throw {_operand(value.value)} -> {destination}, bb{value.target}"
+    if isinstance(value, SuspendTerminator):
+        unwind = f", unwind bb{value.unwind}" if value.unwind is not None else ""
+        return (
+            f"{_place(value.destination)} = suspend[{value.suspend_id}] "
+            f"{_operand(value.task)} -> bb{value.resume}{unwind}"
+        )
     raise TypeError(f"Unknown MIR terminator {type(value).__name__}")
 
 
@@ -160,7 +167,28 @@ def print_mir(module: MIRModule) -> str:
             lines.append(f"  enum {definition.name} [{definition.symbol}] {{ {variants} }}")
     for function in module.functions:
         parameters = ", ".join(f"_{local_id}" for local_id in function.parameters)
-        lines.append(f"  fn {function.name} [{function.symbol}]({parameters}) {{")
+        effects = ", ".join(function.effects) if function.effects else "unannotated"
+        async_marker = " async" if function.is_async else ""
+        lines.append(
+            f"  fn{async_marker} {function.name} [{function.symbol}]({parameters}) "
+            f"effects [{effects}] {{"
+        )
+        if function.coroutine is not None:
+            frame = ", ".join(f"_{local}" for local in function.coroutine.frame_locals)
+            lines.append(
+                f"    coroutine state _{function.coroutine.state_local} frame [{frame}]"
+            )
+            lines.append(
+                "    coroutine lifecycle "
+                f"start={function.coroutine.start_symbol} "
+                f"resume={function.coroutine.resume_symbol} "
+                f"destroy={function.coroutine.destroy_symbol}"
+            )
+            for point in function.coroutine.suspend_points:
+                live = ", ".join(f"_{local}" for local in point.live_locals)
+                lines.append(
+                    f"    suspend_point {point.id}: bb{point.block} -> bb{point.resume} live [{live}]"
+                )
         for local in function.locals:
             lines.append(f"    let _{local.id}: {local.type} // {local.kind} {local.name}")
         for block in function.blocks:

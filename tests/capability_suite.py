@@ -36,6 +36,7 @@ def run_capability_suite() -> bool:
 
     assert normalize_backend_name("python") == "python"
     assert normalize_backend_name("node") == "js"
+    assert normalize_backend_name("ll") == "llvm"
     assert resolve_backend("stm32") is None
     assert normalize_backend_name("desktop") == "cpp"
     assert "fs" in stdlib_modules_for_target("js")
@@ -56,6 +57,14 @@ def run_capability_suite() -> bool:
     } <= BACKENDS["wasm"].features
     assert "web" in stdlib_modules_for_target("wasm")
     assert "web" not in stdlib_modules_for_target("cpp")
+    assert "http" in stdlib_modules_for_target("cpp")
+    assert "http" not in stdlib_modules_for_target("js")
+
+    http_source_path = os.path.join(ROOT_DIR, "src", "stdlib", "http.nyx")
+    with open(http_source_path, "r", encoding="utf-8") as handle:
+        http_source = handle.read()
+    assert "popen(" not in http_source and "_popen(" not in http_source
+    assert "execvp(" in http_source and "CreateProcessA(" in http_source
 
     cli_manifest = subprocess.run(
         [sys.executable, CLI_PATH, "targets", "--json"],
@@ -69,7 +78,7 @@ def run_capability_suite() -> bool:
     manifest = json.loads(cli_manifest.stdout)
     assert manifest["schema_version"] == CAPABILITY_SCHEMA_VERSION
     assert {backend["name"] for backend in manifest["backends"]} >= {
-        "cpp", "js", "python", "rust", "react", "wasm"
+        "cpp", "c", "llvm", "js", "python", "rust", "react", "wasm"
     }
 
     propagated = (
@@ -95,6 +104,16 @@ def run_capability_suite() -> bool:
             js_ast = ModuleLoader(base_dir=temp_dir).load_program(js_source)
             assert js_ast.target == "js"
 
+            llvm_source = os.path.join(temp_dir, "llvm_ok.nyx")
+            _write(llvm_source, '#target llvm\nfn answer() -> int { return 42 }\n')
+            llvm_ast = ModuleLoader(base_dir=temp_dir).load_program(llvm_source)
+            assert llvm_ast.target == "llvm"
+            llvm_result = NyxCompiler(temp_dir).compile_file(llvm_source)
+            assert llvm_result.success, llvm_result.diagnostics
+            assert llvm_result.target == "llvm"
+            assert llvm_result.artifact is not None
+            assert llvm_result.artifact.extension == ".ll"
+
             wrong_web_source = os.path.join(temp_dir, "wrong_web_target.nyx")
             _write(wrong_web_source, '#target cpp\nimport "std/web"\nfn main() {}\n')
             try:
@@ -102,6 +121,11 @@ def run_capability_suite() -> bool:
                 raise AssertionError("cpp accepted wasm-only std/web")
             except DiagnosticError as error:
                 assert error.code == "E1400"
+
+            native_http_source = os.path.join(temp_dir, "native_http_ok.nyx")
+            _write(native_http_source, '#target cpp\nimport "std/http"\nfn main() {}\n')
+            native_http_ast = ModuleLoader(base_dir=temp_dir).load_program(native_http_source)
+            assert native_http_ast.target == "cpp"
 
             portable_str = os.path.join(temp_dir, "portable_str.nyx")
             _write(

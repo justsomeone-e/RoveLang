@@ -52,6 +52,14 @@ class Parser:
             return True
         return False
 
+    def expect_type_gt(self, err_code: str = "E1003", help_msg: str = "Close generic arguments with '>'") -> Token:
+        """Consume one generic closer, splitting ``>>`` only in type context."""
+        tok = self.current()
+        if tok.type == TokenType.SHR:
+            self.tokens[self.pos] = Token(TokenType.GT, ">", tok.line, tok.col + 1)
+            return Token(TokenType.GT, ">", tok.line, tok.col)
+        return self.expect(TokenType.GT, err_code, help_msg)
+
     def parse(self) -> ProgramNode:
         statements: List[ASTNode] = []
         if self.current().type == TokenType.TARGET_DIR:
@@ -100,10 +108,10 @@ class Parser:
         
         # Generic arguments: Array<int>, Map<string, User>.
         if self.match(TokenType.LT):
-            while self.current().type not in (TokenType.GT, TokenType.EOF):
+            while self.current().type not in (TokenType.GT, TokenType.SHR, TokenType.EOF):
                 generic_args.append(self.parse_type())
                 self.match(TokenType.COMMA)
-            self.expect(TokenType.GT, "E1003", "Close generic arguments with '>'")
+            self.expect_type_gt()
 
         is_optional = False
         if self.match(TokenType.QUESTION):
@@ -812,7 +820,7 @@ class Parser:
             if self.match(TokenType.LT):
                 # Generic channel<int>()
                 t = self.parse_type()
-                self.expect(TokenType.GT)
+                self.expect_type_gt()
             self.expect(TokenType.LPAREN)
             args = self.parse_args()
             return FunctionCallNode(func_name, args, tok.line, tok.col)

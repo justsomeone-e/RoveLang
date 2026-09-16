@@ -2,7 +2,7 @@
   "Target Directive": {
     "prefix": "#target",
     "body": [
-      "#target ${1|cpp,asm,react,js,rust,python,wasm|}"
+      "#target ${1|cpp,c,llvm,asm,react,js,rust,python,wasm|}"
     ],
     "description": "Specify compilation backend target"
   },

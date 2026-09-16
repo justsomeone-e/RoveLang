@@ -1,6 +1,6 @@
 [metadata]
 schema_version = 1
-language_version = "5.0.1"
+language_version = "5.0.2"
 default_backend = "cpp"
 capability_schema_version = 1
 hir_schema_version = 1
@@ -65,13 +65,13 @@ codes = [
   "E2048", "E2049", "E2050", "E3001", "E9001",
   "MIR0000", "MIR0001", "MIR0002", "MIR0003", "MIR0004", "MIR0005", "MIR0006", "MIR0007",
   "MIR0008", "MIR0100", "MIR0101", "MIR0102", "MIR0103", "MIR0104",
-  "MIR0105", "MIR0106", "MIR0200", "MIR0201", "MIR0300", "MIR0301", "MIR0400", "MIR0401",
-  "MIR0402", "MIR0403", "MIR0404", "MIR0405", "MIR0406", "MIR0500", "MIR0501", "MIR0502",
+  "MIR0105", "MIR0106", "MIR0110", "MIR0111", "MIR0112", "MIR0113", "MIR0114", "MIR0115", "MIR0116", "MIR0200", "MIR0201", "MIR0300", "MIR0301", "MIR0400", "MIR0401",
+  "MIR0402", "MIR0403", "MIR0404", "MIR0405", "MIR0406", "MIR0407", "MIR0408", "MIR0500", "MIR0501", "MIR0502",
   "MIR0503", "MIR0504", "MIR0505", "MIR0506", "MIR0507", "MIR0600", "MIR0601", "MIR0602",
   "MIR0603", "MIR0604", "MIR0605", "MIR0606", "MIR0607", "MIR0608", "MIR0609", "MIR0610",
   "MIR0700", "MIR0701", "MIR0800", "MIR0801", "MIR0802", "MIR0803", "MIR0804",
   "MIRG1000", "MIRG1001", "MIRG1002", "MIRG1003", "MIRG1004", "MIRG1005",
-  "MIRG1006", "MIRG1007", "MIRG1008", "MIRG1009", "MIRG1010", "MIRL0001",
+  "MIRG1006", "MIRG1007", "MIRG1008", "MIRG1009", "MIRG1010", "MIRG1011", "MIRL0001",
   "MIRV0001",
 ]
 
@@ -88,6 +88,12 @@ authority = "src/core/parser.py"
 evidence = ["tests/bootstrap_parser_test.py", "tests/bootstrap_parser_corpus_test.py"]
 
 [[pipeline_stages]]
+id = "module_graph"
+status = "experimental"
+authority = "src/core/identities.py"
+evidence = ["tests/module_resolution_suite.py"]
+
+[[pipeline_stages]]
 id = "type_checker"
 status = "stable"
 authority = "src/core/type_checker.py"
@@ -98,6 +104,18 @@ id = "typed_hir"
 status = "stable"
 authority = "src/ir/model.py"
 evidence = ["tests/ir_suite.py"]
+
+[[pipeline_stages]]
+id = "generic_instances"
+status = "experimental"
+authority = "src/ir/instances.py"
+evidence = ["tests/ir_instances_suite.py"]
+
+[[pipeline_stages]]
+id = "static_dispatch"
+status = "experimental"
+authority = "src/ir/dispatch.py"
+evidence = ["tests/mir_dispatch_suite.py"]
 
 [[pipeline_stages]]
 id = "hir_verifier"
@@ -121,7 +139,7 @@ evidence = ["tests/capability_suite.py"]
 id = "mir"
 status = "experimental"
 authority = "src/mir/model.py"
-evidence = ["tests/mir_suite.py", "tests/mir_lowering_suite.py", "tests/mir_cleanup_suite.py", "tests/mir_memory_abi_suite.py"]
+evidence = ["tests/mir_suite.py", "tests/mir_lowering_suite.py", "tests/mir_cleanup_suite.py", "tests/mir_memory_abi_suite.py", "tests/mir_coroutine_suite.py"]
 
 [[pipeline_stages]]
 id = "mir_legalization"
@@ -332,6 +350,10 @@ targets = ["asm", "cpp", "js", "python"]
 module = "hash"
 maturity = "stable"
 targets = ["asm", "cpp", "js", "python"]
+[[stdlib]]
+module = "http"
+maturity = "experimental"
+targets = ["cpp"]
 [[stdlib]]
 module = "json_lite"
 maturity = "stable"

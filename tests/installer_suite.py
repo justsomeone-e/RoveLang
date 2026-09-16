@@ -148,9 +148,47 @@ def _exercise_install(install_dir: str, wrapper: str) -> None:
     assert executed.returncode == 0, executed.stderr or executed.stdout
     assert executed.stdout.strip() == "42"
 
+    top_level_path = os.path.join(install_dir, "top-level-cpp-smoke.nyx")
+    with open(top_level_path, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write('#target cpp\nprint("helloworld")\n')
+    top_level_run = _run([wrapper, "run", top_level_path], cwd=install_dir)
+    assert top_level_run.returncode == 0, top_level_run.stderr or top_level_run.stdout
+    assert "helloworld" in top_level_run.stdout
+
     manifest = _run([wrapper, "targets", "--json"], cwd=install_dir)
     assert manifest.returncode == 0, manifest.stderr or manifest.stdout
     assert json.loads(manifest.stdout)["schema_version"] == 1
+
+
+def _exercise_unix_editor_install(native_fixture: str) -> None:
+    if os.name == "nt":
+        return
+    with tempfile.TemporaryDirectory(prefix="nyx_editor_install_") as directory:
+        fake_home = os.path.join(directory, "home")
+        fake_bin = os.path.join(directory, "bin")
+        install_dir = os.path.join(directory, "install")
+        os.makedirs(fake_home)
+        os.makedirs(fake_bin)
+        for command in ("code", "npm"):
+            command_path = os.path.join(fake_bin, command)
+            with open(command_path, "w", encoding="utf-8", newline="\n") as handle:
+                handle.write("#!/usr/bin/env sh\nexit 0\n")
+            os.chmod(command_path, 0o755)
+
+        environment = os.environ.copy()
+        environment["HOME"] = fake_home
+        environment["PATH"] = fake_bin + os.pathsep + environment.get("PATH", "")
+        environment["NYX_INSTALL_DIR"] = install_dir
+        environment["NYX_NATIVE_COMPILER_PATH"] = native_fixture
+        environment["NYX_SKIP_PATH_UPDATE"] = "1"
+        environment.pop("NYX_SKIP_EDITOR_INSTALL", None)
+        install = _run([shutil.which("bash") or "bash", UNIX_INSTALLER], env=environment)
+        assert install.returncode == 0, install.stderr or install.stdout
+
+        extension_dir = os.path.join(fake_home, ".vscode", "extensions", "nyx-lang-support")
+        assert os.path.isfile(os.path.join(extension_dir, "package.json"))
+        assert os.path.isfile(os.path.join(extension_dir, "syntaxes", "nyx.tmLanguage.json"))
+        assert "Installed Nyx editor support" in install.stdout
 
 
 def run_installer_suite() -> bool:
@@ -195,11 +233,13 @@ def run_installer_suite() -> bool:
                 environment["NYX_INSTALL_DIR"] = install_dir
                 environment["NYX_NATIVE_COMPILER_PATH"] = native_fixture
                 environment["NYX_SKIP_PATH_UPDATE"] = "1"
+                environment["NYX_SKIP_EDITOR_INSTALL"] = "1"
                 install = _run([bash, UNIX_INSTALLER], env=environment)
                 assert install.returncode == 0, install.stderr or install.stdout
                 wrapper = os.path.join(install_dir, "bin", "nyx")
                 assert os.path.isfile(wrapper)
                 _exercise_install(install_dir, wrapper)
+            _exercise_unix_editor_install(native_fixture)
 
     bash = shutil.which("bash")
     if bash:
@@ -219,6 +259,10 @@ def run_installer_suite() -> bool:
     assert "Python 3.10+ is required to run Nyx" not in unix_source
     assert "releases/latest" not in unix_source
     assert 'for command_name in nyx he' not in unix_source
+    assert 'npm ci --omit=dev --ignore-scripts' in unix_source
+    assert '.vscode/extensions/nyx-lang-support' in unix_source
+    assert '.vscode-oss/extensions/nyx-lang-support' in unix_source
+    assert 'sudo pacman -S --needed base-devel' in unix_source
 
     with open(WINDOWS_INSTALLER, "r", encoding="utf-8") as handle:
         windows_source = handle.read()
@@ -235,6 +279,9 @@ def run_installer_suite() -> bool:
     assert 'Get-Command "npm.cmd", "npm.exe"' in windows_source
     assert "$NpmCandidate.Path, $NpmCandidate.Source, $NpmCandidate.Definition" in windows_source
     assert "$NpmCandidate.Source.EndsWith" not in windows_source
+    assert "$command.Path, $command.Definition, $command.Source" in windows_source
+    assert "& $command.Source -c" not in windows_source
+    assert "Downloaded archive did not contain a Nyx source root with src/." in windows_source
     assert 'cmd.exe /c npm ci --omit=dev --ignore-scripts' in windows_source
     assert "VS Code extension installation skipped" in windows_source
     assert "[string][System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture" in windows_source

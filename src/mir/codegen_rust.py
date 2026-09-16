@@ -14,21 +14,30 @@ from .model import (
     AssertTerminator,
     AssignStatement,
     BinaryRValue,
+    BorrowRValue,
     CastRValue,
     CallTerminator,
     ConstOperand,
     ConstantIndexProjection,
     CopyOperand,
+    DeinitStatement,
+    DerefProjection,
+    DiscriminantRValue,
+    DropTerminator,
     FieldProjection,
     GotoTerminator,
     IndexProjection,
     MIRFunction,
     MIRModule,
+    MIREnumDef,
     MIRStructDef,
     MoveOperand,
     NopStatement,
     Operand,
+    PayloadRValue,
     Place,
+    ReleaseStatement,
+    RetainStatement,
     ReturnTerminator,
     StorageDeadStatement,
     StorageLiveStatement,
@@ -61,6 +70,38 @@ impl NyxDisplay for f64 {
     }
 }
 impl NyxDisplay for String { fn nyx_display(&self) -> String { self.clone() } }
+
+struct NyxPtr<T> {
+    ptr: *mut T,
+    mutable: bool,
+}
+
+impl<T> Copy for NyxPtr<T> {}
+impl<T> Clone for NyxPtr<T> { fn clone(&self) -> Self { *self } }
+impl<T> Default for NyxPtr<T> {
+    fn default() -> Self { Self { ptr: std::ptr::null_mut(), mutable: false } }
+}
+
+impl<T> NyxPtr<T> {
+    fn borrow(value: &T) -> Self {
+        Self { ptr: value as *const T as *mut T, mutable: false }
+    }
+
+    fn borrow_mut(value: &mut T) -> Self {
+        Self { ptr: value as *mut T, mutable: true }
+    }
+
+    unsafe fn read(&self) -> &T {
+        if self.ptr.is_null() { panic!("null Nyx MIR pointer dereference"); }
+        unsafe { &*self.ptr }
+    }
+
+    unsafe fn write(&mut self) -> &mut T {
+        if self.ptr.is_null() { panic!("null Nyx MIR pointer dereference"); }
+        if !self.mutable { panic!("assignment through immutable Nyx MIR borrow"); }
+        unsafe { &mut *self.ptr }
+    }
+}
 
 fn nyx_display<T: NyxDisplay + ?Sized>(value: &T) -> String { value.nyx_display() }
 
@@ -110,6 +151,11 @@ class _RustEmitter:
             for definition in module.type_definitions
             if isinstance(definition, MIRStructDef)
         }
+        self.enums = {
+            definition.name: definition
+            for definition in module.type_definitions
+            if isinstance(definition, MIREnumDef)
+        }
         self.current: MIRFunction | None = None
         self.local_types: dict[int, MIRType] = {}
 
@@ -122,6 +168,7 @@ class _RustEmitter:
             "",
         ]
         parts.extend(self._struct_definition(definition) + "\n" for definition in self.structs.values())
+        parts.extend(self._enum_definition(definition) + "\n" for definition in self.enums.values())
         parts.extend(self._function(function) + "\n" for function in self.module.functions)
         parts.append(self._entry_point())
         return "\n".join(parts).rstrip() + "\n"
@@ -131,6 +178,25 @@ class _RustEmitter:
         for field in definition.fields:
             lines.append(f"    {_identifier(field.name)}: {self._type(field.type)},")
         lines.append("}")
+        return "\n".join(lines)
+
+    def _enum_definition(self, definition: MIREnumDef) -> str:
+        type_name = f"NyxType_{_identifier(definition.name)}"
+        lines = ["#[derive(Clone, Debug, PartialEq)]", f"enum {type_name} {{"]
+        for variant in definition.variants:
+            payload = ", ".join(self._type(item) for item in variant.payload_types)
+            suffix = f"({payload})" if payload else ""
+            lines.append(f"    {_identifier(variant.name)}{suffix},")
+        lines.append("}")
+        if definition.variants:
+            first = definition.variants[0]
+            defaults = ", ".join("Default::default()" for _ in first.payload_types)
+            suffix = f"({defaults})" if defaults else ""
+            lines.extend((
+                f"impl Default for {type_name} {{",
+                f"    fn default() -> Self {{ Self::{_identifier(first.name)}{suffix} }}",
+                "}",
+            ))
         return "\n".join(lines)
 
     def _entry_point(self) -> str:
@@ -144,7 +210,7 @@ class _RustEmitter:
         self.current = function
         self.local_types = {local.id: local.type for local in function.locals}
         parameters = ", ".join(
-            f"l{local}: {self._type(function.locals[local].type, function)}"
+            f"mut l{local}: {self._type(function.locals[local].type, function)}"
             for local in function.parameters
         )
         return_type = self._type(function.locals[function.return_local].type, function)
@@ -176,6 +242,11 @@ class _RustEmitter:
             return [self._assign_place(statement.place, self._rvalue(statement.value))]
         if isinstance(statement, (StorageLiveStatement, StorageDeadStatement, NopStatement)):
             return []
+        if isinstance(statement, (RetainStatement, ReleaseStatement)):
+            # MIR copy/move operands already carry the value ownership action.
+            return []
+        if isinstance(statement, DeinitStatement):
+            return [self._assign_place(statement.place, self._default(self._place_type(statement.place)))]
         raise MIRCodegenError(f"illegal statement reached Rust emitter: {type(statement).__name__}")
 
     def _terminator(self, value: object) -> list[str]:
@@ -244,6 +315,10 @@ class _RustEmitter:
             return [
                 f"if ({condition}) != {expected} {{ panic!({json.dumps(value.message)}); }}"
             ] + self._goto(value.target)
+        if isinstance(value, DropTerminator):
+            if value.unwind is not None:
+                raise MIRCodegenError("Rust MIR drop unwind edge was not legalized")
+            return [f"drop({self._take_place(value.place)});"] + self._goto(value.target)
         if isinstance(value, ReturnTerminator):
             assert self.current is not None
             result = self._type(self.current.locals[self.current.return_local].type, self.current)
@@ -276,7 +351,56 @@ class _RustEmitter:
                 fields = value.fields or tuple(str(index) for index in range(len(operands)))
                 body = ", ".join(f"{_identifier(name)}: {operand}" for name, operand in zip(fields, operands))
                 return f"NyxType_{_identifier(value.name)} {{ {body} }}"
+            if value.kind == "enum":
+                suffix = f"({', '.join(operands)})" if operands else ""
+                return f"NyxType_{_identifier(value.type.name)}::{_identifier(value.name)}{suffix}"
             raise MIRCodegenError(f"unsupported Rust aggregate kind '{value.kind}'")
+        if isinstance(value, DiscriminantRValue):
+            operand_type = self._operand_type(value.operand)
+            definition = self.enums.get(operand_type.name)
+            if definition is None:
+                raise MIRCodegenError(f"Rust discriminant requires a known enum, got '{operand_type}'")
+            arms = []
+            type_name = f"NyxType_{_identifier(definition.name)}"
+            for variant in definition.variants:
+                pattern = "(..)" if variant.payload_types else ""
+                arms.append(
+                    f"{type_name}::{_identifier(variant.name)}{pattern} => String::from({json.dumps(variant.name)})"
+                )
+            return "match &" + self._operand(value.operand) + " { " + ", ".join(arms) + " }"
+        if isinstance(value, PayloadRValue):
+            operand_type = self._operand_type(value.operand)
+            definition = self.enums.get(operand_type.name)
+            if definition is None:
+                raise MIRCodegenError(f"Rust payload requires a known enum, got '{operand_type}'")
+            type_name = f"NyxType_{_identifier(definition.name)}"
+            arms = []
+            for variant in definition.variants:
+                if value.index >= len(variant.payload_types) or variant.payload_types[value.index] != value.type:
+                    continue
+                bindings = ["_" for _ in variant.payload_types]
+                bindings[value.index] = "nyx_payload"
+                arms.append(
+                    f"{type_name}::{_identifier(variant.name)}({', '.join(bindings)}) => nyx_payload"
+                )
+            if not arms:
+                raise MIRCodegenError(
+                    f"enum '{definition.name}' has no payload {value.index} of type '{value.type}'"
+                )
+            return (
+                "match " + self._operand(value.operand) + " { "
+                + ", ".join(arms) + ", _ => panic!(\"enum payload mismatch\") }"
+            )
+        if isinstance(value, BorrowRValue):
+            rendered = self._place(value.place, mutable=value.mutable)
+            projected_reference = bool(value.place.projections) and isinstance(
+                value.place.projections[-1], (DerefProjection, IndexProjection, ConstantIndexProjection)
+            )
+            if value.mutable:
+                argument = rendered if projected_reference else f"&mut {rendered}"
+                return f"NyxPtr::borrow_mut({argument})"
+            argument = rendered if projected_reference else f"&{rendered}"
+            return f"NyxPtr::borrow({argument})"
         if isinstance(value, UnaryRValue):
             operand = self._operand(value.operand)
             if value.op in ("!", "not"):
@@ -328,7 +452,7 @@ class _RustEmitter:
             rendered = self._place(value.place)
             if isinstance(value, CopyOperand):
                 return rendered + ".clone()"
-            return rendered
+            return self._take_place(value.place)
         raise MIRCodegenError(f"illegal operand reached Rust emitter: {type(value).__name__}")
 
     def _operand_type(self, value: Operand) -> MIRType:
@@ -367,15 +491,17 @@ class _RustEmitter:
 
     @staticmethod
     def _type(value: MIRType, function: MIRFunction | None = None) -> str:
-        if value.name == "any" and function is not None and function.name == "main":
+        if value.name == "any" and function is not None and function.name in ("main", "__nyx_top_level"):
             return "()"
         if value.optional:
             return f"Option<{_RustEmitter._type(replace(value, optional=False), function)}>"
+        if value.pointer:
+            return f"NyxPtr<{_RustEmitter._type(replace(value, pointer=False), function)}>"
         if value.name == "Array" and len(value.arguments) == 1:
             return f"Vec<{_RustEmitter._type(value.arguments[0], function)}>"
         mapping = {"void": "()", "bool": "bool", "int": "i64", "float": "f64", "f64": "f64", "string": "String"}
         rendered = mapping.get(value.name, f"NyxType_{_identifier(value.name)}")
-        if value.pointer or value.arguments:
+        if value.arguments:
             raise MIRCodegenError(f"unsupported Rust MIR type '{value}'")
         return rendered
 
@@ -383,6 +509,8 @@ class _RustEmitter:
     def _default(value: MIRType) -> str:
         if value.optional:
             return "None"
+        if value.pointer:
+            return "Default::default()"
         if value.name == "Array":
             return "Vec::new()"
         return {"bool": "false", "int": "0", "float": "0.0", "f64": "0.0", "string": "String::new()"}.get(value.name, "Default::default()")
@@ -408,14 +536,30 @@ class _RustEmitter:
                 borrow = "&mut " if mutable else "&"
                 rendered = f"{helper}({borrow}{rendered}, l{projection.local})"
                 value_type = self._index_type(value_type)
+            elif isinstance(projection, DerefProjection):
+                if not value_type.pointer:
+                    raise MIRCodegenError(f"dereference requires a pointer, got '{value_type}'")
+                accessor = "write" if mutable else "read"
+                rendered = f"unsafe {{ ({rendered}).{accessor}() }}"
+                value_type = replace(value_type, pointer=False)
             else:
                 raise MIRCodegenError(f"illegal projection reached Rust emitter: {type(projection).__name__}")
         return rendered
 
     def _assign_place(self, place: Place, value: str) -> str:
         rendered = self._place(place, mutable=True)
-        prefix = "*" if place.projections and isinstance(place.projections[-1], (IndexProjection, ConstantIndexProjection)) else ""
+        prefix = "*" if place.projections and isinstance(
+            place.projections[-1], (DerefProjection, IndexProjection, ConstantIndexProjection)
+        ) else ""
         return f"{prefix}{rendered} = {value};"
+
+    def _take_place(self, place: Place) -> str:
+        rendered = self._place(place, mutable=True)
+        if place.projections and isinstance(
+            place.projections[-1], (DerefProjection, IndexProjection, ConstantIndexProjection)
+        ):
+            return f"std::mem::take({rendered})"
+        return f"std::mem::take(&mut {rendered})"
 
     def _place_type(self, place: Place) -> MIRType:
         value_type = self.local_types[place.local]
@@ -426,6 +570,10 @@ class _RustEmitter:
                 value_type = self._field_type(value_type, projection.name)
             elif isinstance(projection, (ConstantIndexProjection, IndexProjection)):
                 value_type = self._index_type(value_type)
+            elif isinstance(projection, DerefProjection):
+                if not value_type.pointer:
+                    raise MIRCodegenError(f"dereference requires a pointer, got '{value_type}'")
+                value_type = replace(value_type, pointer=False)
             else:
                 raise MIRCodegenError(f"unknown Rust projection type: {type(projection).__name__}")
         return value_type

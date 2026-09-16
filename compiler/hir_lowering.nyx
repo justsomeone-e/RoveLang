@@ -1118,7 +1118,16 @@ impl HIRLowerer {
             result.first = args
             result.type_info = variant_result
             if symbol.found and contains(symbol.kind, "enum::") {
-                result.type_info = hir_type(variant_result.name)
+                // A payload variant's trailing generic parameters can only be
+                // recovered from the matched subject (Success<T> cannot infer
+                // E from its payload). Keep the pattern constructor at the
+                // concrete subject type so HIR matches ordinary constructor
+                // calls and remains parity-stable with the Python lowerer.
+                if expected_type.name == variant_result.name and len(expected_type.arguments) > 0 {
+                    result.type_info = expected_type
+                } else {
+                    result.type_info = hir_type(variant_result.name)
+                }
             }
             result.has_type = true
             return result

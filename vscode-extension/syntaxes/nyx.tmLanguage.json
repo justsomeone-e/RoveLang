@@ -34,11 +34,59 @@
       }
     },
     {
+      "name": "meta.preprocessor.native.cpp.block.nyx",
+      "begin": "(#native)\\s+(raw|cpp)\\s*(\\{)",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.directive.nyx" },
+        "2": { "name": "entity.name.type.target.nyx" },
+        "3": { "name": "punctuation.section.block.begin.nyx" }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": { "name": "punctuation.section.block.end.nyx" }
+      },
+      "patterns": [
+        { "include": "source.cpp" }
+      ]
+    },
+    {
+      "name": "meta.preprocessor.native.js.block.nyx",
+      "begin": "(#native)\\s+(js)\\s*(\\{)",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.directive.nyx" },
+        "2": { "name": "entity.name.type.target.nyx" },
+        "3": { "name": "punctuation.section.block.begin.nyx" }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": { "name": "punctuation.section.block.end.nyx" }
+      },
+      "patterns": [
+        { "include": "source.js" }
+      ]
+    },
+    {
+      "name": "meta.preprocessor.native.rust.block.nyx",
+      "begin": "(#native)\\s+(rust)\\s*(\\{)",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.directive.nyx" },
+        "2": { "name": "entity.name.type.target.nyx" },
+        "3": { "name": "punctuation.section.block.begin.nyx" }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": { "name": "punctuation.section.block.end.nyx" }
+      },
+      "patterns": [
+        { "include": "source.rust" }
+      ]
+    },
+    {
       "name": "meta.preprocessor.native.raw.nyx",
-      "match": "(#native)\\s+(raw)",
+      "match": "(#native)\\s+(raw|cpp|js|rust)",
       "captures": {
         "1": { "name": "keyword.control.directive.nyx" },
-        "2": { "name": "keyword.other.directive.nyx" }
+        "2": { "name": "entity.name.type.target.nyx" }
       }
     },
     {

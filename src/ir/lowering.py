@@ -76,6 +76,7 @@ from .types import (
     function_type,
     task_of,
 )
+from .instances import substitute_type
 
 
 class IRLoweringError(ValueError):
@@ -127,6 +128,7 @@ class HIRLowerer:
         self.current_owner = "module"
         self.function_symbols: Dict[str, _Symbol] = {}
         self.struct_fields: Dict[str, Dict[str, IRType]] = {}
+        self.struct_generic_params: Dict[str, Tuple[str, ...]] = {}
         self.enum_variants: Dict[str, Tuple[str, Tuple[str, ...], Tuple[IRType, ...]]] = {}
         self.reserved_names: Set[str] = set()
 
@@ -178,6 +180,7 @@ class HIRLowerer:
                 self.struct_fields[node.name] = {
                     field.name: from_type_node(field.type_annot) for field in node.fields
                 }
+                self.struct_generic_params[node.name] = tuple(node.generic_params)
             elif isinstance(node, ast.TraitDefNode):
                 symbol = _Symbol(node.name, f"type::trait::{node.name}", IRType(node.name), "trait")
             elif isinstance(node, ast.TypeAliasNode):
@@ -503,6 +506,7 @@ class HIRLowerer:
         if isinstance(node, ast.FunctionCallNode):
             symbol = self.scopes.resolve(node.callee)
             parameter_types: Tuple[IRType, ...] = ()
+            result_type = self._call_result_type(symbol)
             if symbol is not None and symbol.identity in self.enum_variants:
                 enum_name, generic_params, declared_payloads = self.enum_variants[symbol.identity]
                 substitutions = {
@@ -514,6 +518,8 @@ class HIRLowerer:
                     substitutions.get(payload.name, payload)
                     for payload in declared_payloads
                 )
+                if subject_type.name == enum_name and subject_type.arguments:
+                    result_type = IRType(enum_name, subject_type.arguments)
             args = []
             for index, argument in enumerate(node.args):
                 expected = parameter_types[index] if index < len(parameter_types) else ANY
@@ -527,7 +533,7 @@ class HIRLowerer:
                     args.append(self._lower_pattern(argument, expected))
             return IRCall(
                 self._span(node),
-                self._call_result_type(symbol),
+                result_type,
                 node.callee,
                 symbol.identity if symbol else f"pattern-constructor::{node.callee}",
                 tuple(args),
@@ -599,6 +605,9 @@ class HIRLowerer:
             if symbol is None:
                 raise IRLoweringError(f"Unresolved function or constructor '{node.callee}'", span)
             result_type = self._call_result_type(symbol)
+            inferred_result = from_inferred_name(getattr(node, "inferred_type", None), ANY)
+            if not inferred_result.is_unknown:
+                result_type = inferred_result
             if symbol.identity in ("builtin::map", "builtin::filter", "builtin::fold"):
                 result_type = from_inferred_name(getattr(node, "inferred_type", None), result_type)
             variant = self.enum_variants.get(symbol.identity)
@@ -612,6 +621,8 @@ class HIRLowerer:
                     enum_name,
                     tuple(substitutions.get(name, ANY) for name in generic_params),
                 )
+                if not inferred_result.is_unknown:
+                    result_type = inferred_result
             elif symbol.identity == "builtin::Ok" and args:
                 result_type = IRType("Result", (args[0].type, ANY))
             elif symbol.identity == "builtin::Err" and args:
@@ -620,6 +631,12 @@ class HIRLowerer:
         if isinstance(node, ast.MemberAccessNode):
             obj = self._lower_expr(node.obj)
             value_type = self.struct_fields.get(obj.type.name, {}).get(node.member, ANY)
+            generic_params = self.struct_generic_params.get(obj.type.name, ())
+            if generic_params and obj.type.arguments:
+                value_type = substitute_type(
+                    value_type,
+                    dict(zip(generic_params, obj.type.arguments)),
+                )
             if node.is_safe:
                 value_type = value_type.with_optional()
             return IRMemberAccess(span, value_type, obj, node.member, node.is_safe)

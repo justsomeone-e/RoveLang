@@ -185,7 +185,8 @@ class ModuleIR:
             "f64.neg", "f64.eq", "f64.ne", "f64.lt", "f64.gt", "f64.le",
             "f64.ge", "f64.convert_i32_s", "return", "drop", "memory.size",
             "memory.grow", "memory.copy", "unreachable",
-            "i32.load", "f64.load", "i32.store", "f64.store", "i32.load8_u", "i32.wrap_i64", "i64.shr_u",
+            "i32.load", "i64.load", "f64.load", "i32.store", "i64.store", "f64.store",
+            "i32.load8_u", "i32.store8", "i32.wrap_i64", "i64.shr_u",
             "i64.eqz", "i64.eq", "i64.ne", "i64.lt_s", "i64.gt_s", "i64.le_s", "i64.ge_s",
             "i64.add", "i64.sub", "i64.mul", "i64.div_s", "i64.rem_s",
             "i64.and", "i64.or", "i64.xor", "i64.shl", "i64.shr_s", "i64.gt_u",
@@ -387,16 +388,20 @@ class ModuleIR:
             elif op == "f64.const":
                 output.append(0x44)
                 output.extend(struct.pack("<d", float(arg)))
-            elif op in ("i32.load", "f64.load"):
-                output.append(0x28 if op == "i32.load" else 0x2B)
+            elif op in ("i32.load", "i64.load", "f64.load"):
+                output.append({"i32.load": 0x28, "i64.load": 0x29, "f64.load": 0x2B}[op])
                 output.extend(_u32(2 if op == "i32.load" else 3))
                 output.extend(_u32(0))
-            elif op in ("i32.store", "f64.store"):
-                output.append(0x36 if op == "i32.store" else 0x39)
+            elif op in ("i32.store", "i64.store", "f64.store"):
+                output.append({"i32.store": 0x36, "i64.store": 0x37, "f64.store": 0x39}[op])
                 output.extend(_u32(2 if op == "i32.store" else 3))
                 output.extend(_u32(0))
             elif op == "i32.load8_u":
                 output.append(0x2D)
+                output.extend(_u32(0))
+                output.extend(_u32(0))
+            elif op == "i32.store8":
+                output.append(0x3A)
                 output.extend(_u32(0))
                 output.extend(_u32(0))
             elif op in ("local.get", "local.set", "local.tee"):

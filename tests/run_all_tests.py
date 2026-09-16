@@ -138,6 +138,7 @@ from tests.web_bundle_suite import run_web_bundle_suite
 from tests.docs_site_suite import run_docs_site_suite
 from tests.self_host_suite import run_self_host_suite
 from tests.capability_suite import run_capability_suite
+from tests.http_stdlib_suite import run_http_stdlib_suite
 from tests.foreign_import_suite import run_foreign_import_suite
 from tests.payload_enum_suite import run_payload_enum_suite
 from tests.result_propagation_suite import run_result_propagation_suite
@@ -167,6 +168,10 @@ from tests.mir_lowering_suite import run_mir_lowering_suite
 from tests.mir_cleanup_suite import run_mir_cleanup_suite
 from tests.mir_memory_abi_suite import run_mir_memory_abi_suite
 from tests.mir_legalization_suite import run_mir_legalization_suite
+from tests.ir_instances_suite import run_ir_instances_suite
+from tests.mir_coroutine_suite import run_mir_coroutine_suite
+from tests.mir_dispatch_suite import run_mir_dispatch_suite
+from tests.module_graph_checker_suite import run_module_graph_checker_suite
 
 def main():
     print("=" * 70)
@@ -194,6 +199,9 @@ def main():
 
     print()
     capability_ok = run_capability_suite()
+
+    print()
+    http_stdlib_ok = run_http_stdlib_suite()
 
     print()
     foreign_import_ok = run_foreign_import_suite()
@@ -261,6 +269,18 @@ def main():
 
     print()
     mir_legalization_ok = run_mir_legalization_suite()
+
+    print()
+    ir_instances_ok = run_ir_instances_suite()
+
+    print()
+    mir_coroutine_ok = run_mir_coroutine_suite()
+
+    print()
+    mir_dispatch_ok = run_mir_dispatch_suite()
+
+    print()
+    module_graph_checker_ok = run_module_graph_checker_suite()
 
     print()
     language_surface_ok = run_language_surface_suite()
@@ -343,7 +363,7 @@ def main():
     print("\n[*] Executing 138-Point Exhaustive Regression Battery...")
     battery_ok = run_battery138()
     
-    all_passed = (cli_ok and toolchain_cli_ok and bundle_ok and web_bundle_ok and self_host_ok and capability_ok and foreign_import_ok and payload_enum_ok and result_propagation_ok and collection_api_ok and fallible_stdlib_ok and default_arguments_ok and destructuring_ok and compiler_api_ok and ir_ok and hir_python_ok and hir_javascript_ok and hir_cpp_ok and hir_rust_ok and c17_scalar_ok and pkg_mgr_ok and llvm_scalar_ok and feature_manifest_ok and mir_ok and mir_lowering_ok and mir_cleanup_ok and mir_memory_abi_ok and mir_legalization_ok and language_surface_ok and numeric_semantics_ok and maya_surface_ok and release_packaging_ok and version_contract_ok and installer_ok and mod_ok and lsp_ok and smoke_ok and neg_ok and fuzz_ok and
+    all_passed = (cli_ok and toolchain_cli_ok and bundle_ok and web_bundle_ok and self_host_ok and capability_ok and http_stdlib_ok and foreign_import_ok and payload_enum_ok and result_propagation_ok and collection_api_ok and fallible_stdlib_ok and default_arguments_ok and destructuring_ok and compiler_api_ok and ir_ok and hir_python_ok and hir_javascript_ok and hir_cpp_ok and hir_rust_ok and c17_scalar_ok and pkg_mgr_ok and llvm_scalar_ok and feature_manifest_ok and mir_ok and mir_lowering_ok and mir_cleanup_ok and mir_memory_abi_ok and mir_legalization_ok and ir_instances_ok and mir_coroutine_ok and mir_dispatch_ok and module_graph_checker_ok and language_surface_ok and numeric_semantics_ok and maya_surface_ok and release_packaging_ok and version_contract_ok and installer_ok and mod_ok and lsp_ok and smoke_ok and neg_ok and fuzz_ok and
                   diff_ok and js_ok and rs_ok and e2e_ok and ffi_ok and
                   natlib_ok and man_ok and link_ok and plat_ok and sdk_ok and interop_ok and boot_lex_ok and boot_parse_ok and boot_corpus_ok and boot_tc_ok and battery_ok)
     print("=" * 70)

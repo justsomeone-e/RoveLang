@@ -3,29 +3,41 @@
 from __future__ import annotations
 
 import re
+import struct as binary_struct
 
-from src.codegen.wasm_ir import F64, I32, I64, VOID, FunctionIR, Instruction, ModuleIR
+from src.codegen.wasm_ir import DataSegment, F64, I32, I64, VOID, FunctionIR, Instruction, ModuleIR
 
 from .codegen_cpp import MIRCodegenError
+from .layout import LayoutEngine
 from .legalization import legalize_mir
 from .model import (
+    AggregateRValue,
     AssertTerminator,
     AssignStatement,
     BinaryRValue,
     CallTerminator,
+    CastRValue,
     ConstOperand,
+    ConstantIndexProjection,
     CopyOperand,
+    DiscriminantRValue,
+    FieldProjection,
     GotoTerminator,
+    IndexProjection,
     MIRFunction,
     MIRModule,
+    MIREnumDef,
+    MIRStructDef,
     MoveOperand,
     NopStatement,
     Operand,
+    PayloadRValue,
     Place,
     ReturnTerminator,
     StorageDeadStatement,
     StorageLiveStatement,
     SwitchIntTerminator,
+    SwitchValueTerminator,
     UnaryRValue,
     UnreachableTerminator,
     UseRValue,
@@ -51,13 +63,31 @@ class _WasmEmitter:
             raise MIRCodegenError("MIR function names collide after WebAssembly identifier normalization")
         self.functions = {function.symbol: function for function in module.functions}
         self.functions.update({function.name: function for function in module.functions})
+        self.structs = {
+            definition.name: definition
+            for definition in module.type_definitions
+            if isinstance(definition, MIRStructDef)
+        }
+        self.enums = {
+            definition.name: definition
+            for definition in module.type_definitions
+            if isinstance(definition, MIREnumDef)
+        }
+        self.layouts = LayoutEngine(module, "wasm")
+        self.data: list[DataSegment] = []
+        self.string_literals: dict[str, int] = {}
+        self.next_data_offset = 1024
         self.current: MIRFunction | None = None
         self.local_types: dict[int, MIRType] = {}
         self.local_names: dict[int, str] = {}
+        self.tag_locals: dict[int, dict[str, int]] = {}
 
     def lower(self) -> ModuleIR:
-        functions = self._integer_runtime() + [self._function(function) for function in self.module.functions]
-        return ModuleIR(self.module.source_name, functions, [], 2048)
+        functions = self._integer_runtime() + self._array_runtime() + [
+            self._function(function) for function in self.module.functions
+        ]
+        heap_start = max(2048, (self.next_data_offset + 7) & ~7)
+        return ModuleIR(self.module.source_name, functions, self.data, heap_start)
 
     @staticmethod
     def _integer_runtime() -> list[FunctionIR]:
@@ -87,22 +117,471 @@ class _WasmEmitter:
         )
         return [divide, remainder]
 
+    @staticmethod
+    def _array_runtime() -> list[FunctionIR]:
+        alloc = FunctionIR(
+            "__nyx_mir_alloc", [("size", I32)], I32,
+            locals=[("old_ptr", I32), ("new_ptr", I32), ("current_bytes", I32), ("pages", I32)],
+            body=[
+                Instruction("local.get", "size"), Instruction("i32.const", 0), Instruction("i32.le_s"),
+                Instruction("if"), Instruction("i32.const", 0), Instruction("return"), Instruction("end"),
+                Instruction("global.get", "heap_ptr"), Instruction("local.tee", "old_ptr"),
+                Instruction("local.get", "size"), Instruction("i32.add"), Instruction("i32.const", 7),
+                Instruction("i32.add"), Instruction("i32.const", -8), Instruction("i32.and"),
+                Instruction("local.tee", "new_ptr"), Instruction("local.get", "old_ptr"),
+                Instruction("i32.lt_s"), Instruction("if"), Instruction("unreachable"), Instruction("end"),
+                Instruction("memory.size"), Instruction("i32.const", 16), Instruction("i32.shl"),
+                Instruction("local.tee", "current_bytes"), Instruction("local.get", "new_ptr"),
+                Instruction("i32.lt_s"), Instruction("if"),
+                Instruction("local.get", "new_ptr"), Instruction("local.get", "current_bytes"),
+                Instruction("i32.sub"), Instruction("i32.const", 65535), Instruction("i32.add"),
+                Instruction("i32.const", 16), Instruction("i32.shr_s"), Instruction("local.tee", "pages"),
+                Instruction("memory.grow"), Instruction("i32.const", -1), Instruction("i32.eq"),
+                Instruction("if"), Instruction("unreachable"), Instruction("end"), Instruction("end"),
+                Instruction("local.get", "new_ptr"), Instruction("global.set", "heap_ptr"),
+                Instruction("local.get", "old_ptr"), Instruction("return"),
+            ],
+            export=False,
+        )
+        clone = FunctionIR(
+            "__nyx_mir_array_clone_i64", [("desc", I32)], I32,
+            locals=[("new_desc", I32), ("new_data", I32), ("len", I32), ("bytes", I32)],
+            body=[
+                Instruction("local.get", "desc"), Instruction("i32.eqz"), Instruction("if"),
+                Instruction("i32.const", 0), Instruction("return"), Instruction("end"),
+                Instruction("local.get", "desc"), Instruction("i32.const", 4), Instruction("i32.add"),
+                Instruction("i32.load"), Instruction("local.tee", "len"), Instruction("i32.const", 8),
+                Instruction("i32.mul"), Instruction("local.set", "bytes"),
+                Instruction("i32.const", 12), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.set", "new_desc"),
+                Instruction("local.get", "bytes"), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.set", "new_data"),
+                Instruction("local.get", "new_data"), Instruction("local.get", "desc"),
+                Instruction("i32.load"), Instruction("local.get", "bytes"), Instruction("memory.copy"),
+                Instruction("local.get", "new_desc"), Instruction("local.get", "new_data"),
+                Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("i32.const", 4), Instruction("i32.add"),
+                Instruction("local.get", "len"), Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("i32.const", 8), Instruction("i32.add"),
+                Instruction("local.get", "len"), Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("return"),
+            ],
+            export=False,
+        )
+        clone_i32 = FunctionIR(
+            "__nyx_mir_array_clone_i32", [("desc", I32)], I32,
+            locals=[("new_desc", I32), ("new_data", I32), ("len", I32), ("bytes", I32)],
+            body=[
+                Instruction("local.get", "desc"), Instruction("i32.eqz"), Instruction("if"),
+                Instruction("i32.const", 0), Instruction("return"), Instruction("end"),
+                Instruction("local.get", "desc"), Instruction("i32.const", 4), Instruction("i32.add"),
+                Instruction("i32.load"), Instruction("local.tee", "len"), Instruction("i32.const", 4),
+                Instruction("i32.mul"), Instruction("local.set", "bytes"),
+                Instruction("i32.const", 12), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.set", "new_desc"),
+                Instruction("local.get", "bytes"), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.set", "new_data"),
+                Instruction("local.get", "new_data"), Instruction("local.get", "desc"),
+                Instruction("i32.load"), Instruction("local.get", "bytes"), Instruction("memory.copy"),
+                Instruction("local.get", "new_desc"), Instruction("local.get", "new_data"),
+                Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("i32.const", 4), Instruction("i32.add"),
+                Instruction("local.get", "len"), Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("i32.const", 8), Instruction("i32.add"),
+                Instruction("local.get", "len"), Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("return"),
+            ],
+            export=False,
+        )
+        clone_string = FunctionIR(
+            "__nyx_mir_array_clone_string", [("desc", I32)], I32,
+            locals=[("new_desc", I32), ("new_data", I32), ("len", I32), ("bytes", I32)],
+            body=[
+                Instruction("local.get", "desc"), Instruction("i32.eqz"), Instruction("if"),
+                Instruction("i32.const", 0), Instruction("return"), Instruction("end"),
+                Instruction("local.get", "desc"), Instruction("i32.const", 4), Instruction("i32.add"),
+                Instruction("i32.load"), Instruction("local.tee", "len"), Instruction("i32.const", 12),
+                Instruction("i32.mul"), Instruction("local.set", "bytes"),
+                Instruction("i32.const", 12), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.set", "new_desc"),
+                Instruction("local.get", "bytes"), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.set", "new_data"),
+                Instruction("local.get", "new_data"), Instruction("local.get", "desc"),
+                Instruction("i32.load"), Instruction("local.get", "bytes"), Instruction("memory.copy"),
+                Instruction("local.get", "new_desc"), Instruction("local.get", "new_data"),
+                Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("i32.const", 4), Instruction("i32.add"),
+                Instruction("local.get", "len"), Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("i32.const", 8), Instruction("i32.add"),
+                Instruction("local.get", "len"), Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("return"),
+            ],
+            export=False,
+        )
+        clone_blob = FunctionIR(
+            "__nyx_mir_array_clone_blob", [("desc", I32), ("element_size", I32)], I32,
+            locals=[("new_desc", I32), ("new_data", I32), ("len", I32), ("bytes", I32)],
+            body=[
+                Instruction("local.get", "desc"), Instruction("i32.eqz"), Instruction("if"),
+                Instruction("i32.const", 0), Instruction("return"), Instruction("end"),
+                Instruction("local.get", "desc"), Instruction("i32.const", 4), Instruction("i32.add"),
+                Instruction("i32.load"), Instruction("local.tee", "len"),
+                Instruction("local.get", "element_size"), Instruction("i32.mul"),
+                Instruction("local.set", "bytes"),
+                Instruction("i32.const", 12), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.set", "new_desc"),
+                Instruction("local.get", "bytes"), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.set", "new_data"),
+                Instruction("local.get", "new_data"), Instruction("local.get", "desc"),
+                Instruction("i32.load"), Instruction("local.get", "bytes"), Instruction("memory.copy"),
+                Instruction("local.get", "new_desc"), Instruction("local.get", "new_data"),
+                Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("i32.const", 4), Instruction("i32.add"),
+                Instruction("local.get", "len"), Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("i32.const", 8), Instruction("i32.add"),
+                Instruction("local.get", "len"), Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("return"),
+            ],
+            export=False,
+        )
+        clone_nested_i64 = FunctionIR(
+            "__nyx_mir_array_clone_nested_i64", [("desc", I32)], I32,
+            locals=[
+                ("new_desc", I32), ("new_data", I32), ("len", I32),
+                ("bytes", I32), ("i", I32), ("source_element", I32),
+                ("cloned_element", I32),
+            ],
+            body=[
+                Instruction("local.get", "desc"), Instruction("i32.eqz"), Instruction("if"),
+                Instruction("i32.const", 0), Instruction("return"), Instruction("end"),
+                Instruction("local.get", "desc"), Instruction("i32.const", 4), Instruction("i32.add"),
+                Instruction("i32.load"), Instruction("local.tee", "len"), Instruction("i32.const", 12),
+                Instruction("i32.mul"), Instruction("local.set", "bytes"),
+                Instruction("i32.const", 12), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.set", "new_desc"),
+                Instruction("local.get", "bytes"), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.set", "new_data"),
+                Instruction("local.get", "new_desc"), Instruction("local.get", "new_data"),
+                Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("i32.const", 4), Instruction("i32.add"),
+                Instruction("local.get", "len"), Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("i32.const", 8), Instruction("i32.add"),
+                Instruction("local.get", "len"), Instruction("i32.store"),
+                Instruction("i32.const", 0), Instruction("local.set", "i"),
+                Instruction("block", "nested_clone_break"),
+                Instruction("loop", "nested_clone_loop"),
+                Instruction("local.get", "i"), Instruction("local.get", "len"),
+                Instruction("i32.ge_s"), Instruction("br_if", "nested_clone_break"),
+                Instruction("local.get", "desc"), Instruction("i32.load"),
+                Instruction("local.get", "i"), Instruction("i32.const", 12),
+                Instruction("i32.mul"), Instruction("i32.add"),
+                Instruction("local.tee", "source_element"),
+                Instruction("call", "__nyx_mir_array_clone_i64"),
+                Instruction("local.set", "cloned_element"),
+                Instruction("local.get", "new_data"), Instruction("local.get", "i"),
+                Instruction("i32.const", 12), Instruction("i32.mul"), Instruction("i32.add"),
+                Instruction("local.get", "cloned_element"), Instruction("i32.const", 12),
+                Instruction("memory.copy"),
+                Instruction("local.get", "i"), Instruction("i32.const", 1), Instruction("i32.add"),
+                Instruction("local.set", "i"), Instruction("br", "nested_clone_loop"),
+                Instruction("end"), Instruction("end"),
+                Instruction("local.get", "new_desc"), Instruction("return"),
+            ],
+            export=False,
+        )
+        clone_nested_i32 = FunctionIR(
+            "__nyx_mir_array_clone_nested_i32", [("desc", I32)], I32,
+            locals=[
+                ("new_desc", I32), ("new_data", I32), ("len", I32),
+                ("bytes", I32), ("i", I32), ("source_element", I32),
+                ("cloned_element", I32),
+            ],
+            body=[
+                Instruction("local.get", "desc"), Instruction("i32.eqz"), Instruction("if"),
+                Instruction("i32.const", 0), Instruction("return"), Instruction("end"),
+                Instruction("local.get", "desc"), Instruction("i32.const", 4), Instruction("i32.add"),
+                Instruction("i32.load"), Instruction("local.tee", "len"), Instruction("i32.const", 12),
+                Instruction("i32.mul"), Instruction("local.set", "bytes"),
+                Instruction("i32.const", 12), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.set", "new_desc"),
+                Instruction("local.get", "bytes"), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.set", "new_data"),
+                Instruction("local.get", "new_desc"), Instruction("local.get", "new_data"),
+                Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("i32.const", 4), Instruction("i32.add"),
+                Instruction("local.get", "len"), Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("i32.const", 8), Instruction("i32.add"),
+                Instruction("local.get", "len"), Instruction("i32.store"),
+                Instruction("i32.const", 0), Instruction("local.set", "i"),
+                Instruction("block", "nested_clone_break"),
+                Instruction("loop", "nested_clone_loop"),
+                Instruction("local.get", "i"), Instruction("local.get", "len"),
+                Instruction("i32.ge_s"), Instruction("br_if", "nested_clone_break"),
+                Instruction("local.get", "desc"), Instruction("i32.load"),
+                Instruction("local.get", "i"), Instruction("i32.const", 12),
+                Instruction("i32.mul"), Instruction("i32.add"),
+                Instruction("local.tee", "source_element"),
+                Instruction("call", "__nyx_mir_array_clone_i32"),
+                Instruction("local.set", "cloned_element"),
+                Instruction("local.get", "new_data"), Instruction("local.get", "i"),
+                Instruction("i32.const", 12), Instruction("i32.mul"), Instruction("i32.add"),
+                Instruction("local.get", "cloned_element"), Instruction("i32.const", 12),
+                Instruction("memory.copy"),
+                Instruction("local.get", "i"), Instruction("i32.const", 1), Instruction("i32.add"),
+                Instruction("local.set", "i"), Instruction("br", "nested_clone_loop"),
+                Instruction("end"), Instruction("end"),
+                Instruction("local.get", "new_desc"), Instruction("return"),
+            ],
+            export=False,
+        )
+        clone_nested_string = FunctionIR(
+            "__nyx_mir_array_clone_nested_string", [("desc", I32)], I32,
+            locals=[
+                ("new_desc", I32), ("new_data", I32), ("len", I32),
+                ("bytes", I32), ("i", I32), ("source_element", I32),
+                ("cloned_element", I32),
+            ],
+            body=[
+                Instruction("local.get", "desc"), Instruction("i32.eqz"), Instruction("if"),
+                Instruction("i32.const", 0), Instruction("return"), Instruction("end"),
+                Instruction("local.get", "desc"), Instruction("i32.const", 4), Instruction("i32.add"),
+                Instruction("i32.load"), Instruction("local.tee", "len"), Instruction("i32.const", 12),
+                Instruction("i32.mul"), Instruction("local.set", "bytes"),
+                Instruction("i32.const", 12), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.set", "new_desc"),
+                Instruction("local.get", "bytes"), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.set", "new_data"),
+                Instruction("local.get", "new_desc"), Instruction("local.get", "new_data"),
+                Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("i32.const", 4), Instruction("i32.add"),
+                Instruction("local.get", "len"), Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("i32.const", 8), Instruction("i32.add"),
+                Instruction("local.get", "len"), Instruction("i32.store"),
+                Instruction("i32.const", 0), Instruction("local.set", "i"),
+                Instruction("block", "nested_clone_break"),
+                Instruction("loop", "nested_clone_loop"),
+                Instruction("local.get", "i"), Instruction("local.get", "len"),
+                Instruction("i32.ge_s"), Instruction("br_if", "nested_clone_break"),
+                Instruction("local.get", "desc"), Instruction("i32.load"),
+                Instruction("local.get", "i"), Instruction("i32.const", 12),
+                Instruction("i32.mul"), Instruction("i32.add"),
+                Instruction("local.tee", "source_element"),
+                Instruction("call", "__nyx_mir_array_clone_string"),
+                Instruction("local.set", "cloned_element"),
+                Instruction("local.get", "new_data"), Instruction("local.get", "i"),
+                Instruction("i32.const", 12), Instruction("i32.mul"), Instruction("i32.add"),
+                Instruction("local.get", "cloned_element"), Instruction("i32.const", 12),
+                Instruction("memory.copy"),
+                Instruction("local.get", "i"), Instruction("i32.const", 1), Instruction("i32.add"),
+                Instruction("local.set", "i"), Instruction("br", "nested_clone_loop"),
+                Instruction("end"), Instruction("end"),
+                Instruction("local.get", "new_desc"), Instruction("return"),
+            ],
+            export=False,
+        )
+        clone_nested_blob = FunctionIR(
+            "__nyx_mir_array_clone_nested_blob", [("desc", I32), ("element_size", I32)], I32,
+            locals=[
+                ("new_desc", I32), ("new_data", I32), ("len", I32),
+                ("bytes", I32), ("i", I32), ("source_element", I32),
+                ("cloned_element", I32),
+            ],
+            body=[
+                Instruction("local.get", "desc"), Instruction("i32.eqz"), Instruction("if"),
+                Instruction("i32.const", 0), Instruction("return"), Instruction("end"),
+                Instruction("local.get", "desc"), Instruction("i32.const", 4), Instruction("i32.add"),
+                Instruction("i32.load"), Instruction("local.tee", "len"), Instruction("i32.const", 12),
+                Instruction("i32.mul"), Instruction("local.set", "bytes"),
+                Instruction("i32.const", 12), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.set", "new_desc"),
+                Instruction("local.get", "bytes"), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.set", "new_data"),
+                Instruction("local.get", "new_desc"), Instruction("local.get", "new_data"),
+                Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("i32.const", 4), Instruction("i32.add"),
+                Instruction("local.get", "len"), Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("i32.const", 8), Instruction("i32.add"),
+                Instruction("local.get", "len"), Instruction("i32.store"),
+                Instruction("i32.const", 0), Instruction("local.set", "i"),
+                Instruction("block", "nested_clone_break"),
+                Instruction("loop", "nested_clone_loop"),
+                Instruction("local.get", "i"), Instruction("local.get", "len"),
+                Instruction("i32.ge_s"), Instruction("br_if", "nested_clone_break"),
+                Instruction("local.get", "desc"), Instruction("i32.load"),
+                Instruction("local.get", "i"), Instruction("i32.const", 12),
+                Instruction("i32.mul"), Instruction("i32.add"),
+                Instruction("local.tee", "source_element"),
+                Instruction("local.get", "element_size"),
+                Instruction("call", "__nyx_mir_array_clone_blob"),
+                Instruction("local.set", "cloned_element"),
+                Instruction("local.get", "new_data"), Instruction("local.get", "i"),
+                Instruction("i32.const", 12), Instruction("i32.mul"), Instruction("i32.add"),
+                Instruction("local.get", "cloned_element"), Instruction("i32.const", 12),
+                Instruction("memory.copy"),
+                Instruction("local.get", "i"), Instruction("i32.const", 1), Instruction("i32.add"),
+                Instruction("local.set", "i"), Instruction("br", "nested_clone_loop"),
+                Instruction("end"), Instruction("end"),
+                Instruction("local.get", "new_desc"), Instruction("return"),
+            ],
+            export=False,
+        )
+        get = FunctionIR(
+            "__nyx_mir_array_get_i64", [("desc", I32), ("index", I64)], I64,
+            body=[
+                Instruction("local.get", "desc"), Instruction("i32.eqz"),
+                Instruction("if"), Instruction("unreachable"), Instruction("end"),
+                Instruction("local.get", "index"), Instruction("i64.const", 0), Instruction("i64.lt_s"),
+                Instruction("local.get", "index"), Instruction("local.get", "desc"),
+                Instruction("i32.const", 4), Instruction("i32.add"), Instruction("i32.load"),
+                Instruction("i64.extend_i32_u"), Instruction("i64.ge_s"), Instruction("i32.or"),
+                Instruction("if"), Instruction("unreachable"), Instruction("end"),
+                Instruction("local.get", "desc"), Instruction("i32.load"),
+                Instruction("local.get", "index"), Instruction("i32.wrap_i64"),
+                Instruction("i32.const", 8), Instruction("i32.mul"), Instruction("i32.add"),
+                Instruction("i64.load"), Instruction("return"),
+            ],
+            export=False,
+        )
+        set_value = FunctionIR(
+            "__nyx_mir_array_set_i64", [("desc", I32), ("index", I64), ("value", I64)], VOID,
+            body=[
+                Instruction("local.get", "desc"), Instruction("i32.eqz"),
+                Instruction("if"), Instruction("unreachable"), Instruction("end"),
+                Instruction("local.get", "index"), Instruction("i64.const", 0), Instruction("i64.lt_s"),
+                Instruction("local.get", "index"), Instruction("local.get", "desc"),
+                Instruction("i32.const", 4), Instruction("i32.add"), Instruction("i32.load"),
+                Instruction("i64.extend_i32_u"), Instruction("i64.ge_s"), Instruction("i32.or"),
+                Instruction("if"), Instruction("unreachable"), Instruction("end"),
+                Instruction("local.get", "desc"), Instruction("i32.load"),
+                Instruction("local.get", "index"), Instruction("i32.wrap_i64"),
+                Instruction("i32.const", 8), Instruction("i32.mul"), Instruction("i32.add"),
+                Instruction("local.get", "value"), Instruction("i64.store"), Instruction("return"),
+            ],
+            export=False,
+        )
+        get_i32 = FunctionIR(
+            "__nyx_mir_array_get_i32", [("desc", I32), ("index", I64)], I32,
+            body=[
+                Instruction("local.get", "desc"), Instruction("i32.eqz"),
+                Instruction("if"), Instruction("unreachable"), Instruction("end"),
+                Instruction("local.get", "index"), Instruction("i64.const", 0), Instruction("i64.lt_s"),
+                Instruction("local.get", "index"), Instruction("local.get", "desc"),
+                Instruction("i32.const", 4), Instruction("i32.add"), Instruction("i32.load"),
+                Instruction("i64.extend_i32_u"), Instruction("i64.ge_s"), Instruction("i32.or"),
+                Instruction("if"), Instruction("unreachable"), Instruction("end"),
+                Instruction("local.get", "desc"), Instruction("i32.load"),
+                Instruction("local.get", "index"), Instruction("i32.wrap_i64"),
+                Instruction("i32.const", 4), Instruction("i32.mul"), Instruction("i32.add"),
+                Instruction("i32.load"), Instruction("return"),
+            ],
+            export=False,
+        )
+        set_i32 = FunctionIR(
+            "__nyx_mir_array_set_i32", [("desc", I32), ("index", I64), ("value", I32)], VOID,
+            body=[
+                Instruction("local.get", "desc"), Instruction("local.get", "index"),
+                Instruction("i32.const", 4), Instruction("call", "__nyx_mir_array_get_blob"),
+                Instruction("local.get", "value"), Instruction("i32.store"), Instruction("return"),
+            ],
+            export=False,
+        )
+        get_string = FunctionIR(
+            "__nyx_mir_array_get_string", [("desc", I32), ("index", I64)], I32,
+            body=[
+                Instruction("local.get", "desc"), Instruction("i32.eqz"),
+                Instruction("if"), Instruction("unreachable"), Instruction("end"),
+                Instruction("local.get", "index"), Instruction("i64.const", 0), Instruction("i64.lt_s"),
+                Instruction("local.get", "index"), Instruction("local.get", "desc"),
+                Instruction("i32.const", 4), Instruction("i32.add"), Instruction("i32.load"),
+                Instruction("i64.extend_i32_u"), Instruction("i64.ge_s"), Instruction("i32.or"),
+                Instruction("if"), Instruction("unreachable"), Instruction("end"),
+                Instruction("local.get", "desc"), Instruction("i32.load"),
+                Instruction("local.get", "index"), Instruction("i32.wrap_i64"),
+                Instruction("i32.const", 12), Instruction("i32.mul"), Instruction("i32.add"),
+                Instruction("return"),
+            ],
+            export=False,
+        )
+        set_string = FunctionIR(
+            "__nyx_mir_array_set_string", [("desc", I32), ("index", I64), ("value", I32)], VOID,
+            body=[
+                Instruction("local.get", "desc"), Instruction("local.get", "index"),
+                Instruction("call", "__nyx_mir_array_get_string"),
+                Instruction("local.get", "value"), Instruction("i32.const", 12),
+                Instruction("memory.copy"), Instruction("return"),
+            ],
+            export=False,
+        )
+        get_blob = FunctionIR(
+            "__nyx_mir_array_get_blob", [("desc", I32), ("index", I64), ("element_size", I32)], I32,
+            body=[
+                Instruction("local.get", "desc"), Instruction("i32.eqz"),
+                Instruction("if"), Instruction("unreachable"), Instruction("end"),
+                Instruction("local.get", "index"), Instruction("i64.const", 0), Instruction("i64.lt_s"),
+                Instruction("local.get", "index"), Instruction("local.get", "desc"),
+                Instruction("i32.const", 4), Instruction("i32.add"), Instruction("i32.load"),
+                Instruction("i64.extend_i32_u"), Instruction("i64.ge_s"), Instruction("i32.or"),
+                Instruction("if"), Instruction("unreachable"), Instruction("end"),
+                Instruction("local.get", "desc"), Instruction("i32.load"),
+                Instruction("local.get", "index"), Instruction("i32.wrap_i64"),
+                Instruction("local.get", "element_size"), Instruction("i32.mul"), Instruction("i32.add"),
+                Instruction("return"),
+            ],
+            export=False,
+        )
+        set_blob = FunctionIR(
+            "__nyx_mir_array_set_blob",
+            [("desc", I32), ("index", I64), ("value", I32), ("element_size", I32)], VOID,
+            body=[
+                Instruction("local.get", "desc"), Instruction("local.get", "index"),
+                Instruction("local.get", "element_size"), Instruction("call", "__nyx_mir_array_get_blob"),
+                Instruction("local.get", "value"), Instruction("local.get", "element_size"),
+                Instruction("memory.copy"), Instruction("return"),
+            ],
+            export=False,
+        )
+        clone_bytes = FunctionIR(
+            "__nyx_mir_clone_bytes", [("ptr", I32), ("size", I32)], I32,
+            locals=[("new_ptr", I32)],
+            body=[
+                Instruction("local.get", "ptr"), Instruction("i32.eqz"), Instruction("if"),
+                Instruction("i32.const", 0), Instruction("return"), Instruction("end"),
+                Instruction("local.get", "size"), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.tee", "new_ptr"), Instruction("local.get", "ptr"),
+                Instruction("local.get", "size"), Instruction("memory.copy"),
+                Instruction("local.get", "new_ptr"), Instruction("return"),
+            ],
+            export=False,
+        )
+        return [
+            alloc, clone, clone_i32, clone_string, clone_blob, clone_nested_i64,
+            clone_nested_i32, clone_nested_string, clone_nested_blob, get, set_value,
+            get_i32, set_i32, get_string, set_string, get_blob, set_blob, clone_bytes,
+        ]
+
     def _function(self, function: MIRFunction) -> FunctionIR:
         self.current = function
         self.local_types = {local.id: local.type for local in function.locals}
         self.local_names = {local.id: f"l{local.id}" for local in function.locals}
+        self.tag_locals = self._discriminant_locals(function)
         result = self._type(function.locals[function.return_local].type, function)
         params = [
-            (self.local_names[local], self._type(function.locals[local].type, function))
+            (self.local_names[local], self._local_type(local, function))
             for local in function.parameters
         ]
         parameter_ids = set(function.parameters)
         locals_ = [
-            (self.local_names[local.id], self._type(local.type, function))
+            (self.local_names[local.id], self._local_type(local.id, function))
             for local in function.locals
-            if local.id not in parameter_ids and self._type(local.type, function) != VOID
+            if local.id not in parameter_ids and self._local_type(local.id, function) != VOID
         ]
         locals_.append(("pc", I32))
+        if any(local.type.name == "Array" for local in function.locals):
+            locals_.extend((("__nyx_array_desc", I32), ("__nyx_array_data", I32)))
+        if any(self._is_memory_aggregate(local.type) for local in function.locals):
+            locals_.append(("__nyx_struct_ptr", I32))
+        if any(self._is_result_compatible(local.type) for local in function.locals):
+            locals_.append(("__nyx_cast_source", I32))
         body = [Instruction("i32.const", function.blocks[0].id), Instruction("local.set", "pc")]
         body.extend((Instruction("block", "function_exit"), Instruction("loop", "dispatch")))
         for block in function.blocks:
@@ -123,12 +602,49 @@ class _WasmEmitter:
         self.current = None
         self.local_types = {}
         self.local_names = {}
+        self.tag_locals = {}
         return lowered
 
     def _statement(self, statement: object, body: list[Instruction]) -> None:
         if isinstance(statement, AssignStatement):
             if statement.place.projections:
-                raise MIRCodegenError("projected assignment reached the scalar WebAssembly emitter")
+                projected_type = self.local_types[statement.place.local]
+                if projected_type.name == "Array" and all(
+                    isinstance(projection, (IndexProjection, ConstantIndexProjection))
+                    for projection in statement.place.projections
+                ):
+                    body.extend(self._array_place(statement.place))
+                    body.extend(self._rvalue(statement.value))
+                    parent_type = self._place_type(Place(
+                        statement.place.local, statement.place.projections[:-1]
+                    ))
+                    element_type = parent_type.arguments[0]
+                    if element_type.name in self.structs:
+                        body.append(Instruction("i32.const", self.layouts.layout_of(element_type).size))
+                        helper = "__nyx_mir_array_set_blob"
+                    elif element_type.name == "Array":
+                        body.append(Instruction("i32.const", 12))
+                        helper = "__nyx_mir_array_set_blob"
+                    else:
+                        if element_type == MIRType("string"):
+                            helper = "__nyx_mir_array_set_string"
+                        elif element_type == MIRType("bool"):
+                            helper = "__nyx_mir_array_set_i32"
+                        else:
+                            helper = "__nyx_mir_array_set_i64"
+                    body.append(Instruction("call", helper))
+                    return
+                body.extend(self._field_address(statement.place))
+                body.extend(self._rvalue(statement.value))
+                field_type = self._place_type(statement.place)
+                if field_type == MIRType("string") or field_type.name in self.structs:
+                    body.extend((
+                        Instruction("i32.const", self.layouts.layout_of(field_type).size),
+                        Instruction("memory.copy"),
+                    ))
+                else:
+                    body.append(Instruction(self._store_instruction(field_type)))
+                return
             body.extend(self._rvalue(statement.value))
             body.append(Instruction("local.set", self.local_names[statement.place.local]))
             return
@@ -151,9 +667,44 @@ class _WasmEmitter:
                 body.append(Instruction("end"))
             self._goto(value.otherwise, body)
             return
+        if isinstance(value, SwitchValueTerminator):
+            local = (
+                value.discriminator.place.local
+                if isinstance(value.discriminator, (CopyOperand, MoveOperand))
+                and not value.discriminator.place.projections
+                else None
+            )
+            mapping = self.tag_locals.get(local if local is not None else -1)
+            if mapping is None:
+                raise MIRCodegenError("Wasm SwitchValue requires a legalized enum discriminant")
+            for expected, target in value.targets:
+                if expected not in mapping:
+                    raise MIRCodegenError(f"Unknown Wasm enum discriminant '{expected}'")
+                body.extend(self._operand(value.discriminator))
+                body.append(Instruction("i32.const", mapping[expected]))
+                body.append(Instruction("i32.eq"))
+                body.append(Instruction("if"))
+                self._goto(target, body)
+                body.append(Instruction("end"))
+            self._goto(value.otherwise, body)
+            return
         if isinstance(value, CallTerminator):
             if value.target is None:
                 raise MIRCodegenError(f"call '{value.function}' has no continuation")
+            if value.function == "builtin::len":
+                if len(value.arguments) != 1 or value.destination is None:
+                    raise MIRCodegenError("builtin::len requires one argument and a destination")
+                argument_type = self._operand_type(value.arguments[0])
+                if argument_type.name not in ("Array", "string"):
+                    raise MIRCodegenError("Wasm MIR builtin::len currently requires Array<int> or string")
+                body.extend(self._operand(value.arguments[0]))
+                body.extend((
+                    Instruction("i32.const", 4), Instruction("i32.add"), Instruction("i32.load"),
+                    Instruction("i64.extend_i32_u"),
+                    Instruction("local.set", self.local_names[value.destination.local]),
+                ))
+                self._goto(value.target, body)
+                return
             callee = self.functions.get(value.function)
             if callee is None:
                 raise MIRCodegenError(f"runtime call '{value.function}' reached the pure WebAssembly pilot")
@@ -197,6 +748,235 @@ class _WasmEmitter:
     def _rvalue(self, value: object) -> list[Instruction]:
         if isinstance(value, UseRValue):
             return self._operand(value.operand)
+        if isinstance(value, CastRValue):
+            source_type = self._operand_type(value.operand)
+            if source_type == value.type:
+                return self._operand(value.operand)
+            if self._is_result_compatible(source_type) and self._is_result_compatible(value.type):
+                source_layout = self.layouts.layout_of(source_type)
+                target_layout = self.layouts.layout_of(value.type)
+                if (
+                    source_layout.size == target_layout.size
+                    and source_layout.payload_offset == target_layout.payload_offset
+                ):
+                    return self._operand(value.operand)
+                copy_bytes = min(
+                    source_layout.size - source_layout.payload_offset,
+                    target_layout.size - target_layout.payload_offset,
+                )
+                return self._operand(value.operand) + [
+                    Instruction("local.set", "__nyx_cast_source"),
+                    Instruction("i32.const", target_layout.size), Instruction("call", "__nyx_mir_alloc"),
+                    Instruction("local.set", "__nyx_struct_ptr"),
+                    Instruction("local.get", "__nyx_struct_ptr"),
+                    Instruction("local.get", "__nyx_cast_source"), Instruction("i32.load"),
+                    Instruction("i32.store"),
+                    Instruction("local.get", "__nyx_struct_ptr"),
+                    Instruction("i32.const", target_layout.payload_offset), Instruction("i32.add"),
+                    Instruction("local.get", "__nyx_cast_source"),
+                    Instruction("i32.const", source_layout.payload_offset), Instruction("i32.add"),
+                    Instruction("i32.const", copy_bytes), Instruction("memory.copy"),
+                    Instruction("local.get", "__nyx_struct_ptr"),
+                ]
+            raise MIRCodegenError(f"Wasm MIR cast '{source_type}' -> '{value.type}' is not legalized")
+        if isinstance(value, AggregateRValue):
+            if value.kind in ("enum", "result"):
+                if value.kind == "enum":
+                    definition = self.enums.get(value.type.name)
+                    if definition is None:
+                        raise MIRCodegenError(f"Unknown Wasm MIR enum '{value.type.name}'")
+                    variant_index = next(
+                        (index for index, variant in enumerate(definition.variants) if variant.name == value.name),
+                        None,
+                    )
+                    if variant_index is None:
+                        raise MIRCodegenError(f"Unknown Wasm MIR enum variant '{value.type.name}.{value.name}'")
+                    payload_types = definition.variants[variant_index].payload_types
+                else:
+                    if not self._is_result_compatible(value.type):
+                        raise MIRCodegenError("Wasm MIR result pilot requires scalar, string, or struct payloads")
+                    if value.name not in ("Ok", "Err"):
+                        raise MIRCodegenError(f"Unknown Wasm MIR Result variant '{value.name}'")
+                    variant_index = 0 if value.name == "Ok" else 1
+                    payload_types = (value.type.arguments[variant_index],)
+                if len(value.operands) != len(payload_types):
+                    raise MIRCodegenError(f"Wasm MIR enum payload arity mismatch for '{value.name}'")
+                layout = self.layouts.layout_of(value.type)
+                output = [
+                    Instruction("i32.const", layout.size), Instruction("call", "__nyx_mir_alloc"),
+                    Instruction("local.set", "__nyx_struct_ptr"),
+                    Instruction("local.get", "__nyx_struct_ptr"),
+                    Instruction("i32.const", variant_index), Instruction("i32.store"),
+                ]
+                for index, (payload_type, operand) in enumerate(zip(payload_types, value.operands)):
+                    if (
+                        value.kind == "enum"
+                        and payload_type not in (
+                            MIRType("int"), MIRType("bool"), MIRType("string")
+                        )
+                        and payload_type.name not in self.structs
+                    ):
+                        raise MIRCodegenError(
+                            f"Wasm MIR enum payload '{value.type.name}.{value.name}[{index}]' is not int, bool, string, or struct"
+                        )
+                    if (
+                        value.kind == "enum"
+                        and payload_type != MIRType("int")
+                        and len(payload_types) != 1
+                    ):
+                        raise MIRCodegenError("Wasm MIR non-int enum payload must be the variant's only payload")
+                    if value.kind == "result" and payload_type not in (
+                        MIRType("int"), MIRType("bool"), MIRType("string"),
+                    ) and payload_type.name not in self.structs:
+                        raise MIRCodegenError(
+                            f"Wasm MIR Result payload '{value.name}' is not int, bool, string, or struct"
+                        )
+                    payload_offset = layout.payload_offset + (index * 8 if value.kind == "enum" else 0)
+                    output.extend((
+                        Instruction("local.get", "__nyx_struct_ptr"),
+                        Instruction("i32.const", payload_offset),
+                        Instruction("i32.add"),
+                    ))
+                    output.extend(self._operand(operand))
+                    if payload_type == MIRType("string") or payload_type.name in self.structs:
+                        output.extend((
+                            Instruction("i32.const", self.layouts.layout_of(payload_type).size),
+                            Instruction("memory.copy"),
+                        ))
+                    else:
+                        output.append(Instruction(self._store_instruction(payload_type)))
+                output.append(Instruction("local.get", "__nyx_struct_ptr"))
+                return output
+            if value.kind == "struct":
+                definition = self.structs.get(value.type.name)
+                if definition is None:
+                    raise MIRCodegenError(f"Unknown Wasm MIR struct '{value.type.name}'")
+                layout = self.layouts.layout_of(value.type)
+                fields = value.fields or tuple(field.name for field in definition.fields)
+                output = [
+                    Instruction("i32.const", layout.size), Instruction("call", "__nyx_mir_alloc"),
+                    Instruction("local.set", "__nyx_struct_ptr"),
+                ]
+                for name, operand in zip(fields, value.operands):
+                    field = next((item for item in layout.fields if item.name == name), None)
+                    if field is None or (
+                        field.type not in (
+                            MIRType("int"), MIRType("bool"), MIRType("string")
+                        )
+                        and field.type.name not in self.structs
+                    ):
+                        raise MIRCodegenError(
+                            f"Wasm MIR struct field '{value.type.name}.{name}' is not int, bool, string, or struct"
+                        )
+                    output.extend((
+                        Instruction("local.get", "__nyx_struct_ptr"),
+                        Instruction("i32.const", field.offset), Instruction("i32.add"),
+                    ))
+                    output.extend(self._operand(operand))
+                    if field.type == MIRType("string") or field.type.name in self.structs:
+                        output.extend((
+                            Instruction("i32.const", self.layouts.layout_of(field.type).size),
+                            Instruction("memory.copy"),
+                        ))
+                    else:
+                        output.append(Instruction(self._store_instruction(field.type)))
+                output.append(Instruction("local.get", "__nyx_struct_ptr"))
+                return output
+            if value.kind != "array" or value.type.name != "Array" or len(value.type.arguments) != 1:
+                raise MIRCodegenError("Wasm MIR aggregate pilot requires Array<T>")
+            element_type = value.type.arguments[0]
+            if element_type == MIRType("int"):
+                element_size = 8
+            elif element_type == MIRType("bool"):
+                element_size = 4
+            elif element_type == MIRType("string") or element_type.name in self.structs:
+                element_size = self.layouts.layout_of(element_type).size
+            elif element_type in (
+                MIRType("Array", (MIRType("int"),)),
+                MIRType("Array", (MIRType("bool"),)),
+                MIRType("Array", (MIRType("string"),)),
+            ):
+                element_size = 12
+            elif (
+                element_type.name == "Array"
+                and len(element_type.arguments) == 1
+                and element_type.arguments[0].name in self.structs
+            ):
+                element_size = 12
+            else:
+                raise MIRCodegenError(
+                    "Wasm MIR aggregate pilot supports primitive, struct, and Array<Array<int>> values"
+                )
+            output = [
+                Instruction("i32.const", 12), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.set", "__nyx_array_desc"),
+                Instruction("i32.const", len(value.operands) * element_size),
+                Instruction("call", "__nyx_mir_alloc"), Instruction("local.set", "__nyx_array_data"),
+                Instruction("local.get", "__nyx_array_desc"),
+                Instruction("local.get", "__nyx_array_data"), Instruction("i32.store"),
+            ]
+            for offset in (4, 8):
+                output.extend((
+                    Instruction("local.get", "__nyx_array_desc"), Instruction("i32.const", offset),
+                    Instruction("i32.add"), Instruction("i32.const", len(value.operands)),
+                    Instruction("i32.store"),
+                ))
+            for index, operand in enumerate(value.operands):
+                output.extend((
+                    Instruction("local.get", "__nyx_array_data"),
+                    Instruction("i32.const", index * element_size), Instruction("i32.add"),
+                ))
+                output.extend(self._operand(operand))
+                if (
+                    element_type == MIRType("string")
+                    or element_type.name in self.structs
+                    or element_type.name == "Array"
+                ):
+                    output.extend((Instruction("i32.const", element_size), Instruction("memory.copy")))
+                elif element_type == MIRType("bool"):
+                    output.append(Instruction("i32.store"))
+                else:
+                    output.append(Instruction("i64.store"))
+            output.append(Instruction("local.get", "__nyx_array_desc"))
+            return output
+        if isinstance(value, DiscriminantRValue):
+            return self._aggregate_subject(value.operand) + [Instruction("i32.load")]
+        if isinstance(value, PayloadRValue):
+            subject_type = self._operand_type(value.operand)
+            if not self._is_tagged_aggregate(subject_type):
+                raise MIRCodegenError("Wasm MIR payload pilot requires an enum or Result")
+            if (
+                value.type not in (MIRType("int"), MIRType("bool"), MIRType("string"))
+                and value.type.name not in self.structs
+            ):
+                raise MIRCodegenError("Wasm MIR payload pilot requires an int, bool, string, or struct payload")
+            if (
+                subject_type.name in self.enums
+                and value.type not in (
+                    MIRType("int"), MIRType("bool"), MIRType("string")
+                )
+                and value.type.name not in self.structs
+            ):
+                raise MIRCodegenError("Wasm MIR enum payload pilot requires an int, bool, string, or struct payload")
+            if (
+                subject_type.name in self.enums
+                and value.type != MIRType("int")
+                and value.index != 0
+            ):
+                raise MIRCodegenError("Wasm MIR non-int enum payload must be the first and only payload")
+            layout = self.layouts.layout_of(subject_type)
+            address = self._aggregate_subject(value.operand) + [
+                Instruction("i32.const", layout.payload_offset + value.index * 8),
+                Instruction("i32.add"),
+            ]
+            if value.type == MIRType("string"):
+                return address
+            if value.type.name in self.structs:
+                return address + [
+                    Instruction("i32.const", self.layouts.layout_of(value.type).size),
+                    Instruction("call", "__nyx_mir_clone_bytes"),
+                ]
+            return address + [Instruction(self._load_instruction(value.type))]
         if isinstance(value, BinaryRValue):
             left_type = self._operand_type(value.left)
             wasm_type = self._type(left_type)
@@ -230,24 +1010,138 @@ class _WasmEmitter:
     def _operand(self, value: Operand) -> list[Instruction]:
         if isinstance(value, ConstOperand):
             wasm_type = self._type(value.type)
+            if value.type == MIRType("string"):
+                return [Instruction("i32.const", self._intern_string(str(value.value)))]
             constant = int(value.value) if value.type.name == "bool" else value.value
             return [Instruction(f"{wasm_type}.const", constant)]
         if isinstance(value, (CopyOperand, MoveOperand)):
             if value.place.projections:
-                raise MIRCodegenError("projected operand reached the scalar WebAssembly emitter")
-            return [Instruction("local.get", self.local_names[value.place.local])]
+                base_type = self.local_types[value.place.local]
+                if base_type.name == "Array" and all(
+                    isinstance(projection, (IndexProjection, ConstantIndexProjection))
+                    for projection in value.place.projections
+                ):
+                    parent_type = self._place_type(Place(
+                        value.place.local, value.place.projections[:-1]
+                    ))
+                    element_type = parent_type.arguments[0]
+                    output = self._array_place(value.place)
+                    if element_type.name in self.structs:
+                        output.extend((
+                            Instruction("i32.const", self.layouts.layout_of(element_type).size),
+                            Instruction("call", "__nyx_mir_array_get_blob"),
+                        ))
+                        if isinstance(value, CopyOperand):
+                            output.extend((
+                                Instruction("i32.const", self.layouts.layout_of(element_type).size),
+                                Instruction("call", "__nyx_mir_clone_bytes"),
+                            ))
+                        return output
+                    if element_type.name == "Array":
+                        if isinstance(value, CopyOperand):
+                            inner_type = element_type.arguments[0]
+                            if inner_type == MIRType("string"):
+                                helper = "__nyx_mir_array_clone_string"
+                            elif inner_type == MIRType("bool"):
+                                helper = "__nyx_mir_array_clone_i32"
+                            elif inner_type.name in self.structs:
+                                output.append(Instruction(
+                                    "i32.const", self.layouts.layout_of(inner_type).size
+                                ))
+                                helper = "__nyx_mir_array_clone_blob"
+                            else:
+                                helper = "__nyx_mir_array_clone_i64"
+                            output.append(Instruction("call", helper))
+                        return output
+                    if element_type == MIRType("string"):
+                        helper = "__nyx_mir_array_get_string"
+                    elif element_type == MIRType("bool"):
+                        helper = "__nyx_mir_array_get_i32"
+                    else:
+                        helper = "__nyx_mir_array_get_i64"
+                    return output + [Instruction("call", helper)]
+                field_type = self._place_type(value.place)
+                address = self._field_address(value.place)
+                if field_type == MIRType("string") or field_type.name in self.structs:
+                    return address
+                return address + [Instruction(self._load_instruction(field_type))]
+            local_type = self.local_types[value.place.local]
+            output = [Instruction("local.get", self.local_names[value.place.local])]
+            if local_type.name == "Array" and isinstance(value, CopyOperand):
+                element_type = local_type.arguments[0]
+                if element_type.name in self.structs:
+                    output.append(Instruction("i32.const", self.layouts.layout_of(element_type).size))
+                    helper = "__nyx_mir_array_clone_blob"
+                elif element_type.name == "Array":
+                    inner_type = element_type.arguments[0]
+                    if inner_type == MIRType("string"):
+                        helper = "__nyx_mir_array_clone_nested_string"
+                    elif inner_type == MIRType("bool"):
+                        helper = "__nyx_mir_array_clone_nested_i32"
+                    elif inner_type.name in self.structs:
+                        output.append(Instruction(
+                            "i32.const", self.layouts.layout_of(inner_type).size
+                        ))
+                        helper = "__nyx_mir_array_clone_nested_blob"
+                    else:
+                        helper = "__nyx_mir_array_clone_nested_i64"
+                else:
+                    if element_type == MIRType("string"):
+                        helper = "__nyx_mir_array_clone_string"
+                    elif element_type == MIRType("bool"):
+                        helper = "__nyx_mir_array_clone_i32"
+                    else:
+                        helper = "__nyx_mir_array_clone_i64"
+                output.append(Instruction("call", helper))
+            elif local_type.name == "Array" and isinstance(value, MoveOperand):
+                output.extend((
+                    Instruction("i32.const", 0),
+                    Instruction("local.set", self.local_names[value.place.local]),
+                ))
+            elif self._is_memory_aggregate(local_type):
+                if isinstance(value, CopyOperand):
+                    output.extend((
+                        Instruction("i32.const", self.layouts.layout_of(local_type).size),
+                        Instruction("call", "__nyx_mir_clone_bytes"),
+                    ))
+                else:
+                    output.extend((
+                        Instruction("i32.const", 0),
+                        Instruction("local.set", self.local_names[value.place.local]),
+                    ))
+            return output
         raise MIRCodegenError(f"illegal operand reached WebAssembly emitter: {type(value).__name__}")
 
     def _operand_type(self, value: Operand) -> MIRType:
         if isinstance(value, ConstOperand):
             return value.type
         if isinstance(value, (CopyOperand, MoveOperand)):
-            return self.local_types[value.place.local]
+            value_type = self.local_types[value.place.local]
+            for projection in value.place.projections:
+                if isinstance(projection, (IndexProjection, ConstantIndexProjection)):
+                    if value_type.name != "Array" or len(value_type.arguments) != 1:
+                        raise MIRCodegenError(f"Wasm MIR index requires Array<T>, got '{value_type}'")
+                    value_type = value_type.arguments[0]
+                elif isinstance(projection, FieldProjection):
+                    definition = self.structs.get(value_type.name)
+                    field = next(
+                        (item for item in definition.fields if item.name == projection.name),
+                        None,
+                    ) if definition is not None else None
+                    if field is None:
+                        raise MIRCodegenError(
+                            f"Wasm MIR field requires a known struct field, got '{value_type}.{projection.name}'"
+                        )
+                    value_type = field.type
+                else:
+                    raise MIRCodegenError(
+                        f"illegal projection reached WebAssembly emitter: {type(projection).__name__}"
+                    )
+            return value_type
         raise MIRCodegenError(f"unknown WebAssembly operand type: {type(value).__name__}")
 
-    @staticmethod
-    def _type(value: MIRType, function: MIRFunction | None = None) -> str:
-        if value.name == "any" and function is not None and function.name == "main":
+    def _type(self, value: MIRType, function: MIRFunction | None = None) -> str:
+        if value.name == "any" and function is not None and function.name in ("main", "__nyx_top_level"):
             return VOID
         if value.name == "void":
             return VOID
@@ -255,9 +1149,175 @@ class _WasmEmitter:
             return I32
         if value.name == "int":
             return I64
+        if value.name == "string":
+            return I32
         if value.name in ("float", "f64"):
             return F64
+        if value.name == "Array" and len(value.arguments) == 1:
+            element_type = value.arguments[0]
+            if (
+                element_type in (MIRType("int"), MIRType("bool"), MIRType("string"))
+                or element_type.name in self.structs
+                or element_type in (
+                    MIRType("Array", (MIRType("int"),)),
+                    MIRType("Array", (MIRType("bool"),)),
+                    MIRType("Array", (MIRType("string"),)),
+                )
+                or (
+                    element_type.name == "Array"
+                    and len(element_type.arguments) == 1
+                    and element_type.arguments[0].name in self.structs
+                )
+            ):
+                return I32
+        if value.name in self.structs:
+            return I32
+        if value.name in self.enums:
+            return I32
+        if self._is_result_compatible(value):
+            return I32
         raise MIRCodegenError(f"unsupported WebAssembly MIR type '{value}'")
+
+    def _store_instruction(self, value_type: MIRType) -> str:
+        if value_type == MIRType("bool"):
+            return "i32.store8"
+        return f"{self._type(value_type)}.store"
+
+    def _load_instruction(self, value_type: MIRType) -> str:
+        if value_type == MIRType("bool"):
+            return "i32.load8_u"
+        return f"{self._type(value_type)}.load"
+
+    def _array_place(self, place: Place) -> list[Instruction]:
+        if not place.projections or not all(
+            isinstance(projection, (IndexProjection, ConstantIndexProjection))
+            for projection in place.projections
+        ):
+            raise MIRCodegenError("Wasm MIR array pilot requires an index projection chain")
+        output = [Instruction("local.get", self.local_names[place.local])]
+        value_type = self.local_types[place.local]
+        for index, projection in enumerate(place.projections):
+            if value_type.name != "Array" or len(value_type.arguments) != 1:
+                raise MIRCodegenError(f"Wasm MIR index requires Array<T>, got '{value_type}'")
+            if isinstance(projection, ConstantIndexProjection):
+                output.append(Instruction("i64.const", projection.index))
+            else:
+                output.append(Instruction("local.get", self.local_names[projection.local]))
+            value_type = value_type.arguments[0]
+            if index + 1 < len(place.projections):
+                if value_type.name != "Array":
+                    raise MIRCodegenError("Wasm MIR nested index requires an inner Array<T>")
+                output.extend((Instruction("i32.const", 12), Instruction("call", "__nyx_mir_array_get_blob")))
+        return output
+
+    def _field_address(self, place: Place) -> list[Instruction]:
+        if not place.projections or not all(
+            isinstance(projection, FieldProjection) for projection in place.projections
+        ):
+            raise MIRCodegenError("Wasm MIR struct pilot requires a field projection chain")
+        value_type = self.local_types[place.local]
+        output = [Instruction("local.get", self.local_names[place.local])]
+        for projection in place.projections:
+            layout = self.layouts.layout_of(value_type)
+            field = next((item for item in layout.fields if item.name == projection.name), None)
+            if field is None:
+                raise MIRCodegenError(
+                    f"Wasm MIR struct field '{value_type}.{projection.name}' is unknown"
+                )
+            output.extend((Instruction("i32.const", field.offset), Instruction("i32.add")))
+            value_type = field.type
+        return output
+
+    def _place_type(self, place: Place) -> MIRType:
+        value_type = self.local_types[place.local]
+        for projection in place.projections:
+            if isinstance(projection, (IndexProjection, ConstantIndexProjection)):
+                if value_type.name != "Array" or len(value_type.arguments) != 1:
+                    raise MIRCodegenError(f"Wasm MIR index requires Array<T>, got '{value_type}'")
+                value_type = value_type.arguments[0]
+            elif isinstance(projection, FieldProjection):
+                definition = self.structs.get(value_type.name)
+                field = next(
+                    (item for item in definition.fields if item.name == projection.name),
+                    None,
+                ) if definition is not None else None
+                if field is None:
+                    raise MIRCodegenError(f"Wasm MIR struct '{value_type}' has no field '{projection.name}'")
+                value_type = field.type
+            else:
+                raise MIRCodegenError(f"Wasm MIR place type cannot resolve '{type(projection).__name__}'")
+        return value_type
+
+    def _intern_string(self, value: str) -> int:
+        existing = self.string_literals.get(value)
+        if existing is not None:
+            return existing
+        encoded = value.encode("utf-8")
+        data_offset = self.next_data_offset
+        if encoded:
+            self.data.append(DataSegment(data_offset, encoded))
+            self.next_data_offset += len(encoded)
+        self.next_data_offset = (self.next_data_offset + 3) & ~3
+        descriptor_offset = self.next_data_offset
+        self.data.append(DataSegment(
+            descriptor_offset,
+            binary_struct.pack("<III", data_offset, len(encoded), len(encoded)),
+        ))
+        self.next_data_offset += 12
+        self.string_literals[value] = descriptor_offset
+        return descriptor_offset
+
+    def _local_type(self, local: int, function: MIRFunction) -> str:
+        if local in self.tag_locals:
+            return I32
+        return self._type(function.locals[local].type, function)
+
+    def _discriminant_locals(self, function: MIRFunction) -> dict[int, dict[str, int]]:
+        result: dict[int, dict[str, int]] = {}
+        for block in function.blocks:
+            for statement in block.statements:
+                if not isinstance(statement, AssignStatement) or statement.place.projections:
+                    continue
+                if not isinstance(statement.value, DiscriminantRValue):
+                    continue
+                operand = statement.value.operand
+                if not isinstance(operand, (CopyOperand, MoveOperand)) or operand.place.projections:
+                    continue
+                subject_type = self.local_types.get(operand.place.local)
+                definition = self.enums.get(subject_type.name if subject_type else "")
+                if definition is not None:
+                    result[statement.place.local] = {
+                        variant.name: index for index, variant in enumerate(definition.variants)
+                    }
+                elif (
+                    subject_type is not None
+                    and subject_type.name == "Result"
+                    and self._is_result_compatible(subject_type)
+                ):
+                    result[statement.place.local] = {"Ok": 0, "Err": 1}
+        return result
+
+    def _aggregate_subject(self, operand: Operand) -> list[Instruction]:
+        if not isinstance(operand, (CopyOperand, MoveOperand)) or operand.place.projections:
+            raise MIRCodegenError("Wasm enum operation requires a direct aggregate local")
+        return [Instruction("local.get", self.local_names[operand.place.local])]
+
+    def _is_tagged_aggregate(self, value_type: MIRType) -> bool:
+        return value_type.name in self.enums or self._is_result_compatible(value_type)
+
+    def _is_memory_aggregate(self, value_type: MIRType) -> bool:
+        return value_type.name == "Array" or value_type.name in self.structs or self._is_tagged_aggregate(value_type)
+
+    def _is_result_compatible(self, value_type: MIRType) -> bool:
+        def compatible(argument: MIRType) -> bool:
+            return argument.name in ("int", "bool", "string", "any") or argument.name in self.structs
+
+        return bool(
+            value_type.name == "Result"
+            and len(value_type.arguments) == 2
+            and all(compatible(argument) for argument in value_type.arguments)
+            and any(argument.name != "any" for argument in value_type.arguments)
+        )
 
 
 def lower_legalized_wasm(module: MIRModule) -> ModuleIR:

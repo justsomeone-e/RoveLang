@@ -152,6 +152,22 @@ async function main() {
         dark: './images/nyx-file-icon.png'
     });
     assert.ok(fs.existsSync(path.join(__dirname, language.icon.light)));
+    const grammarPath = path.join(__dirname, manifest.contributes.grammars[0].path);
+    const grammar = JSON.parse(fs.readFileSync(grammarPath, 'utf8'));
+    const nativeBlocks = new Map(
+        grammar.patterns
+            .filter(item => item.name && item.name.startsWith('meta.preprocessor.native.') && item.name.endsWith('.block.nyx'))
+            .map(item => [item.name, item])
+    );
+    for (const [name, embeddedScope] of [
+        ['meta.preprocessor.native.cpp.block.nyx', 'source.cpp'],
+        ['meta.preprocessor.native.js.block.nyx', 'source.js'],
+        ['meta.preprocessor.native.rust.block.nyx', 'source.rust']
+    ]) {
+        const nativeBlock = nativeBlocks.get(name);
+        assert.ok(nativeBlock, `missing ${name} syntax grammar`);
+        assert.ok(nativeBlock.patterns.some(item => item.include === embeddedScope));
+    }
     const commandIds = new Set(manifest.contributes.commands.map(item => item.command));
     for (const id of [
         'nyx.runCurrentFile',
@@ -279,6 +295,24 @@ async function main() {
     ]);
 
     const languageSurface = require(path.join(__dirname, 'language-surface.json'));
+    const snippets = require(path.join(__dirname, 'snippets', 'nyx.snippets.json'));
+    const targetSnippet = snippets['Target Directive'].body.join('\n');
+    for (const target of languageSurface.targets) {
+        assert.ok(targetSnippet.includes(target.name), `target snippet missing ${target.name}`);
+    }
+    const targetItems = completionItemProvider.provideCompletionItems(
+        {
+            lineAt: () => ({ text: '#target' }),
+            getText: () => '#target'
+        },
+        { line: 0, character: 7 },
+        undefined,
+        undefined
+    );
+    assert.deepStrictEqual(
+        targetItems.map(item => item.label),
+        languageSurface.targets.map(target => target.name)
+    );
     const completionSource = 'import "std/fs"\nfn local_helper(value: int) -> int {\n    let local_value = value\n}\na';
     const completionItems = completionItemProvider.provideCompletionItems(
         {
@@ -302,6 +336,7 @@ async function main() {
         'append_string',
         'fnv1a_64_hex',
         'cpp',
+        'llvm',
         'args',
         'local_helper',
         'local_value'

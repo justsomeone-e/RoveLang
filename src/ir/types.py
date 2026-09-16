@@ -129,19 +129,87 @@ def from_inferred_name(name: object, default: IRType = ANY) -> IRType:
     return IRType(text, optional=optional, pointer=pointer)
 
 
-def compatible(expected: IRType, actual: IRType) -> bool:
+def is_exact_type(left: IRType, right: IRType) -> bool:
+    """Return whether two resolved HIR type identities are identical."""
+    return left == right
+
+
+def is_assignable(expected: IRType, actual: IRType) -> bool:
+    """Check assignment without inserting a numeric or pointer conversion."""
     if expected.is_unknown or actual.is_unknown:
         return True
     if actual.name == "null":
         return expected.optional or expected.name in ("Option", "Result")
-    if expected == actual:
+    if is_exact_type(expected, actual):
         return True
-    if expected.optional and expected.with_optional(False) == actual.with_optional(False):
+    if expected.optional and not actual.optional:
+        return is_assignable(expected.with_optional(False), actual)
+    if expected.optional != actual.optional or expected.pointer != actual.pointer:
+        return False
+    if expected.is_function or actual.is_function:
+        return False
+    if expected.name == actual.name and len(expected.arguments) == len(actual.arguments):
+        return all(
+            is_assignable(left, right)
+            for left, right in zip(expected.arguments, actual.arguments)
+        )
+    return False
+
+
+def is_coercible(source: IRType, destination: IRType) -> bool:
+    """Check whether the frontend may insert a defined implicit conversion."""
+    if is_assignable(destination, source):
         return True
-    if expected.name in INTEGER_TYPE_NAMES and actual.name in INTEGER_TYPE_NAMES:
+    if source.optional or destination.optional or source.pointer or destination.pointer:
+        return False
+    if source.name in INTEGER_TYPE_NAMES and destination.name in INTEGER_TYPE_NAMES:
         return True
-    if expected.name == "float" and actual.name == "int":
+    if source.name in INTEGER_TYPE_NAMES and destination.name in ("float", "f32", "f64"):
         return True
+    return False
+
+
+def is_abi_compatible(left: IRType, right: IRType, target: str) -> bool:
+    """Conservatively compare scalar representation for a concrete target ABI."""
+    if left.optional != right.optional or left.is_function or right.is_function:
+        return is_exact_type(left, right)
+    if is_exact_type(left, right):
+        return True
+
+    normalized_target = {
+        "c17": "c",
+        "javascript": "js",
+        "node": "js",
+        "react": "js",
+    }.get(target.lower(), target.lower())
+    if normalized_target in ("js", "python"):
+        return False
+
+    pointer_bits = 32 if normalized_target == "wasm" else 64
+    if left.pointer or right.pointer:
+        return left.pointer and right.pointer and pointer_bits > 0
+
+    integer_widths = {
+        "i8": 8, "u8": 8,
+        "i16": 16, "u16": 16,
+        "i32": 32, "u32": 32,
+        "int": 64, "i64": 64, "u64": 64,
+        "uintptr": pointer_bits,
+    }
+    float_widths = {"f32": 32, "float": 64, "f64": 64}
+    if left.name in integer_widths and right.name in integer_widths:
+        return integer_widths[left.name] == integer_widths[right.name]
+    if left.name in float_widths and right.name in float_widths:
+        return float_widths[left.name] == float_widths[right.name]
+    return False
+
+
+def compatible(expected: IRType, actual: IRType) -> bool:
+    """Legacy transitional compatibility; do not use for identity or ABI checks."""
+    if is_assignable(expected, actual) or is_coercible(actual, expected):
+        return True
+    # Transitional uninstantiated generic and pointer behavior retained only
+    # for old HIR consumers while they migrate to the precise predicates.
     if expected.pointer and actual.pointer:
         return True
     if expected.name == actual.name and (not expected.arguments or not actual.arguments):

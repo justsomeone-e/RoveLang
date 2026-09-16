@@ -47,7 +47,7 @@ my_project/
 │   └── main.nyx          # Main entrypoint
 └── build/                # Output binaries and transpiled modules
     ├── cpp/
-    │   └── main.exe      # Native C++20 Executable
+    │   └── main[.exe]    # Native C++20 executable (.exe on Windows)
     ├── js/
     │   └── main.js       # Node.js / Browser ESM Module
     └── rust/
@@ -65,7 +65,7 @@ my_project/
 ### Build & Verification
 * `nyx check [file.nyx]`: Performs syntax and semantic validation without code generation.
 * `nyx build [file.nyx] [--target <cpp|python|js|rust>]`: Emits or compiles into `build/<target>/`.
-  * If targeting `cpp`, compiles directly to a native `.exe` binary.
+  * If targeting `cpp`, compiles directly to a native executable (`.exe` only on Windows).
   * If targeting `js`, emits an ES2022 Node.js module.
   * If targeting `rust`, emits clean, borrow-checked Rust 2021 code.
 * `nyx run [file.nyx] [--target <cpp|python|js|rust>]`: Compiles and executes with the selected backend.
@@ -112,6 +112,22 @@ adapters must be selected explicitly.
 * `nyx version`: Displays compiler version and detected host toolchains.
 * `nyx doctor`: Reports actionable C++20, Node.js, Rust, and Python availability.
 * `nyx targets --json`: Prints the machine-readable backend/stdlib capability contract; requires the optional Python orchestration layer.
+
+### Arch Linux and editor setup
+
+The native C++ target requires a host C++20 compiler. On Arch Linux install the
+standard development toolchain before running Nyx programs:
+
+```bash
+sudo pacman -S --needed base-devel
+nyx doctor
+```
+
+The Unix installer detects VS Code, VS Code Insiders, and VSCodium and installs
+the Nyx grammar automatically. Node.js/npm enables the full LSP client; without
+npm the syntax grammar is still installed and the installer reports that only
+language-server features are unavailable. Restart the editor after installation
+and confirm the language indicator reads `Nyx` for `.nyx` files.
 ## Target selection
 
 `#target` is optional. Without an override Nyx uses the native C++20 target.

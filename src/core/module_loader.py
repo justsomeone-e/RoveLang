@@ -1,5 +1,6 @@
 import os
 import sys
+from dataclasses import dataclass
 from typing import Dict, List, Set, Optional, Tuple
 
 _root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -15,6 +16,7 @@ from src.core.ast_nodes import (
 )
 from src.core.diagnostics import DiagnosticEmitter
 from src.core.foreign_bindings import ForeignBindingRegistry
+from src.core.identities import DefId, ModuleGraph, ModuleId
 from src.core.backend_capabilities import (
     PENDING_FOREIGN_ECOSYSTEMS,
     foreign_import_targets,
@@ -25,20 +27,47 @@ from src.core.backend_capabilities import (
 )
 from src.toolchain.manifest import NyxLock
 
+
+@dataclass(frozen=True, slots=True)
+class LoadedProgramGraph:
+    root: ModuleId
+    graph: ModuleGraph
+    modules: Tuple[Tuple[ModuleId, ProgramNode], ...]
+    compatibility_program: ProgramNode
+    sources: Tuple[Tuple[ModuleId, str], ...]
+
+    def module(self, module_id: ModuleId) -> ProgramNode:
+        for candidate, program in self.modules:
+            if candidate == module_id:
+                return program
+        raise KeyError(module_id)
+
+    def source(self, module_id: ModuleId) -> str:
+        for candidate, source in self.sources:
+            if candidate == module_id:
+                return source
+        raise KeyError(module_id)
+
 class ModuleLoader:
     def __init__(
         self,
         base_dir: Optional[str] = None,
         target: Optional[str] = None,
+        track_identities: bool = True,
     ):
         self.base_dir = base_dir or os.getcwd()
         self.stdlib_dir = os.path.join(_root_dir, "src", "stdlib")
         self.requested_target = target
+        self.track_identities = track_identities
         self.target_name = ""
         self.loaded_modules: Dict[str, ProgramNode] = {}
         self.import_stack: List[str] = []
         self.symbol_origins: Dict[str, str] = {}
+        self.symbol_definitions: Dict[str, DefId] = {}
         self.collected_declarations: List[ASTNode] = []
+        self.module_programs: Dict[ModuleId, ProgramNode] = {}
+        self.module_sources: Dict[ModuleId, str] = {}
+        self.module_graph = ModuleGraph()
         self._foreign_bindings: Optional[ForeignBindingRegistry] = None
         self.package_roots = self._load_package_roots()
 
@@ -113,9 +142,14 @@ class ModuleLoader:
     def load_program(self, root_filepath: str, source: Optional[str] = None) -> ProgramNode:
         """Loads root program and transitively resolves all imported modules."""
         abs_root = os.path.abspath(root_filepath) if root_filepath != "<memory>" else "<memory>"
+        self.loaded_modules = {}
         self.import_stack = [abs_root]
         self.symbol_origins = {}
+        self.symbol_definitions = {}
         self.collected_declarations = []
+        self.module_programs = {}
+        self.module_sources = {}
+        self.module_graph = ModuleGraph()
         
         if source is None:
             with open(abs_root, "r", encoding="utf-8-sig") as f:
@@ -134,6 +168,7 @@ class ModuleLoader:
                 help_msg="Run 'nyx targets' to inspect canonical target names and aliases."
             )
         root_ast.target = self.target_name
+        root_module_ast = ProgramNode(root_ast.target, list(root_ast.statements))
         
         root_stmts: List[ASTNode] = []
 
@@ -143,10 +178,30 @@ class ModuleLoader:
                 self._process_import(stmt, abs_root, source)
             else:
                 root_stmts.append(stmt)
+
+        self._register_module(abs_root, source, root_ast)
+        self.module_programs[self._module_id_for_path(abs_root)] = root_module_ast
+        self.module_sources[self._module_id_for_path(abs_root)] = source
                 
         # Merge all collected imported declarations before root statements
         root_ast.statements = self.collected_declarations + root_stmts
         return root_ast
+
+    def load_program_graph(
+        self,
+        root_filepath: str,
+        source: Optional[str] = None,
+    ) -> LoadedProgramGraph:
+        """Load modules while retaining boundaries beside the legacy flat AST."""
+        compatibility = self.load_program(root_filepath, source)
+        root_path = os.path.abspath(root_filepath) if root_filepath != "<memory>" else "<memory>"
+        return LoadedProgramGraph(
+            self._module_id_for_path(root_path),
+            self.module_graph,
+            tuple(sorted(self.module_programs.items(), key=lambda item: item[0].stable_key())),
+            compatibility,
+            tuple(sorted(self.module_sources.items(), key=lambda item: item[0].stable_key())),
+        )
 
     def _process_import(self, imp: ImportNode, parent_file: str, parent_source: str):
         if imp.ecosystem is not None:
@@ -207,6 +262,13 @@ class ModuleLoader:
             )
             return
 
+        if self.track_identities:
+            self.module_graph.add_import(
+                self._module_id_for_path(parent_file),
+                self._module_id_for_path(target_path),
+                imp.symbols if imp.symbols else None,
+            )
+
         stdlib_module = stdlib_module_from_import(imp.path)
         if stdlib_module is not None:
             contract = get_stdlib_contract(stdlib_module)
@@ -254,6 +316,10 @@ class ModuleLoader:
             for s in module_ast.statements:
                 if isinstance(s, ImportNode):
                     self._process_import(s, target_path, mod_src)
+
+            self._register_module(target_path, mod_src, module_ast)
+            self.module_programs[self._module_id_for_path(target_path)] = module_ast
+            self.module_sources[self._module_id_for_path(target_path)] = mod_src
                     
             self.loaded_modules[target_path] = module_ast
             self.import_stack.pop()
@@ -283,9 +349,21 @@ class ModuleLoader:
 
                 origin = getattr(s, "_origin_module", target_path)
                 s._origin_module = origin
+                definition_id = self.module_graph.resolve_export(
+                    self._module_id_for_path(origin), sym_name
+                ) if self.track_identities else None
 
                 # Ambiguous symbol collision check
-                if sym_name in self.symbol_origins and self.symbol_origins[sym_name] != origin:
+                existing_definition = self.symbol_definitions.get(sym_name)
+                is_distinct_definition = (
+                    definition_id is not None
+                    and existing_definition is not None
+                    and definition_id != existing_definition
+                )
+                if sym_name in self.symbol_origins and (
+                    is_distinct_definition
+                    or (definition_id is None and self.symbol_origins[sym_name] != origin)
+                ):
                     prev_origin = self.symbol_origins[sym_name]
                     DiagnosticEmitter.emit_error(
                         parent_file, parent_source, imp.line, imp.col,
@@ -296,4 +374,91 @@ class ModuleLoader:
                     )
                 elif sym_name not in self.symbol_origins:
                     self.symbol_origins[sym_name] = origin
+                    if definition_id is not None:
+                        self.symbol_definitions[sym_name] = definition_id
                     self.collected_declarations.append(s)
+
+    def _module_id_for_path(self, filepath: str) -> ModuleId:
+        if filepath == "<memory>":
+            return ModuleId("memory", "main")
+        resolved = os.path.realpath(filepath)
+        roots = [("std", os.path.realpath(self.stdlib_dir))]
+        roots.extend(
+            (name, os.path.realpath(root)) for name, root in self.package_roots.items()
+        )
+        roots.append(("root", os.path.realpath(self.base_dir)))
+        for package, root in roots:
+            try:
+                if os.path.commonpath((resolved, root)) != root:
+                    continue
+            except ValueError:
+                continue
+            relative = os.path.relpath(resolved, root).replace("\\", "/")
+            if relative.endswith(".nyx"):
+                relative = relative[:-4]
+            return ModuleId(package, relative)
+        return ModuleId("external", os.path.basename(resolved).removesuffix(".nyx"))
+
+    def _register_module(self, filepath: str, source: str, program: ProgramNode) -> None:
+        if not self.track_identities:
+            return
+        self.module_graph.register_module(
+            self._module_id_for_path(filepath),
+            filepath,
+            source,
+            (
+                (self._declaration_name(statement), signature)
+                for statement in program.statements
+                if (signature := self._public_signature(statement)) is not None
+            ),
+        )
+
+    @staticmethod
+    def _declaration_name(value: ASTNode) -> str:
+        return str(getattr(value, "name", type(value).__name__))
+
+    @staticmethod
+    def _type_signature(value: object) -> str:
+        return str(value) if value is not None else "any"
+
+    def _function_signature(self, value: FunctionDefNode) -> str:
+        params = ",".join(
+            self._type_signature(param.type_annot) for param in value.params
+        )
+        generics = ",".join(value.generic_params)
+        return (
+            f"fn:{value.name}<{generics}>({params})->"
+            f"{self._type_signature(value.return_type)}:async={int(value.is_async)}"
+        )
+
+    def _public_signature(self, value: ASTNode) -> Optional[str]:
+        if isinstance(value, FunctionDefNode):
+            return self._function_signature(value)
+        if isinstance(value, StructDefNode):
+            fields = ",".join(
+                f"{field.name}:{self._type_signature(field.type_annot)}"
+                for field in value.fields
+            )
+            return f"struct:{value.name}<{','.join(value.generic_params)}>({fields})"
+        if isinstance(value, TraitDefNode):
+            methods = ";".join(self._function_signature(method) for method in value.methods)
+            return f"trait:{value.name}({methods})"
+        if isinstance(value, TypeAliasNode):
+            return f"type:{value.name}={self._type_signature(value.actual_type)}"
+        if isinstance(value, EnumDefNode):
+            members = ",".join(
+                f"{member.name}({','.join(self._type_signature(item) for item in member.payload_types)})"
+                for member in value.members
+            )
+            return f"enum:{value.name}<{','.join(value.generic_params)}>({members})"
+        if isinstance(value, ExternFnDeclNode):
+            params = ",".join(
+                self._type_signature(param.type_annot) for param in value.params
+            )
+            return (
+                f"extern:{value.abi}:{value.name}({params})->"
+                f"{self._type_signature(value.return_type)}:varargs={int(value.is_varargs)}"
+            )
+        if isinstance(value, VarDeclNode):
+            return f"global:{value.name}:{self._type_signature(value.type_annot)}"
+        return None

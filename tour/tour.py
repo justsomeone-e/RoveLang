@@ -51,16 +51,20 @@ STATE_FILE = ".tour-state.json"
 
 
 class TourApp:
-    def __init__(self, tour_dir: Optional[str] = None, workspace_dir: Optional[str] = None):
+    def __init__(self, tour_dir: Optional[str] = None, workspace_dir: Optional[str] = None,
+                 track: str = "all"):
         self.tour_dir = tour_dir or os.path.dirname(os.path.abspath(__file__))
         self.workspace_dir = os.path.abspath(workspace_dir) if workspace_dir else self.tour_dir
         self.repo_dir = os.path.abspath(os.path.join(self.tour_dir, ".."))
+        self.track = track
         self.exercises_file = os.path.join(self.workspace_dir, "exercises.json")
         if not os.path.isfile(self.exercises_file):
             self.exercises_file = os.path.join(self.tour_dir, "exercises.json")
-        self.state_path = os.path.join(self.workspace_dir, STATE_FILE)
+        state_file = STATE_FILE if track == "all" else f".tour-{track}-state.json"
+        self.state_path = os.path.join(self.workspace_dir, state_file)
 
         self.exercises: List[Dict[str, Any]] = self._load_exercises()
+        self.lessons = self._load_lessons()
         self.runner = NyxRunner(repo_dir=self.repo_dir)
 
         self.state = self._load_state()
@@ -74,7 +78,33 @@ class TourApp:
             print(f"Error: {self.exercises_file} not found.")
             sys.exit(1)
         with open(self.exercises_file, "r", encoding="utf-8") as f:
-            return json.load(f)
+            exercises = json.load(f)
+        if self.track == "all":
+            return exercises
+
+        track_file = os.path.join(self.tour_dir, f"{self.track}_path.json")
+        if not os.path.isfile(track_file):
+            raise ValueError(f"Unknown Tour track: {self.track}")
+        with open(track_file, "r", encoding="utf-8") as f:
+            track_ids = json.load(f)
+        by_id = {exercise["id"]: exercise for exercise in exercises}
+        missing = [exercise_id for exercise_id in track_ids if exercise_id not in by_id]
+        if missing:
+            raise ValueError(f"Tour track contains unknown exercise IDs: {', '.join(missing)}")
+        return [by_id[exercise_id] for exercise_id in track_ids]
+
+    def _load_lessons(self) -> Dict[str, Dict[str, str]]:
+        if self.track != "core":
+            return {}
+        lesson_file = os.path.join(self.tour_dir, "core_lessons.json")
+        if not os.path.isfile(lesson_file):
+            return {}
+        with open(lesson_file, "r", encoding="utf-8") as f:
+            lessons = json.load(f)
+        missing = [exercise["id"] for exercise in self.exercises if exercise["id"] not in lessons]
+        if missing:
+            raise ValueError(f"Core lessons missing exercise IDs: {', '.join(missing)}")
+        return lessons
 
     def _load_state(self) -> Dict[str, Any]:
         if os.path.isfile(self.state_path):
@@ -166,7 +196,10 @@ class TourApp:
         # 3. Lesson Info Card
         ex_path = ex["path"]
         hint_lvl = self.hint_levels.get(ex["id"], 0)
-        print(format_info_card(ex["topic"], ex_path, ex["description"], hint_lvl))
+        print(format_info_card(
+            ex["topic"], ex_path, ex["description"], hint_lvl,
+            self.lessons.get(ex["id"])
+        ))
         print()
 
         # 4. Result Card (Success or Error)
@@ -524,10 +557,12 @@ Nasıl Çalışır?
 def main():
     parser = argparse.ArgumentParser(description="Tour of Nyx - Interactive Terminal Learning CLI")
     parser.add_argument("command", nargs="?", default="watch",
-                        choices=["watch", "run", "check-all", "hint", "list", "reset", "init"],
+                        choices=["watch", "core", "run", "check-all", "hint", "list", "reset", "init"],
                         help="Tour command (default: watch)")
     parser.add_argument("exercise", nargs="?", default=None, help="Target exercise name, id, or init path")
     parser.add_argument("--workspace", default=None, help="Path to student exercise workspace directory")
+    parser.add_argument("--track", choices=["all", "core"], default="all",
+                        help="Exercise track to use (default: all)")
 
     args = parser.parse_args()
 
@@ -535,9 +570,10 @@ def main():
         init_workspace(args.exercise)
         return
 
-    app = TourApp(workspace_dir=args.workspace)
+    track = "core" if args.command == "core" else args.track
+    app = TourApp(workspace_dir=args.workspace, track=track)
 
-    if args.command == "watch":
+    if args.command in ("watch", "core"):
         app.watch()
     elif args.command == "run":
         if args.exercise:

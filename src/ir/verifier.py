@@ -57,7 +57,7 @@ from .model import (
     IRWhile,
     SourceSpan,
 )
-from .types import ANY, BOOL, FLOAT, INT, NULL, STRING, VOID, IRType, compatible, function_type, task_of
+from .types import ANY, BOOL, FLOAT, INT, NULL, STRING, VOID, IRType, function_type, is_assignable, is_coercible, task_of
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +88,7 @@ class _Definition:
     max_args: Optional[int] = 0
     varargs: bool = False
     is_const: bool = False
+    generic_params: Tuple[str, ...] = ()
 
 
 class IRVerifier:
@@ -128,12 +129,54 @@ class IRVerifier:
             if target.optional:
                 res = res.with_optional(True)
             if target.pointer:
-                res = res.with_pointer(True)
+                res = IRType(
+                    res.name, res.arguments, res.optional, True,
+                    res.parameter_types, res.return_type,
+                )
             return res
-        if target.arguments:
-            new_args = tuple(self._substitute_generics(arg, subs) for arg in target.arguments)
-            return IRType(target.name, new_args, target.optional, target.pointer)
-        return target
+        return IRType(
+            target.name,
+            tuple(self._substitute_generics(arg, subs) for arg in target.arguments),
+            target.optional,
+            target.pointer,
+            tuple(self._substitute_generics(arg, subs) for arg in target.parameter_types),
+            self._substitute_generics(target.return_type, subs) if target.return_type else None,
+        )
+
+    def _infer_generic_substitutions(
+        self,
+        pattern: IRType,
+        actual: IRType,
+        generic_params: Set[str],
+        substitutions: Dict[str, IRType],
+        span: SourceSpan,
+    ) -> None:
+        if pattern.name in generic_params and not pattern.arguments:
+            concrete = IRType(
+                actual.name,
+                actual.arguments,
+                actual.optional and not pattern.optional,
+                actual.pointer and not pattern.pointer,
+                actual.parameter_types,
+                actual.return_type,
+            )
+            previous = substitutions.get(pattern.name)
+            if previous is not None and previous != concrete:
+                self._issue(
+                    "HIR0006",
+                    f"Generic parameter '{pattern.name}' has conflicting concrete types "
+                    f"'{previous}' and '{concrete}'",
+                    span,
+                )
+            else:
+                substitutions[pattern.name] = concrete
+            return
+        if pattern.name != actual.name or len(pattern.arguments) != len(actual.arguments):
+            return
+        for expected, found in zip(pattern.arguments, actual.arguments):
+            self._infer_generic_substitutions(
+                expected, found, generic_params, substitutions, span,
+            )
 
     def verify(self) -> IRModule:
         module_span = SourceSpan(self.module.source_name or "<unknown>", 1, 1)
@@ -332,7 +375,10 @@ class IRVerifier:
             self._collect_parameters(node.params, "parameter")
             self._collect_block(node.body)
         elif isinstance(node, IRStruct):
-            result = IRType(node.name)
+            result = IRType(
+                node.name,
+                tuple(IRType(name) for name in node.generic_params),
+            )
             self._define(
                 node.symbol,
                 _Definition(
@@ -343,6 +389,9 @@ class IRVerifier:
                     node.fields,
                     sum(field.default is None for field in node.fields),
                     len(node.fields),
+                    False,
+                    False,
+                    node.generic_params,
                 ),
             )
             self._collect_parameters(node.fields, "field")
@@ -370,13 +419,14 @@ class IRVerifier:
                         IRParameter(
                             f"payload_{index}",
                             f"{symbol}::param::{index}",
-                            ANY if payload_type.name in node.generic_params else payload_type,
+                            payload_type,
                         )
                         for index, payload_type in enumerate(member.payload_types)
                     )
                     self._define_callable(
                         symbol, member.name, "enum-variant", parameters,
-                        IRType(node.name), node.span, False,
+                        IRType(node.name, tuple(IRType(name) for name in node.generic_params)),
+                        node.span, False, node.generic_params,
                     )
         elif isinstance(node, IRExternFunction):
             self._define_callable(
@@ -553,6 +603,7 @@ class IRVerifier:
             public_result,
             node.span,
             False,
+            node.generic_params,
         )
 
     def _define_callable(
@@ -564,6 +615,7 @@ class IRVerifier:
         result: IRType,
         span: SourceSpan,
         varargs: bool,
+        generic_params: Tuple[str, ...] = (),
     ) -> None:
         required = sum(parameter.default is None for parameter in parameters)
         self._define(
@@ -577,6 +629,8 @@ class IRVerifier:
                 required,
                 None if varargs else len(parameters),
                 varargs,
+                False,
+                generic_params,
             ),
         )
 
@@ -796,7 +850,10 @@ class IRVerifier:
                 elif collection_type not in (ANY, STRING):
                     self._issue("HIR0006", f"Type '{collection_type}' is not iterable", node.collection_expr.span)
             definition = self.definitions.get(node.symbol)
-            if definition is not None and not compatible(definition.type, item_type):
+            if definition is not None and not (
+                is_assignable(definition.type, item_type)
+                or is_coercible(item_type, definition.type)
+            ):
                 self._issue("HIR0006", f"Loop variable '{node.var_name}' has incompatible type", node.span)
             loop_active = set(active)
             loop_active.add(node.symbol)
@@ -1053,14 +1110,31 @@ class IRVerifier:
                 f"Call '{expr.callee}' has {count} argument(s); expected {definition.required_args}..{maximum}",
                 expr.span,
             )
+        substitutions: Dict[str, IRType] = {}
+        generic_params = set(definition.generic_params)
+        for argument, parameter in zip(expr.args, definition.parameters):
+            self._infer_generic_substitutions(
+                parameter.type, argument.type, generic_params, substitutions, argument.span,
+            )
+        # Some constructors (notably payload enum variants) cannot infer every
+        # generic parameter from their payload list. The concrete expression
+        # type is the remaining source of truth for those return-only params.
+        if definition.type.return_type is not None:
+            self._infer_generic_substitutions(
+                definition.type.return_type,
+                expr.type,
+                generic_params,
+                substitutions,
+                expr.span,
+            )
         for index, (argument, parameter) in enumerate(zip(expr.args, definition.parameters)):
             self._expect_compatible(
-                parameter.type,
+                self._substitute_generics(parameter.type, substitutions),
                 argument.type,
                 argument.span,
                 f"Argument {index + 1} of '{expr.callee}'",
             )
-        result = definition.type.return_type or VOID
+        result = self._substitute_generics(definition.type.return_type or VOID, substitutions)
         self._expect_compatible(result, expr.type, expr.span, f"Result of '{expr.callee}'")
 
     def _verify_binary(self, expr: IRBinary) -> None:
@@ -1144,7 +1218,12 @@ class IRVerifier:
         span: SourceSpan,
         context: str,
     ) -> None:
-        if not compatible(self._resolve_alias(expected), self._resolve_alias(actual)):
+        resolved_expected = self._resolve_alias(expected)
+        resolved_actual = self._resolve_alias(actual)
+        if not (
+            is_assignable(resolved_expected, resolved_actual)
+            or is_coercible(resolved_actual, resolved_expected)
+        ):
             self._issue("HIR0006", f"{context}: expected '{expected}', found '{actual}'", span)
 
     def _resolve_alias(self, value_type: IRType) -> IRType:

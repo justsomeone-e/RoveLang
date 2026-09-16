@@ -122,6 +122,10 @@ class _CppEmitter:
     @staticmethod
     def _runtime() -> str:
         return """namespace nyx_mir_runtime {
+struct user_throw {
+    std::string value;
+};
+
 inline std::int64_t from_bits(std::uint64_t value) {
     return std::bit_cast<std::int64_t>(value);
 }
@@ -344,6 +348,19 @@ void print(const Values&... values) {
                     lines = [f"    {self._place(terminator.destination)} = {call};"]
             else:
                 raise MIRCodegenError(f"illegal runtime call reached C++ emitter: {terminator.function}")
+            if terminator.unwind is not None:
+                if terminator.error_destination is None:
+                    raise MIRCodegenError("C++ MIR call unwind requires an error destination")
+                wrapped = ["    try {"]
+                wrapped.extend(f"    {line}" for line in lines)
+                wrapped.extend((
+                    "    } catch (const nyx_mir_runtime::user_throw& thrown) {",
+                    f"        {self._place(terminator.error_destination)} = thrown.value;",
+                    f"        goto bb{terminator.unwind};",
+                    "    }",
+                    f"    goto bb{terminator.target};",
+                ))
+                return wrapped
             lines.append(f"    goto bb{terminator.target};")
             return lines
         if isinstance(terminator, AssertTerminator):
@@ -361,7 +378,9 @@ void print(const Values&... values) {
                     f"    {self._place(terminator.destination)} = {thrown};",
                     f"    goto bb{terminator.target};",
                 ]
-            return [f"    throw std::runtime_error(nyx_mir_runtime::to_string({thrown}));"]
+            return [
+                f"    throw nyx_mir_runtime::user_throw{{nyx_mir_runtime::to_string({thrown})}};"
+            ]
         if isinstance(terminator, DropTerminator):
             if terminator.unwind is not None:
                 raise MIRCodegenError("C++ MIR drop unwind edge was not legalized")

@@ -23,11 +23,24 @@ class _OpenBlock:
 
 
 class MIRFunctionBuilder:
-    def __init__(self, name: str, symbol: str, return_type: MIRType, span: MIRSpan):
+    def __init__(
+        self,
+        name: str,
+        symbol: str,
+        return_type: MIRType,
+        span: MIRSpan,
+        *,
+        is_async: bool = False,
+    ):
         self.name = name
         self.symbol = symbol
         self.span = span
+        self.is_async = is_async
         self._locals: list[MIRLocal] = [MIRLocal(0, "_return", return_type, "return", span)]
+        self.coroutine_state_local: int | None = None
+        if is_async:
+            self.coroutine_state_local = 1
+            self._locals.append(MIRLocal(1, "_coroutine_state", MIRType("int"), "coroutine-state", span))
         self._parameters: list[int] = []
         self._blocks: list[_OpenBlock] = []
 
@@ -75,6 +88,7 @@ class MIRFunctionBuilder:
                 for block in self._blocks
             ),
             span=self.span,
+            is_async=self.is_async,
         )
 
     def _block(self, block: int) -> _OpenBlock:

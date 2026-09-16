@@ -28,6 +28,9 @@ bash tour.sh
 
 # Direct Python
 python tour/tour.py
+
+# Explicit Core Path invocation (also the launcher default)
+python tour/tour.py core
 ```
 
 Or double-click **`Tour of Nyx.bat`** on your Desktop!
@@ -50,7 +53,21 @@ While in watch mode, the Tour monitors your current exercise file in real-time. 
 
 ---
 
-## 📚 Curriculum (81 Exercises across 21 Modules)
+## Learning route
+
+The Tour has two layers:
+
+- **Core Path:** a project-driven route for learning Nyx from the first print
+  statement to a multi-module application. Read [`CORE_PATH.md`](CORE_PATH.md)
+  first.
+- **Practice Lab:** the complete verified exercise corpus. Use it to repeat a
+  topic, compare solutions, or explore a feature outside the main route.
+
+Each Core Path chapter answers four questions: why the feature exists, what
+the smallest working example looks like, what you should change, and where
+the feature is useful in a real program.
+
+## Practice Lab curriculum (81 exercises across 21 modules)
 
 The first modules establish the language fundamentals. Later modules require
 observable behavior—typed error propagation, single evaluation, task reuse,
@@ -165,8 +182,17 @@ repeating keywords in isolation.
 ## 🛠️ CLI Subcommands
 
 ```bash
-# Watch mode (default)
+# Core Path (default launcher behavior)
 tour.bat
+
+# Watch mode with the full Practice Lab
+tour.bat --track all
+
+# Direct Python watch mode (full Practice Lab)
+python tour/tour.py
+
+# Check only the Core Path
+tour.bat --track core check-all
 
 # Check all exercises and display overall progress table
 tour.bat check-all
@@ -185,6 +211,9 @@ tour.bat reset variables01
 
 # Reset all exercises and reset state
 tour.bat reset all
+
+# Reset the Core Path progress
+tour.bat --track core reset all
 ```
 
 ---

@@ -16,7 +16,7 @@ from .model import (
     GotoTerminator, IndexProjection, MIRFunction, MIRModule, MIRStructDef,
     MoveOperand, NopStatement, Operand, PayloadRValue, Place, ReturnTerminator,
     StorageDeadStatement, StorageLiveStatement, SwitchIntTerminator,
-    SwitchValueTerminator, UnaryRValue, UnreachableTerminator, UseRValue,
+    SwitchValueTerminator, ThrowTerminator, UnaryRValue, UnreachableTerminator, UseRValue,
 )
 from .types import MIRType
 
@@ -26,6 +26,11 @@ import math
 
 NYX_I64_MASK = (1 << 64) - 1
 NYX_I64_SIGN = 1 << 63
+
+class NyxUserThrow(Exception):
+    def __init__(self, value):
+        super().__init__(value)
+        self.value = value
 
 def nyx_i64(value):
     value = int(value) & NYX_I64_MASK
@@ -216,6 +221,17 @@ class _PythonEmitter:
                     line = call
             else:
                 raise MIRCodegenError(f"illegal runtime call reached Python emitter: {value.function}")
+            if value.unwind is not None:
+                if value.error_destination is None:
+                    raise MIRCodegenError("Python MIR call unwind requires an error destination")
+                return [
+                    "try:",
+                    f"    {line}",
+                    "except NyxUserThrow as error:",
+                    f"    {self._place(value.error_destination)} = error.value",
+                    f"    pc = {value.unwind}",
+                    "    continue",
+                ] + self._goto(value.target)
             return [line] + self._goto(value.target)
         if isinstance(value, AssertTerminator):
             expected = self._bool(value.expected)
@@ -223,6 +239,13 @@ class _PythonEmitter:
                 f"if bool({self._operand(value.condition)}) is not {expected}:",
                 f"    raise RuntimeError({json.dumps(value.message, ensure_ascii=False)})",
             ] + self._goto(value.target)
+        if isinstance(value, ThrowTerminator):
+            rendered = self._operand(value.value)
+            if value.target is not None and value.destination is not None:
+                return [self._assign_place(value.destination, f"nyx_display({rendered})")] + self._goto(
+                    value.target
+                )
+            return [f"raise NyxUserThrow(nyx_display({rendered}))"]
         if isinstance(value, ReturnTerminator):
             assert self.current is not None
             result = self.current.locals[self.current.return_local].type

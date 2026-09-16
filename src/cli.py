@@ -372,7 +372,8 @@ def cmd_build(
                 print(f"\033[93m[!] Shared library generation failed:\033[0m {msg}")
                 return 1
         else:
-            out_exe = os.path.join(build_dir, f"{base_name}.exe")
+            executable_name = f"{base_name}.exe" if os.name == "nt" else base_name
+            out_exe = os.path.join(build_dir, executable_name)
             ok, msg = CppToolchain.compile_cpp(out_cpp, out_exe, codegen.get_link_libraries(), output_type="exe")
             if ok:
                 print(f"\033[92m[OK] Compiled Native Executable:\033[0m {out_exe}")
@@ -380,7 +381,7 @@ def cmd_build(
                     "\033[96m[>] Run in a persistent terminal:\033[0m "
                     f'nyx run "{entry_file}" --target cpp'
                 )
-                print("\033[90m    (A console EXE closes normally as soon as main finishes.)\033[0m")
+                print("\033[90m    (A console program exits normally as soon as main finishes.)\033[0m")
                 return 0
             else:
                 print(f"\033[93m[!] Transpiled C++ source generated at:\033[0m {out_cpp}")
@@ -413,7 +414,8 @@ def cmd_build(
         out_s = os.path.join(build_dir, f"{base_name}.s")
         ok, msg = CppToolchain.compile_cpp(temp_cpp, out_s, codegen.get_link_libraries(), output_type="asm")
         if ok and os.path.exists(out_s):
-            out_exe = os.path.join(build_dir, f"{base_name}.exe")
+            executable_name = f"{base_name}.exe" if os.name == "nt" else base_name
+            out_exe = os.path.join(build_dir, executable_name)
             CppToolchain.compile_cpp(temp_cpp, out_exe, codegen.get_link_libraries(), output_type="exe")
             print(f"\033[96m[*] Generated Assembly (Intel x86_64):\033[0m {out_s}")
             if os.path.exists(out_exe):
@@ -492,7 +494,8 @@ def cmd_run(entry_file, target) -> int:
         with open(temp_cpp, "w", encoding="utf-8") as f:
             f.write(cpp_code)
         out_s = os.path.join(build_dir, f"{base_name}.s")
-        out_exe = os.path.join(build_dir, f"{base_name}.exe")
+        executable_name = f"{base_name}.exe" if os.name == "nt" else base_name
+        out_exe = os.path.join(build_dir, executable_name)
         CppToolchain.compile_cpp(temp_cpp, out_s, codegen.get_link_libraries(), output_type="asm")
         ok, msg = CppToolchain.compile_cpp(temp_cpp, out_exe, codegen.get_link_libraries(), output_type="exe")
         if ok and os.path.exists(out_exe):
@@ -536,7 +539,8 @@ def cmd_run(entry_file, target) -> int:
         return result.returncode
     elif target == "cpp":
         out_cpp = os.path.join(build_dir, f"{base_name}.cpp")
-        out_exe = os.path.join(build_dir, f"{base_name}.exe")
+        executable_name = f"{base_name}.exe" if os.name == "nt" else base_name
+        out_exe = os.path.join(build_dir, executable_name)
         with open(out_cpp, "w", encoding="utf-8") as f:
             f.write(codegen.gen_cpp())
         ok, msg = CppToolchain.compile_cpp(out_cpp, out_exe, codegen.get_link_libraries(), output_type="exe")
@@ -559,7 +563,8 @@ def cmd_run(entry_file, target) -> int:
         print(f"\033[96m[*] Transpiled Rust 2021 Source:\033[0m {out_rs}")
         rustc = shutil.which("rustc")
         if rustc:
-            out_exe = os.path.join(build_dir, f"{base_name}.exe")
+            executable_name = f"{base_name}.exe" if os.name == "nt" else base_name
+            out_exe = os.path.join(build_dir, executable_name)
             out_obj = os.path.join(build_dir, f"{base_name}.o")
             res = subprocess.run([rustc, "--edition=2021", out_rs, "-o", out_exe], capture_output=True, text=True)
             if res.returncode == 0 and os.path.exists(out_exe):

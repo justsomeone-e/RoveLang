@@ -4,7 +4,7 @@
 // TODO: Change `let` to `var` so that `count` can be incremented.
 
 fn main() {
-    let count = 10
+    var count = 10
     set count = count + 5
     print("Updated count:", count)
 }

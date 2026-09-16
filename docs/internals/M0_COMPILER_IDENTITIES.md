@@ -1,7 +1,7 @@
 # M0 compiler identity contract
 
-Status: design contract. No runtime representation or public HIR schema changes
-are introduced by M0.
+Status: internal identity foundation implemented on 2026-09-14. Public Typed
+HIR v1 symbols and serialization remain unchanged.
 
 Nyx currently carries many names as strings. That is sufficient for the v5
 compiler, but it cannot safely support incremental compilation, multiple
@@ -15,7 +15,7 @@ the following identity roles before any new IR is implemented.
 | `SourceId` | source revision | one compiler database | Content-addressed source plus revision identity |
 | `ModuleId` | source module | one dependency graph | Canonical module after path and package resolution |
 | `NodeId` | syntax node | one parsed source revision | Concrete syntax occurrence; never reused after reparsing |
-| `DefId` | declaration | one resolved package graph | `(package, module, local definition index)` |
+| `DefId` | declaration | one resolved package graph | `(package, module, declaration-path hash)` plus a transient local index |
 | `SymbolId` | bound name | one semantic session | A binding or reference resolved to a `DefId` or local slot |
 | `TypeId` | interned type | one compiler session | Canonical structural type identity |
 | `InstanceId` | monomorphized definition | one compilation graph | A `DefId` plus canonical generic arguments and target-independent substitutions |
@@ -32,8 +32,9 @@ session and must never be persisted as if they were stable across revisions.
 2. `NodeId` is allocated by the parser in source order and is invalidated when
    that source file is reparsed.
 3. `DefId` is allocated after module resolution. Its public form includes the
-   package and module identity; its local index is deterministic for an
-   unchanged declaration order.
+   package/module identity and a declaration-path hash. Its local index is
+   traversal metadata, so inserting a neighboring declaration does not change
+   identity.
 4. `SymbolId` is not derived from spelling. Shadowed names receive different
    identities, and every reference records the identity it resolved to.
 5. `TypeId` is produced by interning canonical type structure. Aliases retain a
@@ -55,12 +56,30 @@ authoritative until an explicitly versioned HIR migration exists. Adding an
 internal identity table is allowed, but changing serialized symbol meaning,
 Bundle ABI v1, lockfile v1, or stable backend output is outside M0.
 
-MIR may consume these identities only after it can prove that lowering keeps
+MIR may consume these identities only through verified lowering that keeps
 source spans, symbol resolution, evaluation order, effects, and diagnostics.
-Until then, `mir` remains `planned` in `compiler/features.toml` and cannot become
-the default compilation path.
+The MIR stages are now registered as `experimental` in `compiler/features.toml`;
+they remain off the default compilation path until their promotion gates pass.
 
-## Required proof before implementation
+## Current implementation
+
+[`src/core/identities.py`](../../src/core/identities.py) provides structural,
+serializable `SourceId`, `ModuleId`, `NodeId`, `DefId`, `SymbolId`, `TypeId`,
+and `InstanceId` values. `ModuleLoader` records a side-channel `ModuleGraph`
+with import edges, declaration-path `DefId` values, interned structural types,
+and separate public-interface and implementation fingerprints. The established
+flattened AST remains the compilation compatibility output while downstream
+passes migrate to graph queries.
+
+`tests/module_resolution_suite.py` proves the required M0 boundary: distinct
+modules cannot collide, unchanged declarations retain deterministic `DefId`
+keys, changed source invalidates `NodeId`, equal structural types intern to one
+`TypeId`, implementation-only edits retain the interface fingerprint, and
+identity tracking enabled/disabled produces byte-identical Typed HIR v1 JSON.
+It also verifies that inserting a neighboring declaration does not change an
+existing declaration's identity.
+
+## Verified proof boundary
 
 - identical definitions in separate modules do not collide;
 - shadowed locals resolve to distinct symbols;

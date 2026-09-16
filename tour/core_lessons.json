@@ -1,0 +1,152 @@
+{
+  "intro01": {
+    "why": "Every program needs a first observable result.",
+    "learn": "Nyx allows top-level code, and a function can be called explicitly.",
+    "task": "Run the starter program, then change the greeting and run it again.",
+    "expected": "A greeting appears in the terminal."
+  },
+  "intro02": {
+    "why": "A compiler can only understand complete source expressions.",
+    "learn": "String literals must begin and end with the same quote character.",
+    "task": "Read the diagnostic, find the unmatched quote, and repair the print call.",
+    "expected": "The program compiles and prints one complete sentence."
+  },
+  "variables01": {
+    "why": "Names make values readable and let the compiler check your intent.",
+    "learn": "`let` creates an immutable binding; its value cannot be reassigned.",
+    "task": "Declare `x` with the value 42, then inspect the existing output.",
+    "expected": "The program prints `x is: 42`."
+  },
+  "variables02": {
+    "why": "Some state changes during a program, such as a score or counter.",
+    "learn": "Use `var` for mutable state and `set` for an explicit update.",
+    "task": "Change the binding to mutable and keep the update legal.",
+    "expected": "The counter changes without a const or immutable-binding error."
+  },
+  "variables05": {
+    "why": "Programs become useful when they calculate values from input data.",
+    "learn": "Expressions can combine typed bindings with arithmetic operators.",
+    "task": "Calculate the rectangle area from the existing width and height.",
+    "expected": "The calculated area is printed instead of a hard-coded number."
+  },
+  "types01": {
+    "why": "Static types catch incorrect assumptions before the program runs.",
+    "learn": "A decimal value belongs to `float`, while a whole-number value belongs to `int`.",
+    "task": "Make the annotation match the decimal value and read the diagnostic carefully.",
+    "expected": "The file passes the type checker."
+  },
+  "functions01": {
+    "why": "A named operation can be reused instead of copied.",
+    "learn": "`fn` defines a function; its body runs when the function is called.",
+    "task": "Define `call_me` and call it from the existing program.",
+    "expected": "The message is printed once by the function."
+  },
+  "functions02": {
+    "why": "Typed function boundaries document what goes in and comes out.",
+    "learn": "Parameters receive values and `-> int` declares the return type.",
+    "task": "Complete the multiplication function without changing its contract.",
+    "expected": "The caller receives the product as an integer."
+  },
+  "if01": {
+    "why": "A program needs to choose a response based on its data.",
+    "learn": "`if`, `elif`, and `else` select one branch in order.",
+    "task": "Complete the temperature decision and test more than one value.",
+    "expected": "The correct message is selected for each temperature range."
+  },
+  "loops01": {
+    "why": "Repetition is clearer and safer when the range is explicit.",
+    "learn": "`for i in 1..5` visits an inclusive numeric range in Nyx.",
+    "task": "Sum the numbers in the range and print the accumulated result.",
+    "expected": "The total is 15."
+  },
+  "loops02": {
+    "why": "Some loops continue until state reaches a condition.",
+    "learn": "A `while` loop checks its condition before each iteration.",
+    "task": "Update the counter so the countdown reaches zero and terminates.",
+    "expected": "The output counts down to 0 without an infinite loop."
+  },
+  "match01": {
+    "why": "Many branches become easier to read when they describe values directly.",
+    "learn": "`match` selects an arm, and `_` provides a required fallback.",
+    "task": "Add the fallback arm and decide what unknown input should produce.",
+    "expected": "Known input matches its arm and unknown input is handled safely."
+  },
+  "arrays01": {
+    "why": "Real programs usually process a collection rather than one value.",
+    "learn": "Array indexes start at zero and return an element of the array type.",
+    "task": "Read the second inventory item using its zero-based index.",
+    "expected": "The item `Sapphire` is printed."
+  },
+  "arrays03": {
+    "why": "Aggregating a collection is a common pattern in applications.",
+    "learn": "A loop can maintain an accumulator while visiting each array element.",
+    "task": "Add every number in the array to the existing sum variable.",
+    "expected": "The printed sum equals the sum of all elements."
+  },
+  "structs01": {
+    "why": "A domain object should keep related fields together.",
+    "learn": "A `struct` defines named fields and a value can be created from it.",
+    "task": "Declare the `Point` shape and construct the point used by the program.",
+    "expected": "The point's fields can be accessed by name."
+  },
+  "structs02": {
+    "why": "Behavior belonging to a data type should live near that type.",
+    "learn": "An `impl` block adds methods; `self` refers to the current value.",
+    "task": "Add `self` to the method signature and return the calculated area.",
+    "expected": "Calling the method uses the struct's own fields."
+  },
+  "enums01": {
+    "why": "A value with a small fixed set of states should not be a magic number.",
+    "learn": "An `enum` names its allowed variants and makes state readable.",
+    "task": "Declare `Status` with the three variants used by the program.",
+    "expected": "The program can refer to `Status.Idle`, `Running`, and `Stopped`."
+  },
+  "errors01": {
+    "why": "Recoverable failures should be handled instead of crashing silently.",
+    "learn": "`try` runs fallible code and `catch` handles a thrown error.",
+    "task": "Catch the validation error and print the required fallback message.",
+    "expected": "The error is handled and the program continues normally."
+  },
+  "null01": {
+    "why": "Missing data is normal in user input and external systems.",
+    "learn": "`string?` can contain a string or `null`; `??` supplies a fallback.",
+    "task": "Use the fallback name when the nickname is absent.",
+    "expected": "The program prints `Guest` for a null nickname."
+  },
+  "result02": {
+    "why": "A domain failure is data that a caller may want to recover from.",
+    "learn": "`Result<T, E>` represents either `Ok(value)` or `Err(error)`.",
+    "task": "Return `Err` for division by zero and `Ok` for valid input.",
+    "expected": "Both success and failure paths are represented explicitly."
+  },
+  "result03": {
+    "why": "Nested failure checks become noisy in a multi-step operation.",
+    "learn": "Postfix `?` returns an error from the current function when needed.",
+    "task": "Propagate the source error with `?` instead of repeating a manual branch.",
+    "expected": "The caller receives the original typed error unchanged."
+  },
+  "pipeline01": {
+    "why": "A readable data flow makes transformations easier to inspect.",
+    "learn": "`|>` passes one result into the next function.",
+    "task": "Connect the increment and doubling functions in the given order.",
+    "expected": "The value is transformed once by each stage."
+  },
+  "defer01": {
+    "why": "Resources must be cleaned up even when work exits early.",
+    "learn": "`defer` schedules a call for scope exit.",
+    "task": "Register the lock release before doing the critical work.",
+    "expected": "Cleanup runs when the function returns."
+  },
+  "modules01": {
+    "why": "A growing program needs boundaries between reusable pieces.",
+    "learn": "`import` selects functionality from another module or standard library package.",
+    "task": "Import `sin` and `cos`, then combine their values at angle zero.",
+    "expected": "The module functions are available without copying their implementation."
+  },
+  "quiz01": {
+    "why": "A capstone proves that features work together in a real domain.",
+    "learn": "This project combines structs, methods, arrays, loops, match, and guards.",
+    "task": "Finish the inventory score calculator, then add one item of your own.",
+    "expected": "The final score is calculated from the inventory data, not hard-coded."
+  }
+}

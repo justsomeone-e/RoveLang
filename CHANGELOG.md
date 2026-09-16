@@ -4,12 +4,43 @@ All notable changes to the Nyx compiler, toolchain, and standard library are doc
 
 ---
 
-## [Unreleased]
+## [5.0.2] - 2026-09-16 (Daydream)
 
 ### Fixed
 
 * Make Windows architecture detection and npm executable discovery null-safe
   for Windows PowerShell environments where command/runtime metadata is absent.
+* Register the experimental native `std/http` module for the C++ target and
+  replace shell-interpolated curl commands with bounded, direct process
+  execution on Windows and POSIX hosts.
+* Install Nyx editor support from the Unix installer for VS Code, VS Code
+  Insiders, and VSCodium; syntax highlighting remains available even when npm
+  is absent, while the installer reports that LSP dependencies are unavailable.
+* Emit extensionless native executables on Linux and macOS instead of applying
+  the Windows-only `.exe` suffix.
+* Embed C++, JavaScript, and Rust grammar scopes inside matching `#native`
+  blocks in the VS Code syntax grammar.
+
+### Compiler
+
+* Extend the experimental Rust MIR pilot with native payload enums,
+  discriminant checks, typed payload extraction, and executable parity tests.
+* Add checked compiler identity, generic-instance, static-dispatch, coroutine,
+  effect, and per-module graph foundations with focused verification suites.
+* Expand MIR lowering, verification, legalization, and backend pilot coverage
+  while preserving explicit capability rejection for unsupported targets.
+
+### Tour and documentation
+
+* Add the project-driven Core Path and exercise metadata to the Tour of Nyx.
+* Document the Deep Compiler M9-M24 roadmap, capability-resolution design, and
+  the boundary between implemented evidence and future work.
+
+### Verification
+
+* The final source revision passed the full local regression harness: 138/138
+  suites passed with exit code 0. Hosted CI, release packaging, and native
+  multi-platform artifacts remain workflow evidence rather than local claims.
 
 ## [5.0.1] - 2026-09-08 (Daydream)
 

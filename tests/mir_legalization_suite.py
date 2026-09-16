@@ -50,6 +50,7 @@ from src.mir import (
     lower_hir_to_mir,
     mir_backend_manifest,
 )
+from src.mir.model import MIRField, MIRStructDef
 
 
 SCALAR_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m2_scalar.nyx"
@@ -255,6 +256,67 @@ def _ownership_module() -> MIRModule:
     return MIRModule("m5-ownership.nyx", "cpp", (builder.finish(),))
 
 
+def _rust_value_ownership_module() -> MIRModule:
+    span = MIRSpan("m5-rust-ownership.nyx", 1, 1)
+    string_type = MIRType("string")
+    builder = MIRFunctionBuilder("main", "function::main", MIRType("any"), span)
+    source = builder.new_local("source", string_type)
+    copied = builder.new_local("copied", string_type)
+    moved = builder.new_local("moved", string_type)
+    entry = builder.new_block()
+    after_print = builder.new_block()
+    after_drop = builder.new_block()
+    builder.push_statement(entry, AssignStatement(
+        Place(source), UseRValue(ConstOperand(string_type, "owned")), span
+    ))
+    builder.push_statement(entry, AssignStatement(
+        Place(copied), UseRValue(CopyOperand(Place(source))), span
+    ))
+    builder.push_statement(entry, RetainStatement(Place(copied), span))
+    builder.push_statement(entry, ReleaseStatement(Place(copied), span))
+    builder.push_statement(entry, AssignStatement(
+        Place(moved), UseRValue(MoveOperand(Place(source))), span
+    ))
+    builder.set_terminator(entry, CallTerminator(
+        "builtin::print",
+        (CopyOperand(Place(copied)), CopyOperand(Place(moved))),
+        None,
+        after_print,
+        None,
+        span,
+    ))
+    builder.push_statement(after_print, DeinitStatement(Place(copied), span))
+    builder.set_terminator(after_print, DropTerminator(Place(moved), after_drop, None, span))
+    builder.set_terminator(after_drop, ReturnTerminator(span))
+    return MIRModule("m5-rust-ownership.nyx", "rust", (builder.finish(),))
+
+
+def _rust_mutable_borrow_module() -> MIRModule:
+    span = MIRSpan("m5-rust-mutable-borrow.nyx", 1, 1)
+    int_type = MIRType("int")
+    pointer_type = MIRType("int", pointer=True)
+    builder = MIRFunctionBuilder("main", "function::main", MIRType("any"), span)
+    value = builder.new_local("value", int_type)
+    reference = builder.new_local("reference", pointer_type)
+    entry = builder.new_block()
+    after_print = builder.new_block()
+    builder.push_statement(entry, AssignStatement(
+        Place(value), UseRValue(ConstOperand(int_type, 41)), span
+    ))
+    builder.push_statement(entry, AssignStatement(
+        Place(reference), BorrowRValue(Place(value), True, pointer_type), span
+    ))
+    builder.push_statement(entry, AssignStatement(
+        Place(reference, (DerefProjection(),)), UseRValue(ConstOperand(int_type, 42)), span
+    ))
+    builder.set_terminator(entry, CallTerminator(
+        "builtin::print", (CopyOperand(Place(value)),), None, after_print, None, span
+    ))
+    builder.push_statement(after_print, DeinitStatement(Place(reference), span))
+    builder.set_terminator(after_print, ReturnTerminator(span))
+    return MIRModule("m5-rust-mutable-borrow.nyx", "rust", (builder.finish(),))
+
+
 def _unsupported_operation_module() -> MIRModule:
     span = MIRSpan("m5-unsupported-operation.nyx", 1, 1)
     int_type = MIRType("int")
@@ -276,7 +338,7 @@ def run_mir_legalization_suite() -> bool:
 
     manifest = mir_backend_manifest()
     assert json.loads(json.dumps(manifest)) == manifest
-    assert manifest["schema_version"] == 2
+    assert manifest["schema_version"] == 3
     assert tuple(manifest["migration_order"]) == MIR_BACKEND_MIGRATION_ORDER
     assert tuple(profile["target"] for profile in manifest["profiles"]) == MIR_BACKEND_MIGRATION_ORDER
     assert all(
@@ -370,6 +432,416 @@ def run_mir_legalization_suite() -> bool:
     shifted = _lower_source("fn shifted(x: int) -> int { return x << 64 }\n", "m5-shift.nyx")
     assert not collect_legalization_issues(shifted, "wasm", require_emitter=True)
     assert _run_wasm_export(emit_legalized_wasm(shifted), "shifted", 7) == "7\n"
+
+    wasm_array = _lower_source(
+        "fn array_probe() -> int {\n"
+        "  var original = [1, 2, 3]\n"
+        "  var copied = original\n"
+        "  set copied[0] = 9\n"
+        "  return original[0] * 100 + copied[0] * 10 + len(copied)\n"
+        "}\n",
+        "m5-wasm-array.nyx",
+    )
+    assert not collect_legalization_issues(wasm_array, "wasm", require_emitter=True)
+    assert MIRInterpreter(wasm_array).run("array_probe").value == 193
+    wasm_array_wat = emit_legalized_wat(wasm_array)
+    assert "call $__nyx_mir_array_clone_i64" in wasm_array_wat
+    assert "i64.load" in wasm_array_wat and "i64.store" in wasm_array_wat
+    assert _run_wasm_export(emit_legalized_wasm(wasm_array), "array_probe") == "193\n"
+
+    wasm_bool_array = _lower_source(
+        "fn bool_array_probe() -> int {\n"
+        "  var original = [true, false]\n"
+        "  var copied = original\n"
+        "  set copied[0] = false\n"
+        "  var score = len(copied)\n"
+        "  if original[0] { set score = score + 100 }\n"
+        "  if copied[0] { set score = score + 10 }\n"
+        "  if copied[1] { set score = score + 1 }\n"
+        "  return score\n"
+        "}\n",
+        "m5-wasm-bool-array.nyx",
+    )
+    assert not collect_legalization_issues(wasm_bool_array, "wasm", require_emitter=True)
+    assert MIRInterpreter(wasm_bool_array).run("bool_array_probe").value == 102
+    wasm_bool_array_wat = emit_legalized_wat(wasm_bool_array)
+    assert "call $__nyx_mir_array_clone_i32" in wasm_bool_array_wat
+    assert "call $__nyx_mir_array_get_i32" in wasm_bool_array_wat
+    assert "call $__nyx_mir_array_set_i32" in wasm_bool_array_wat
+    assert _run_wasm_export(
+        emit_legalized_wasm(wasm_bool_array), "bool_array_probe"
+    ) == "102\n"
+
+    wasm_nested_array = _lower_source(
+        "fn nested_array_probe() -> int {\n"
+        "  var original = [[1, 2], [3, 4]]\n"
+        "  var copied = original\n"
+        "  set copied[0][0] = 9\n"
+        "  set copied[1] = [7, 8]\n"
+        "  return original[0][0] * 1000 + copied[0][0] * 100 + "
+        "original[1][0] * 10 + copied[1][0]\n"
+        "}\n",
+        "m5-wasm-nested-array.nyx",
+    )
+    assert not collect_legalization_issues(wasm_nested_array, "wasm", require_emitter=True)
+    assert MIRInterpreter(wasm_nested_array).run("nested_array_probe").value == 1937
+    wasm_nested_array_wat = emit_legalized_wat(wasm_nested_array)
+    assert "call $__nyx_mir_array_clone_nested_i64" in wasm_nested_array_wat
+    assert wasm_nested_array_wat.count("call $__nyx_mir_array_get_blob") >= 2
+    assert _run_wasm_export(
+        emit_legalized_wasm(wasm_nested_array), "nested_array_probe"
+    ) == "1937\n"
+
+    wasm_nested_string_array = _lower_source(
+        "fn nested_string_array_probe() -> int {\n"
+        "  var original = [[\"a\"], [\"bb\"]]\n"
+        "  var copied = original\n"
+        "  set copied[0][0] = \"hello\"\n"
+        "  set copied[1] = [\"compiler\"]\n"
+        "  return len(original[0][0]) * 1000 + len(copied[0][0]) * 100 + "
+        "len(original[1][0]) * 10 + len(copied[1][0])\n"
+        "}\n",
+        "m5-wasm-nested-string-array.nyx",
+    )
+    assert not collect_legalization_issues(
+        wasm_nested_string_array, "wasm", require_emitter=True
+    )
+    assert MIRInterpreter(wasm_nested_string_array).run("nested_string_array_probe").value == 1528
+    wasm_nested_string_array_wat = emit_legalized_wat(wasm_nested_string_array)
+    assert "call $__nyx_mir_array_clone_nested_string" in wasm_nested_string_array_wat
+    assert _run_wasm_export(
+        emit_legalized_wasm(wasm_nested_string_array), "nested_string_array_probe"
+    ) == "1528\n"
+
+    wasm_nested_bool_array = _lower_source(
+        "fn nested_bool_array_probe() -> int {\n"
+        "  var original = [[true, false], [false, true]]\n"
+        "  var copied = original\n"
+        "  set copied[0][0] = false\n"
+        "  set copied[1] = [true, false]\n"
+        "  var score = 0\n"
+        "  if original[0][0] { set score = score + 1000 }\n"
+        "  if copied[0][0] { set score = score + 100 }\n"
+        "  if original[1][1] { set score = score + 10 }\n"
+        "  if copied[1][0] { set score = score + 1 }\n"
+        "  return score\n"
+        "}\n",
+        "m5-wasm-nested-bool-array.nyx",
+    )
+    assert not collect_legalization_issues(
+        wasm_nested_bool_array, "wasm", require_emitter=True
+    )
+    assert MIRInterpreter(wasm_nested_bool_array).run("nested_bool_array_probe").value == 1011
+    wasm_nested_bool_array_wat = emit_legalized_wat(wasm_nested_bool_array)
+    assert "call $__nyx_mir_array_clone_nested_i32" in wasm_nested_bool_array_wat
+    assert _run_wasm_export(
+        emit_legalized_wasm(wasm_nested_bool_array), "nested_bool_array_probe"
+    ) == "1011\n"
+
+    wasm_nested_struct_array = _lower_source(
+        "struct Cell { value: int, label: string }\n"
+        "fn nested_struct_array_probe() -> int {\n"
+        "  var original = [[Cell(1, \"a\")], [Cell(2, \"bb\")]]\n"
+        "  var copied = original\n"
+        "  set copied[0][0] = Cell(9, \"hello\")\n"
+        "  set copied[1] = [Cell(7, \"compiler\")]\n"
+        "  let original_first = original[0][0]\n"
+        "  let copied_first = copied[0][0]\n"
+        "  let original_second = original[1][0]\n"
+        "  let copied_second = copied[1][0]\n"
+        "  return original_first.value * 10000 + copied_first.value * 1000 + "
+        "len(copied_first.label) * 100 + original_second.value * 10 + "
+        "len(copied_second.label)\n"
+        "}\n",
+        "m5-wasm-nested-struct-array.nyx",
+    )
+    assert not collect_legalization_issues(
+        wasm_nested_struct_array, "wasm", require_emitter=True
+    )
+    assert MIRInterpreter(wasm_nested_struct_array).run("nested_struct_array_probe").value == 19528
+    wasm_nested_struct_array_wat = emit_legalized_wat(wasm_nested_struct_array)
+    assert "call $__nyx_mir_array_clone_nested_blob" in wasm_nested_struct_array_wat
+    assert _run_wasm_export(
+        emit_legalized_wasm(wasm_nested_struct_array), "nested_struct_array_probe"
+    ) == "19528\n"
+
+    wasm_struct = _lower_source(
+        "struct Pair { x: int, y: int }\n"
+        "fn struct_probe() -> int {\n"
+        "  var original = Pair(4, 5)\n"
+        "  var copied = original\n"
+        "  set copied.x = 9\n"
+        "  return original.x * 100 + copied.x * 10 + copied.y\n"
+        "}\n",
+        "m5-wasm-struct.nyx",
+    )
+    assert not collect_legalization_issues(wasm_struct, "wasm", require_emitter=True)
+    assert MIRInterpreter(wasm_struct).run("struct_probe").value == 495
+    wasm_struct_wat = emit_legalized_wat(wasm_struct)
+    assert "call $__nyx_mir_clone_bytes" in wasm_struct_wat
+    assert "memory.copy" in wasm_struct_wat
+    assert _run_wasm_export(emit_legalized_wasm(wasm_struct), "struct_probe") == "495\n"
+
+    wasm_enum = _lower_source(
+        "enum Signal { Ready(int), Empty() }\n"
+        "fn enum_probe(value: int) -> int {\n"
+        "  let signal = Ready(value)\n"
+        "  match signal {\n"
+        "    Ready(payload) => return payload + 1,\n"
+        "    Empty() => return 0\n"
+        "  }\n"
+        "  return -1\n"
+        "}\n",
+        "m5-wasm-enum.nyx",
+    )
+    assert not collect_legalization_issues(wasm_enum, "wasm", require_emitter=True)
+    assert MIRInterpreter(wasm_enum).run("enum_probe", (41,)).value == 42
+    wasm_enum_wat = emit_legalized_wat(wasm_enum)
+    assert "call $__nyx_mir_clone_bytes" in wasm_enum_wat
+    assert "i32.load" in wasm_enum_wat and "i64.load" in wasm_enum_wat
+    assert _run_wasm_export(emit_legalized_wasm(wasm_enum), "enum_probe", 41) == "42\n"
+
+    wasm_result = _lower_source(
+        "fn make_result(code: int) -> Result<int, int> {\n"
+        "  if code == 0 { return Ok(40) }\n"
+        "  return Err(code)\n"
+        "}\n"
+        "fn result_probe(code: int) -> int {\n"
+        "  match make_result(code) {\n"
+        "    Ok(value) => return value + 2,\n"
+        "    Err(error) => return error\n"
+        "  }\n"
+        "  return -1\n"
+        "}\n",
+        "m5-wasm-result.nyx",
+    )
+    assert not collect_legalization_issues(wasm_result, "wasm", require_emitter=True)
+    assert MIRInterpreter(wasm_result).run("result_probe", (0,)).value == 42
+    assert MIRInterpreter(wasm_result).run("result_probe", (7,)).value == 7
+    wasm_result_bytes = emit_legalized_wasm(wasm_result)
+    assert _run_wasm_export(wasm_result_bytes, "result_probe", 0) == "42\n"
+    assert _run_wasm_export(wasm_result_bytes, "result_probe", 7) == "7\n"
+
+    wasm_bool_result = _lower_source(
+        "fn bool_result_probe() -> int {\n"
+        "  let result: Result<int, bool> = Err(true)\n"
+        "  match result {\n"
+        "    Ok(value) => return value,\n"
+        "    Err(flag) => { if flag { return 7 } return 3 }\n"
+        "  }\n"
+        "  return -1\n"
+        "}\n",
+        "m5-wasm-bool-result.nyx",
+    )
+    assert not collect_legalization_issues(wasm_bool_result, "wasm", require_emitter=True)
+    assert MIRInterpreter(wasm_bool_result).run("bool_result_probe").value == 7
+    wasm_bool_result_wat = emit_legalized_wat(wasm_bool_result)
+    assert "i32.store" in wasm_bool_result_wat and "i32.load" in wasm_bool_result_wat
+    wasm_bool_result_output = _run_wasm_export(emit_legalized_wasm(wasm_bool_result), "bool_result_probe")
+    assert wasm_bool_result_output == "7\n", wasm_bool_result_output
+
+    wasm_bool_aggregates = _lower_source(
+        "struct Flags { enabled: bool, count: int, done: bool }\n"
+        "enum Toggle { State(bool), Missing() }\n"
+        "fn bool_struct_probe() -> int {\n"
+        "  var original = Flags(true, 7, false)\n"
+        "  var copied = original\n"
+        "  set copied.enabled = false\n"
+        "  set copied.done = true\n"
+        "  var score = original.count * 10\n"
+        "  if original.enabled { set score = score + 100 }\n"
+        "  if copied.done { set score = score + 1 }\n"
+        "  return score\n"
+        "}\n"
+        "fn bool_enum_probe() -> int {\n"
+        "  let toggle = State(true)\n"
+        "  match toggle {\n"
+        "    State(value) => { if value { return 7 } return 3 },\n"
+        "    Missing() => return 0\n"
+        "  }\n"
+        "  return -1\n"
+        "}\n",
+        "m5-wasm-bool-aggregates.nyx",
+    )
+    wasm_bool_aggregate_issues = collect_legalization_issues(
+        wasm_bool_aggregates, "wasm", require_emitter=True
+    )
+    assert not wasm_bool_aggregate_issues, wasm_bool_aggregate_issues
+    assert MIRInterpreter(wasm_bool_aggregates).run("bool_struct_probe").value == 171
+    assert MIRInterpreter(wasm_bool_aggregates).run("bool_enum_probe").value == 7
+    wasm_bool_aggregate_wat = emit_legalized_wat(wasm_bool_aggregates)
+    assert "i32.store8" in wasm_bool_aggregate_wat
+    assert "i32.load8_u" in wasm_bool_aggregate_wat
+    wasm_bool_aggregate_bytes = emit_legalized_wasm(wasm_bool_aggregates)
+    assert _run_wasm_export(wasm_bool_aggregate_bytes, "bool_struct_probe") == "171\n"
+    assert _run_wasm_export(wasm_bool_aggregate_bytes, "bool_enum_probe") == "7\n"
+
+    wasm_float_array = _lower_source(
+        "fn rejected() -> float { let values = [1.5]; return values[0] }\n",
+        "m5-wasm-float-array.nyx",
+    )
+    assert "MIRG1002" in {
+        issue.code for issue in collect_legalization_issues(wasm_float_array, "wasm")
+    }
+    wasm_string_struct = _lower_source(
+        "struct Label { text: string }\n"
+        "fn string_struct_probe() -> int {\n"
+        "  var original = Label(\"nyx\")\n"
+        "  var copied = original\n"
+        "  set copied.text = \"compiler\"\n"
+        "  return len(original.text) * 100 + len(copied.text)\n"
+        "}\n",
+        "m5-wasm-string-struct.nyx",
+    )
+    assert not collect_legalization_issues(wasm_string_struct, "wasm", require_emitter=True)
+    assert MIRInterpreter(wasm_string_struct).run("string_struct_probe").value == 308
+    wasm_string_struct_wat = emit_legalized_wat(wasm_string_struct)
+    assert "(data (i32.const" in wasm_string_struct_wat and "memory.copy" in wasm_string_struct_wat
+    assert _run_wasm_export(emit_legalized_wasm(wasm_string_struct), "string_struct_probe") == "308\n"
+
+    wasm_nested_struct = _lower_source(
+        "struct Point { x: int }\n"
+        "struct Box { point: Point, label: string }\n"
+        "fn nested_struct_probe() -> int {\n"
+        "  var original = Box(Point(2), \"a\")\n"
+        "  var copied = original\n"
+        "  set copied.point.x = 9\n"
+        "  set copied.label = \"hello\"\n"
+        "  return original.point.x * 100 + copied.point.x * 10 + len(copied.label)\n"
+        "}\n",
+        "m5-wasm-nested-struct.nyx",
+    )
+    assert not collect_legalization_issues(wasm_nested_struct, "wasm", require_emitter=True)
+    assert MIRInterpreter(wasm_nested_struct).run("nested_struct_probe").value == 295
+    assert _run_wasm_export(
+        emit_legalized_wasm(wasm_nested_struct), "nested_struct_probe"
+    ) == "295\n"
+
+    wasm_string_array = _lower_source(
+        "fn string_array_probe() -> int {\n"
+        "  var original = [\"a\", \"bb\"]\n"
+        "  var copied = original\n"
+        "  set copied[0] = \"hello\"\n"
+        "  return len(original[0]) * 100 + len(copied[0]) * 10 + len(copied)\n"
+        "}\n",
+        "m5-wasm-string-array.nyx",
+    )
+    assert not collect_legalization_issues(wasm_string_array, "wasm", require_emitter=True)
+    assert MIRInterpreter(wasm_string_array).run("string_array_probe").value == 152
+    wasm_string_array_wat = emit_legalized_wat(wasm_string_array)
+    assert "call $__nyx_mir_array_clone_string" in wasm_string_array_wat
+    assert "call $__nyx_mir_array_set_string" in wasm_string_array_wat
+    assert _run_wasm_export(
+        emit_legalized_wasm(wasm_string_array), "string_array_probe"
+    ) == "152\n"
+
+    wasm_struct_array = _lower_source(
+        "struct Item { score: int, label: string }\n"
+        "fn struct_array_probe() -> int {\n"
+        "  var original = [Item(1, \"a\"), Item(2, \"bb\")]\n"
+        "  var copied = original\n"
+        "  set copied[0] = Item(9, \"hello\")\n"
+        "  var detached = copied[1]\n"
+        "  set detached.score = 7\n"
+        "  set detached.label = \"compiler\"\n"
+        "  let original_first = original[0]\n"
+        "  let copied_first = copied[0]\n"
+        "  let copied_second = copied[1]\n"
+        "  return original_first.score * 10000 + copied_first.score * 1000 + "
+        "len(copied_first.label) * 100 + copied_second.score * 10 + len(detached.label)\n"
+        "}\n",
+        "m5-wasm-struct-array.nyx",
+    )
+    assert not collect_legalization_issues(wasm_struct_array, "wasm", require_emitter=True)
+    assert MIRInterpreter(wasm_struct_array).run("struct_array_probe").value == 19528
+    wasm_struct_array_wat = emit_legalized_wat(wasm_struct_array)
+    assert "call $__nyx_mir_array_clone_blob" in wasm_struct_array_wat
+    assert "call $__nyx_mir_array_get_blob" in wasm_struct_array_wat
+    assert "call $__nyx_mir_array_set_blob" in wasm_struct_array_wat
+    assert _run_wasm_export(
+        emit_legalized_wasm(wasm_struct_array), "struct_array_probe"
+    ) == "19528\n"
+
+    wasm_string_enum = _lower_source(
+        "enum Message { Text(string), Empty() }\n"
+        "fn string_enum_probe() -> int {\n"
+        "  let message = Text(\"hello\")\n"
+        "  match message {\n"
+        "    Text(value) => return len(value),\n"
+        "    Empty() => return 0\n"
+        "  }\n"
+        "  return -1\n"
+        "}\n",
+        "m5-wasm-string-enum.nyx",
+    )
+    assert not collect_legalization_issues(wasm_string_enum, "wasm", require_emitter=True)
+    assert MIRInterpreter(wasm_string_enum).run("string_enum_probe").value == 5
+    assert _run_wasm_export(
+        emit_legalized_wasm(wasm_string_enum), "string_enum_probe"
+    ) == "5\n"
+
+    wasm_struct_enum = _lower_source(
+        "struct EnumCell { value: int, label: string }\n"
+        "enum Packet { Data(EnumCell), Empty() }\n"
+        "fn struct_enum_probe() -> int {\n"
+        "  let packet = Data(EnumCell(8, \"nyx\"))\n"
+        "  match packet {\n"
+        "    Data(cell) => return cell.value * 10 + len(cell.label),\n"
+        "    Empty() => return 0\n"
+        "  }\n"
+        "  return -1\n"
+        "}\n",
+        "m5-wasm-struct-enum.nyx",
+    )
+    assert not collect_legalization_issues(wasm_struct_enum, "wasm", require_emitter=True)
+    assert MIRInterpreter(wasm_struct_enum).run("struct_enum_probe").value == 83
+    assert _run_wasm_export(
+        emit_legalized_wasm(wasm_struct_enum), "struct_enum_probe"
+    ) == "83\n"
+
+    wasm_string_result = _lower_source(
+        "fn string_result_probe() -> int {\n"
+        "  let result: Result<int, string> = Err(\"oops\")\n"
+        "  match result {\n"
+        "    Ok(value) => return value,\n"
+        "    Err(message) => return len(message)\n"
+        "  }\n"
+        "  return -1\n"
+        "}\n",
+        "m5-wasm-string-result.nyx",
+    )
+    assert not collect_legalization_issues(wasm_string_result, "wasm", require_emitter=True)
+    assert MIRInterpreter(wasm_string_result).run("string_result_probe").value == 4
+    assert _run_wasm_export(
+        emit_legalized_wasm(wasm_string_result), "string_result_probe"
+    ) == "4\n"
+
+    wasm_struct_result = _lower_source(
+        "struct ResultCell { value: int, label: string }\n"
+        "fn struct_result_ok_probe() -> int {\n"
+        "  let result: Result<ResultCell, string> = Ok(ResultCell(7, \"nyx\"))\n"
+        "  match result {\n"
+        "    Ok(cell) => return cell.value * 10 + len(cell.label),\n"
+        "    Err(message) => return len(message)\n"
+        "  }\n"
+        "  return -1\n"
+        "}\n"
+        "fn struct_result_err_probe() -> int {\n"
+        "  let result: Result<ResultCell, string> = Err(\"failure\")\n"
+        "  match result {\n"
+        "    Ok(cell) => return cell.value,\n"
+        "    Err(message) => return len(message)\n"
+        "  }\n"
+        "  return -1\n"
+        "}\n",
+        "m5-wasm-struct-result.nyx",
+    )
+    assert not collect_legalization_issues(wasm_struct_result, "wasm", require_emitter=True)
+    assert MIRInterpreter(wasm_struct_result).run("struct_result_ok_probe").value == 73
+    assert MIRInterpreter(wasm_struct_result).run("struct_result_err_probe").value == 7
+    wasm_struct_result_bytes = emit_legalized_wasm(wasm_struct_result)
+    assert _run_wasm_export(wasm_struct_result_bytes, "struct_result_ok_probe") == "73\n"
+    assert _run_wasm_export(wasm_struct_result_bytes, "struct_result_err_probe") == "7\n"
     rejected_wasm = {issue.code for issue in collect_legalization_issues(scalar, "wasm")}
     assert "MIRG1007" in rejected_wasm, rejected_wasm
 
@@ -377,6 +849,12 @@ def run_mir_legalization_suite() -> bool:
     for target in MIR_BACKEND_MIGRATION_ORDER:
         issues = collect_legalization_issues(unsupported_operation, target, require_emitter=True)
         assert {issue.code for issue in issues} == {"MIRG1010"}, (target, issues)
+
+    suspending = _lower_source("async fn pending() -> void {}\n", "m5-suspend-effect.nyx")
+    assert suspending.functions[0].effects == ("may_suspend",)
+    for target in MIR_BACKEND_MIGRATION_ORDER:
+        issues = collect_legalization_issues(suspending, target, require_emitter=True)
+        assert {issue.code for issue in issues} == {"MIRG1011"}, (target, issues)
 
     aggregate = _lower(AGGREGATE_FIXTURE)
     assert not collect_legalization_issues(aggregate, "cpp", require_emitter=True)
@@ -399,11 +877,49 @@ def run_mir_legalization_suite() -> bool:
     assert _run_javascript(emit_legalized_javascript(payload)) == expected_payload
     assert not collect_legalization_issues(payload, "python", require_emitter=True)
     assert _run_python(emit_legalized_python(payload)) == expected_payload
+    assert not collect_legalization_issues(payload, "rust", require_emitter=True)
+    assert _compile_and_run_rust(emit_legalized_rust(payload)) == expected_payload
 
     control = _lower(CONTROL_FIXTURE)
     assert not collect_legalization_issues(control, "cpp", require_emitter=True)
     expected_control = "\n".join(MIRInterpreter(control).run().output) + "\n"
     assert _compile_and_run_cpp(emit_legalized_cpp(control)) == expected_control
+
+    cpp_call_unwind = _lower_source(
+        "fn fail() -> int {\n"
+        "  defer print(\"cleanup\")\n"
+        "  throw \"boom\"\n"
+        "  return 0\n"
+        "}\n"
+        "fn main() {\n"
+        "  try { print(fail()) } catch err { print(\"caught\", err) }\n"
+        "}\n",
+        "m5-cpp-call-unwind.nyx",
+    )
+    cpp_call_unwind_issues = collect_legalization_issues(
+        cpp_call_unwind, "cpp", require_emitter=True
+    )
+    assert not cpp_call_unwind_issues, cpp_call_unwind_issues
+    expected_cpp_call_unwind = "\n".join(
+        MIRInterpreter(cpp_call_unwind).run().output
+    ) + "\n"
+    assert expected_cpp_call_unwind == "cleanup\ncaught boom\n"
+    generated_cpp_call_unwind = emit_legalized_cpp(cpp_call_unwind)
+    assert "catch (const nyx_mir_runtime::user_throw& thrown)" in generated_cpp_call_unwind
+    assert _compile_and_run_cpp(generated_cpp_call_unwind) == expected_cpp_call_unwind
+    assert not collect_legalization_issues(
+        cpp_call_unwind, "js", require_emitter=True
+    )
+    assert _run_javascript(
+        emit_legalized_javascript(cpp_call_unwind)
+    ) == expected_cpp_call_unwind
+    assert not collect_legalization_issues(
+        cpp_call_unwind, "python", require_emitter=True
+    )
+    assert _run_python(emit_legalized_python(cpp_call_unwind)) == expected_cpp_call_unwind
+    assert "MIRG1008" in {
+        issue.code for issue in collect_legalization_issues(cpp_call_unwind, "rust")
+    }
 
     assert not collect_legalization_issues(scalar, "rust", require_emitter=True)
     assert _compile_and_run_rust(emit_legalized_rust(scalar)) == "13\n"
@@ -414,6 +930,490 @@ def run_mir_legalization_suite() -> bool:
     assert not collect_legalization_issues(scalar, "c", require_emitter=True)
     assert _compile_and_run_c17(emit_legalized_c17(scalar)) == "13\n"
 
+    c17_struct = _lower_source(
+        "struct Pair { x: int, y: int }\n"
+        "fn main() {\n"
+        "  var original = Pair(4, 5)\n"
+        "  var copied = original\n"
+        "  set copied.x = 9\n"
+        "  print(original.x * 100 + copied.x * 10 + copied.y)\n"
+        "}\n",
+        "m5-c17-struct.nyx",
+    )
+    assert not collect_legalization_issues(c17_struct, "c", require_emitter=True)
+    expected_c17_struct = "\n".join(MIRInterpreter(c17_struct).run().output) + "\n"
+    assert expected_c17_struct == "495\n"
+    generated_c17_struct = emit_legalized_c17(c17_struct)
+    assert "typedef struct NyxStruct_Pair" in generated_c17_struct
+    assert ".x =" in generated_c17_struct
+    assert _compile_and_run_c17(generated_c17_struct) == expected_c17_struct
+
+    c17_mixed_struct = _lower_source(
+        "struct Record { count: int, active: bool, label: string }\n"
+        "fn main() {\n"
+        "  var original = Record(4, true, \"nyx\")\n"
+        "  var copied = original\n"
+        "  set copied.count = 9\n"
+        "  set copied.active = false\n"
+        "  set copied.label = \"mir\"\n"
+        "  print(original.count, original.active, original.label)\n"
+        "  print(copied.count, copied.active, copied.label)\n"
+        "}\n",
+        "m5-c17-mixed-struct.nyx",
+    )
+    c17_mixed_struct_issues = collect_legalization_issues(
+        c17_mixed_struct, "c", require_emitter=True
+    )
+    assert not c17_mixed_struct_issues, c17_mixed_struct_issues
+    expected_c17_mixed_struct = "\n".join(MIRInterpreter(c17_mixed_struct).run().output) + "\n"
+    assert expected_c17_mixed_struct == "4 true nyx\n9 false mir\n"
+    generated_c17_mixed_struct = emit_legalized_c17(c17_mixed_struct)
+    assert "bool active;" in generated_c17_mixed_struct
+    assert "const char * label;" in generated_c17_mixed_struct
+    assert _compile_and_run_c17(generated_c17_mixed_struct) == expected_c17_mixed_struct
+
+    c17_nested_struct = _lower_source(
+        "struct Point { x: int, y: int }\n"
+        "struct Frame { point: Point, active: bool, label: string }\n"
+        "fn main() {\n"
+        "  var original = Frame(Point(1, 2), true, \"first\")\n"
+        "  var copied = original\n"
+        "  set copied.point.x = 9\n"
+        "  var frames = [original]\n"
+        "  var frames_copy = frames\n"
+        "  set frames_copy[0].point.y = 8\n"
+        "  print(original.point.x, copied.point.x, frames[0].point.y, frames_copy[0].point.y)\n"
+        "}\n",
+        "m5-c17-nested-struct.nyx",
+    )
+    c17_nested_struct_issues = collect_legalization_issues(
+        c17_nested_struct, "c", require_emitter=True
+    )
+    assert not c17_nested_struct_issues, c17_nested_struct_issues
+    expected_c17_nested_struct = "\n".join(
+        MIRInterpreter(c17_nested_struct).run().output
+    ) + "\n"
+    assert expected_c17_nested_struct == "1 9 2 8\n"
+    generated_c17_nested_struct = emit_legalized_c17(c17_nested_struct)
+    assert generated_c17_nested_struct.index("NyxStruct_Point {") < generated_c17_nested_struct.index(
+        "NyxStruct_Frame {"
+    )
+    assert "NyxStruct_Point point;" in generated_c17_nested_struct
+    assert _compile_and_run_c17(generated_c17_nested_struct) == expected_c17_nested_struct
+
+    c17_array_field_struct = _lower_source(
+        "struct Buffer { values: Array<int>, flags: Array<bool>, words: Array<string> }\n"
+        "fn main() {\n"
+        "  var original = Buffer([1, 2], [true], [\"nyx\"])\n"
+        "  var copied = original\n"
+        "  set copied.values[0] = 9\n"
+        "  set copied.flags[0] = false\n"
+        "  set copied.words[0] = \"mir\"\n"
+        "  var buffers = [original]\n"
+        "  var buffers_copy = buffers\n"
+        "  set buffers_copy[0].values[1] = 8\n"
+        "  print(original.values[0], copied.values[0], original.flags[0], copied.flags[0])\n"
+        "  print(original.words[0], copied.words[0], buffers[0].values[1], buffers_copy[0].values[1])\n"
+        "}\n",
+        "m5-c17-array-field-struct.nyx",
+    )
+    c17_array_field_issues = collect_legalization_issues(
+        c17_array_field_struct, "c", require_emitter=True
+    )
+    assert not c17_array_field_issues, c17_array_field_issues
+    expected_c17_array_field = "\n".join(
+        MIRInterpreter(c17_array_field_struct).run().output
+    ) + "\n"
+    assert expected_c17_array_field == "1 9 true false\nnyx mir 2 8\n"
+    generated_c17_array_field = emit_legalized_c17(c17_array_field_struct)
+    assert "NyxArrayI64 values;" in generated_c17_array_field
+    assert "result.values = nyx_array_i64_clone(value.values);" in generated_c17_array_field
+    assert "nyx_struct_Buffer_clone(source[index])" in generated_c17_array_field
+    assert _compile_and_run_c17(generated_c17_array_field) == expected_c17_array_field
+
+    c17_struct_array_field = _lower_source(
+        "struct Sample { value: int, valid: bool }\n"
+        "struct BatchRecord { samples: Array<Sample>, name: string }\n"
+        "fn main() {\n"
+        "  var original = BatchRecord([Sample(2, true), Sample(3, false)], \"nyx\")\n"
+        "  var copied = original\n"
+        "  set copied.samples[0].value = 9\n"
+        "  set copied.samples[1].valid = true\n"
+        "  print(original.samples[0].value, copied.samples[0].value)\n"
+        "  print(original.samples[1].valid, copied.samples[1].valid, copied.name)\n"
+        "}\n",
+        "m5-c17-struct-array-field.nyx",
+    )
+    c17_struct_array_field_issues = collect_legalization_issues(
+        c17_struct_array_field, "c", require_emitter=True
+    )
+    assert not c17_struct_array_field_issues, c17_struct_array_field_issues
+    expected_c17_struct_array_field = "\n".join(
+        MIRInterpreter(c17_struct_array_field).run().output
+    ) + "\n"
+    assert expected_c17_struct_array_field == "2 9\nfalse true nyx\n"
+    generated_c17_struct_array_field = emit_legalized_c17(c17_struct_array_field)
+    assert generated_c17_struct_array_field.index("NyxStruct_Sample {") < generated_c17_struct_array_field.index(
+        "NyxStruct_BatchRecord {"
+    )
+    assert "NyxArrayStruct_Sample samples;" in generated_c17_struct_array_field
+    assert "result.samples = nyx_array_struct_Sample_clone(value.samples);" in generated_c17_struct_array_field
+    assert _compile_and_run_c17(
+        generated_c17_struct_array_field
+    ) == expected_c17_struct_array_field
+
+    c17_nested_array_field = _lower_source(
+        "struct Matrix { rows: Array<Array<int>>, flags: Array<Array<bool>>, labels: Array<Array<string>> }\n"
+        "fn main() {\n"
+        "  var original = Matrix([[1, 2]], [[true]], [[\"nyx\"]])\n"
+        "  var copied = original\n"
+        "  set copied.rows[0][1] = 9\n"
+        "  set copied.flags[0][0] = false\n"
+        "  set copied.labels[0][0] = \"mir\"\n"
+        "  print(original.rows[0][1], copied.rows[0][1])\n"
+        "  print(original.flags[0][0], copied.flags[0][0])\n"
+        "  print(original.labels[0][0], copied.labels[0][0])\n"
+        "}\n",
+        "m5-c17-nested-array-field.nyx",
+    )
+    c17_nested_array_field_issues = collect_legalization_issues(
+        c17_nested_array_field, "c", require_emitter=True
+    )
+    assert not c17_nested_array_field_issues, c17_nested_array_field_issues
+    expected_c17_nested_array_field = "\n".join(
+        MIRInterpreter(c17_nested_array_field).run().output
+    ) + "\n"
+    assert expected_c17_nested_array_field == "2 9\ntrue false\nnyx mir\n"
+    generated_c17_nested_array_field = emit_legalized_c17(c17_nested_array_field)
+    assert generated_c17_nested_array_field.index(
+        "NyxArrayNested_nested_i64 {"
+    ) < generated_c17_nested_array_field.index("NyxStruct_Matrix {")
+    assert "result.rows = nyx_array_nested_i64_clone(value.rows);" in generated_c17_nested_array_field
+    assert _compile_and_run_c17(
+        generated_c17_nested_array_field
+    ) == expected_c17_nested_array_field
+
+    c17_nested_struct_array_field = _lower_source(
+        "struct Sample { value: int, valid: bool }\n"
+        "struct SampleGrid { groups: Array<Array<Sample>>, name: string }\n"
+        "fn main() {\n"
+        "  var original = SampleGrid([[Sample(2, true), Sample(3, false)]], \"nyx\")\n"
+        "  var copied = original\n"
+        "  set copied.groups[0][0].value = 9\n"
+        "  set copied.groups[0][1].valid = true\n"
+        "  print(original.groups[0][0].value, copied.groups[0][0].value)\n"
+        "  print(original.groups[0][1].valid, copied.groups[0][1].valid, copied.name)\n"
+        "}\n",
+        "m5-c17-nested-struct-array-field.nyx",
+    )
+    c17_nested_struct_array_field_issues = collect_legalization_issues(
+        c17_nested_struct_array_field, "c", require_emitter=True
+    )
+    assert not c17_nested_struct_array_field_issues, c17_nested_struct_array_field_issues
+    expected_c17_nested_struct_array_field = "\n".join(
+        MIRInterpreter(c17_nested_struct_array_field).run().output
+    ) + "\n"
+    assert expected_c17_nested_struct_array_field == "2 9\nfalse true nyx\n"
+    generated_c17_nested_struct_array_field = emit_legalized_c17(
+        c17_nested_struct_array_field
+    )
+    assert generated_c17_nested_struct_array_field.index(
+        "NyxArrayNested_nested_struct_Sample {"
+    ) < generated_c17_nested_struct_array_field.index("NyxStruct_SampleGrid {")
+    assert "result.groups = nyx_array_nested_struct_Sample_clone(value.groups);" in (
+        generated_c17_nested_struct_array_field
+    )
+    assert _compile_and_run_c17(
+        generated_c17_nested_struct_array_field
+    ) == expected_c17_nested_struct_array_field
+
+    c17_recursive_struct = MIRModule(
+        "m5-c17-recursive-struct-rejected.nyx",
+        "c",
+        (),
+        (
+            MIRStructDef(
+                "Recursive",
+                "type::Recursive",
+                (MIRField("next", MIRType("Recursive")),),
+            ),
+        ),
+    )
+    recursive_struct_issues = collect_legalization_issues(c17_recursive_struct, "c")
+    assert any(
+        issue.code == "MIRG1002" and "acyclic by-value" in issue.message
+        for issue in recursive_struct_issues
+    ), recursive_struct_issues
+
+    c17_array = _lower_source(
+        "fn main() {\n"
+        "  var original = [4, 5]\n"
+        "  var copied = original\n"
+        "  set copied[0] = 9\n"
+        "  var index = 1\n"
+        "  set copied[index] = 7\n"
+        "  print(original[0] * 1000 + copied[0] * 100 + original[1] * 10 + copied[1])\n"
+        "  print(len(original) * 10 + len(copied))\n"
+        "}\n",
+        "m5-c17-array.nyx",
+    )
+    assert not collect_legalization_issues(c17_array, "c", require_emitter=True)
+    expected_c17_array = "\n".join(MIRInterpreter(c17_array).run().output) + "\n"
+    assert expected_c17_array == "4957\n22\n"
+    generated_c17_array = emit_legalized_c17(c17_array)
+    assert "typedef struct NyxArrayI64" in generated_c17_array
+    assert "nyx_array_i64_clone" in generated_c17_array
+    assert "nyx_array_i64_at_mut" in generated_c17_array
+    assert _compile_and_run_c17(generated_c17_array) == expected_c17_array
+
+    c17_bool_string_arrays = _lower_source(
+        "fn main() {\n"
+        "  var original_flags = [true, false]\n"
+        "  var copied_flags = original_flags\n"
+        "  set copied_flags[0] = false\n"
+        "  set copied_flags[1] = true\n"
+        "  print(original_flags[0], copied_flags[0], copied_flags[1], len(copied_flags))\n"
+        "  var original_words = [\"nyx\", \"c17\"]\n"
+        "  var copied_words = original_words\n"
+        "  set copied_words[0] = \"mir\"\n"
+        "  print(original_words[0], copied_words[0], copied_words[1], len(copied_words))\n"
+        "}\n",
+        "m5-c17-bool-string-arrays.nyx",
+    )
+    assert not collect_legalization_issues(c17_bool_string_arrays, "c", require_emitter=True)
+    expected_c17_bool_string = "\n".join(MIRInterpreter(c17_bool_string_arrays).run().output) + "\n"
+    assert expected_c17_bool_string == "true false true 2\nnyx mir c17 2\n"
+    generated_c17_bool_string = emit_legalized_c17(c17_bool_string_arrays)
+    assert "typedef struct NyxArrayBool" in generated_c17_bool_string
+    assert "typedef struct NyxArrayString" in generated_c17_bool_string
+    assert _compile_and_run_c17(generated_c17_bool_string) == expected_c17_bool_string
+
+    c17_struct_array = _lower_source(
+        "struct Cell { x: int, y: int }\n"
+        "fn main() {\n"
+        "  var original = [Cell(1, 2), Cell(3, 4)]\n"
+        "  var copied = original\n"
+        "  set copied[0].x = 9\n"
+        "  print(original[0].x * 1000 + copied[0].x * 100 + copied[1].y * 10 + len(copied))\n"
+        "}\n",
+        "m5-c17-struct-array.nyx",
+    )
+    assert not collect_legalization_issues(c17_struct_array, "c", require_emitter=True)
+    expected_c17_struct_array = "\n".join(MIRInterpreter(c17_struct_array).run().output) + "\n"
+    assert expected_c17_struct_array == "1942\n"
+    generated_c17_struct_array = emit_legalized_c17(c17_struct_array)
+    assert "typedef struct NyxArrayStruct_Cell" in generated_c17_struct_array
+    assert "nyx_array_struct_Cell_clone" in generated_c17_struct_array
+    assert _compile_and_run_c17(generated_c17_struct_array) == expected_c17_struct_array
+
+    c17_nested_array = _lower_source(
+        "fn main() {\n"
+        "  var original = [[1, 2], [3, 4]]\n"
+        "  var copied = original\n"
+        "  set copied[0][1] = 9\n"
+        "  print(original[0][1] * 1000 + copied[0][1] * 100 + copied[1][0] * 10 + len(copied))\n"
+        "}\n",
+        "m5-c17-nested-array.nyx",
+    )
+    assert not collect_legalization_issues(c17_nested_array, "c", require_emitter=True)
+    expected_c17_nested_array = "\n".join(MIRInterpreter(c17_nested_array).run().output) + "\n"
+    assert expected_c17_nested_array == "2932\n"
+    generated_c17_nested_array = emit_legalized_c17(c17_nested_array)
+    assert "typedef struct NyxArrayNested_nested_i64" in generated_c17_nested_array
+    assert "nyx_array_nested_i64_clone" in generated_c17_nested_array
+    assert _compile_and_run_c17(generated_c17_nested_array) == expected_c17_nested_array
+
+    c17_recursive_arrays = _lower_source(
+        "struct NestedCell { value: int }\n"
+        "fn main() {\n"
+        "  var flags = [[true, false]]\n"
+        "  var flags_copy = flags\n"
+        "  set flags_copy[0][0] = false\n"
+        "  var words = [[\"nyx\"]]\n"
+        "  var words_copy = words\n"
+        "  set words_copy[0][0] = \"mir\"\n"
+        "  var cells = [[NestedCell(3)]]\n"
+        "  var cells_copy = cells\n"
+        "  set cells_copy[0][0].value = 8\n"
+        "  var cubes = [[[1, 2]]]\n"
+        "  var cubes_copy = cubes\n"
+        "  set cubes_copy[0][0][1] = 9\n"
+        "  print(flags[0][0], flags_copy[0][0], words[0][0], words_copy[0][0])\n"
+        "  print(cells[0][0].value, cells_copy[0][0].value, cubes[0][0][1], cubes_copy[0][0][1])\n"
+        "}\n",
+        "m5-c17-recursive-arrays.nyx",
+    )
+    assert not collect_legalization_issues(c17_recursive_arrays, "c", require_emitter=True)
+    expected_c17_recursive_arrays = "\n".join(
+        MIRInterpreter(c17_recursive_arrays).run().output
+    ) + "\n"
+    assert expected_c17_recursive_arrays == "true false nyx mir\n3 8 2 9\n"
+    generated_c17_recursive_arrays = emit_legalized_c17(c17_recursive_arrays)
+    assert "NyxArrayNested_nested_bool" in generated_c17_recursive_arrays
+    assert "NyxArrayNested_nested_string" in generated_c17_recursive_arrays
+    assert "NyxArrayNested_nested_struct_NestedCell" in generated_c17_recursive_arrays
+    assert "NyxArrayNested_nested_nested_i64" in generated_c17_recursive_arrays
+    assert _compile_and_run_c17(generated_c17_recursive_arrays) == expected_c17_recursive_arrays
+
+    c17_tagged = _lower_source(
+        "enum Signal { Ready(int), Empty() }\n"
+        "fn decode(value: int) -> int {\n"
+        "  let signal = Ready(value)\n"
+        "  match signal {\n"
+        "    Ready(payload) => return payload + 1,\n"
+        "    Empty() => return 0\n"
+        "  }\n"
+        "  return -1\n"
+        "}\n"
+        "fn make_result(code: int) -> Result<int, string> {\n"
+        "  if code == 0 { return Ok(40) }\n"
+        "  return Err(\"fail\")\n"
+        "}\n"
+        "fn result_probe(code: int) -> int {\n"
+        "  match make_result(code) {\n"
+        "    Ok(value) => return value + 2,\n"
+        "    Err(message) => return len(message)\n"
+        "  }\n"
+        "  return -1\n"
+        "}\n"
+        "fn main() { print(decode(41), result_probe(0), result_probe(7)) }\n",
+        "m5-c17-tagged.nyx",
+    )
+    assert not collect_legalization_issues(c17_tagged, "c", require_emitter=True)
+    expected_c17_tagged = "\n".join(MIRInterpreter(c17_tagged).run().output) + "\n"
+    assert expected_c17_tagged == "42 42 4\n"
+    generated_c17_tagged = emit_legalized_c17(c17_tagged)
+    assert "typedef struct NyxTaggedValue" in generated_c17_tagged
+    assert ".tag = \"Ready\"" in generated_c17_tagged
+    assert ".tag = \"Ok\"" in generated_c17_tagged
+    assert ".tag = \"Err\"" in generated_c17_tagged
+    assert _compile_and_run_c17(generated_c17_tagged) == expected_c17_tagged
+
+    c17_multi_payload = _lower_source(
+        "enum Event { Data(int, bool, string), Empty() }\n"
+        "fn inspect(event: Event) -> int {\n"
+        "  match event {\n"
+        "    Data(count, valid, label) => {\n"
+        "      if valid { return count * 10 + len(label) }\n"
+        "      return len(label)\n"
+        "    },\n"
+        "    Empty() => return 0\n"
+        "  }\n"
+        "  return -1\n"
+        "}\n"
+        "fn main() { print(inspect(Data(4, true, \"nyx\")), inspect(Data(9, false, \"mir\"))) }\n",
+        "m5-c17-multi-payload.nyx",
+    )
+    assert not collect_legalization_issues(c17_multi_payload, "c", require_emitter=True)
+    expected_c17_multi_payload = "\n".join(
+        MIRInterpreter(c17_multi_payload).run().output
+    ) + "\n"
+    assert expected_c17_multi_payload == "43 3\n"
+    generated_c17_multi_payload = emit_legalized_c17(c17_multi_payload)
+    assert "NyxTaggedPayload payload[3];" in generated_c17_multi_payload
+    assert ".payload[1].boolean" in generated_c17_multi_payload
+    assert ".payload[2].string" in generated_c17_multi_payload
+    assert _compile_and_run_c17(
+        generated_c17_multi_payload
+    ) == expected_c17_multi_payload
+
+    c17_multi_object_payload = _lower_source(
+        "enum Unsupported { Pair(Array<int>, int) }\n"
+        "fn main() { print(0) }\n",
+        "m5-c17-multi-object-payload-rejected.nyx",
+    )
+    c17_multi_object_issues = collect_legalization_issues(
+        c17_multi_object_payload, "c", require_emitter=True
+    )
+    assert any(
+        issue.code == "MIRG1002" and "multiple primitive payloads" in issue.message
+        for issue in c17_multi_object_issues
+    ), c17_multi_object_issues
+
+    c17_array_tagged = _lower_source(
+        "enum Batch { Data(Array<int>), Empty() }\n"
+        "struct Envelope { values: Array<int> }\n"
+        "enum EnvelopeBatch { Wrapped(Envelope), Missing() }\n"
+        "fn enum_array_probe() -> int {\n"
+        "  var source = [1, 2]\n"
+        "  let batch = Data(source)\n"
+        "  set source[0] = 9\n"
+        "  match batch {\n"
+        "    Data(values) => return values[0] * 10 + len(values),\n"
+        "    Empty() => return 0\n"
+        "  }\n"
+        "  return -1\n"
+        "}\n"
+        "fn make_array_result() -> Result<Array<int>, string> {\n"
+        "  return Ok([3, 4])\n"
+        "}\n"
+        "fn result_array_probe() -> int {\n"
+        "  match make_array_result() {\n"
+        "    Ok(values) => return values[0] * 10 + values[1],\n"
+        "    Err(message) => return len(message)\n"
+        "  }\n"
+        "  return -1\n"
+        "}\n"
+        "fn struct_array_payload_probe() -> int {\n"
+        "  var source = [5, 6]\n"
+        "  let batch = Wrapped(Envelope(source))\n"
+        "  set source[0] = 9\n"
+        "  match batch {\n"
+        "    Wrapped(envelope) => return envelope.values[0] * 10 + envelope.values[1],\n"
+        "    Missing() => return 0\n"
+        "  }\n"
+        "  return -1\n"
+        "}\n"
+        "fn main() { print(enum_array_probe(), result_array_probe(), struct_array_payload_probe()) }\n",
+        "m5-c17-array-tagged.nyx",
+    )
+    c17_array_tagged_issues = collect_legalization_issues(
+        c17_array_tagged, "c", require_emitter=True
+    )
+    assert not c17_array_tagged_issues, c17_array_tagged_issues
+    expected_c17_array_tagged = "\n".join(
+        MIRInterpreter(c17_array_tagged).run().output
+    ) + "\n"
+    assert expected_c17_array_tagged == "12 34 56\n"
+    generated_c17_array_tagged = emit_legalized_c17(c17_array_tagged)
+    assert "nyx_box_array_i64" in generated_c17_array_tagged
+    assert "nyx_box_Envelope" in generated_c17_array_tagged
+    assert ".tag = \"Data\"" in generated_c17_array_tagged
+    assert _compile_and_run_c17(generated_c17_array_tagged) == expected_c17_array_tagged
+
+    c17_struct_tagged = _lower_source(
+        "struct PayloadCell { value: int }\n"
+        "enum Packet { Data(PayloadCell), Empty() }\n"
+        "fn packet_probe() -> int {\n"
+        "  let packet = Data(PayloadCell(8))\n"
+        "  match packet {\n"
+        "    Data(cell) => return cell.value,\n"
+        "    Empty() => return 0\n"
+        "  }\n"
+        "  return -1\n"
+        "}\n"
+        "fn make_cell(ok: bool) -> Result<PayloadCell, string> {\n"
+        "  if ok { return Ok(PayloadCell(7)) }\n"
+        "  return Err(\"bad\")\n"
+        "}\n"
+        "fn cell_probe(ok: bool) -> int {\n"
+        "  match make_cell(ok) {\n"
+        "    Ok(cell) => return cell.value,\n"
+        "    Err(message) => return len(message)\n"
+        "  }\n"
+        "  return -1\n"
+        "}\n"
+        "fn main() { print(packet_probe(), cell_probe(true), cell_probe(false)) }\n",
+        "m5-c17-struct-tagged.nyx",
+    )
+    assert not collect_legalization_issues(c17_struct_tagged, "c", require_emitter=True)
+    expected_c17_struct_tagged = "\n".join(MIRInterpreter(c17_struct_tagged).run().output) + "\n"
+    assert expected_c17_struct_tagged == "8 7 3\n"
+    generated_c17_struct_tagged = emit_legalized_c17(c17_struct_tagged)
+    assert "nyx_box_PayloadCell" in generated_c17_struct_tagged
+    assert ".payload = { { .object =" in generated_c17_struct_tagged
+    assert _compile_and_run_c17(generated_c17_struct_tagged) == expected_c17_struct_tagged
+
     ownership = _ownership_module()
     assert not collect_legalization_issues(ownership, "cpp", require_emitter=True)
     expected_ownership = "\n".join(MIRInterpreter(ownership).run().output) + "\n"
@@ -422,6 +1422,31 @@ def run_mir_legalization_suite() -> bool:
     assert "std::move" in generated_ownership
     assert "int64_t*" in generated_ownership
     assert _compile_and_run_cpp(generated_ownership) == expected_ownership
+    assert not collect_legalization_issues(ownership, "rust", require_emitter=True)
+    generated_rust_borrow = emit_legalized_rust(ownership)
+    assert "NyxPtr<int" not in generated_rust_borrow
+    assert "NyxPtr<i64>" in generated_rust_borrow
+    assert "NyxPtr::borrow(" in generated_rust_borrow
+    assert ".read()" in generated_rust_borrow
+    assert _compile_and_run_rust(generated_rust_borrow) == expected_ownership
+
+    rust_ownership = _rust_value_ownership_module()
+    assert not collect_legalization_issues(rust_ownership, "rust", require_emitter=True)
+    expected_rust_ownership = "\n".join(MIRInterpreter(rust_ownership).run().output) + "\n"
+    assert expected_rust_ownership == "owned owned\n"
+    generated_rust_ownership = emit_legalized_rust(rust_ownership)
+    assert "std::mem::take" in generated_rust_ownership
+    assert "drop(" in generated_rust_ownership
+    assert _compile_and_run_rust(generated_rust_ownership) == expected_rust_ownership
+
+    mutable_borrow = _rust_mutable_borrow_module()
+    assert not collect_legalization_issues(mutable_borrow, "rust", require_emitter=True)
+    expected_mutable_borrow = "\n".join(MIRInterpreter(mutable_borrow).run().output) + "\n"
+    assert expected_mutable_borrow == "42\n"
+    generated_mutable_borrow = emit_legalized_rust(mutable_borrow)
+    assert "NyxPtr::borrow_mut(" in generated_mutable_borrow
+    assert ".write()" in generated_mutable_borrow
+    assert _compile_and_run_rust(generated_mutable_borrow) == expected_mutable_borrow
 
     aggregate_codes = {issue.code for issue in collect_legalization_issues(aggregate, "llvm")}
     assert "MIRG1002" in aggregate_codes, aggregate_codes
@@ -433,15 +1458,19 @@ def run_mir_legalization_suite() -> bool:
         raise AssertionError("aggregate MIR bypassed the LLVM legalization gate")
     except MIRLegalizationError as error:
         assert {issue.code for issue in error.issues} == aggregate_codes
-    for target in ("wasm", "c"):
-        rejected = {issue.code for issue in collect_legalization_issues(aggregate, target)}
-        assert "MIRG1002" in rejected and "MIRG1004" in rejected, (target, rejected)
+    wasm_rejected = {issue.code for issue in collect_legalization_issues(aggregate, "wasm")}
+    assert "MIRG1002" in wasm_rejected and "MIRG1004" in wasm_rejected, wasm_rejected
+    c_rejected = {issue.code for issue in collect_legalization_issues(aggregate, "c")}
+    assert "MIRG1002" in c_rejected, c_rejected
 
     print(
         "[PASS] 7 target profiles, stable negative diagnostics, no-fallback gate, "
         "scalar/aggregate/payload/ownership MIR interpreter parity, C++/LLVM pilots, "
-        "executable Wasm/Rust/JavaScript/Python/C17 CFG pilots, Rust/JS/Python "
-        "aggregate parity, host payload-enum parity, and legacy C++ oracle"
+        "executable Wasm/Rust/JavaScript/Python/C17 CFG pilots, C17 acyclic deep-cloned value structs/recursive Array<int|bool|string|struct>/nested collection fields/tagged multi-primitive|array|struct parity, Rust/JS/Python "
+        "aggregate parity, Wasm Array<int|bool|string|struct>+nested int|bool|string|struct arrays/nested int+bool+string-struct/int+bool+string+struct-enum/Result<int|struct,int|bool|string> parity, "
+        "C++/JS/Python interprocedural throw/catch parity, Rust/JS/Python payload-enum parity, "
+        "Rust value ownership/borrow/drop, "
+        "and legacy C++ oracle"
     )
     return True
 

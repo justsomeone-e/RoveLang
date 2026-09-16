@@ -29,6 +29,7 @@ from src.mir import (
     fingerprint,
     from_json,
     lower_hir_skeleton,
+    lower_hir_to_mir,
     print_mir,
     to_json,
     verify_mir,
@@ -77,6 +78,7 @@ def run_mir_suite() -> bool:
     rendered = print_mir(module)
     assert "fn identity [module::fn::identity](_1)" in rendered
     assert "bb0:" in rendered and "goto -> bb1" in rendered and "return" in rendered
+    assert "effects [unannotated]" in rendered
     assert print_mir(from_json(canonical)) == rendered
 
     pass_result = MIRPassManager((_IdentityPass(),)).run(module)
@@ -124,6 +126,32 @@ def run_mir_suite() -> bool:
         ),),
     )
     assert "MIR0100" in {issue.code for issue in collect_mir_issues(duplicate_local)}
+
+    effect_source = NyxCompiler(str(ROOT)).check_source(
+        "fn pure_value() -> int { return 1 }\n"
+        "fn allocate() -> int { var values = [1, 2]; return len(values) }\n"
+        "fn emit() { print(\"nyx\") }\n"
+        "fn caller() { emit() }\n"
+        "async fn pending() {}\n",
+        filename="effects.nyx",
+        target="cpp",
+    )
+    assert effect_source.success and effect_source.hir is not None
+    effect_mir = lower_hir_to_mir(effect_source.hir)
+    effects = {function.name: function.effects for function in effect_mir.functions}
+    assert effects == {
+        "pure_value": ("pure",),
+        "allocate": ("may_allocate",),
+        "emit": ("io",),
+        "caller": ("io",),
+        "pending": ("may_suspend",),
+    }
+    bad_effects = replace(
+        effect_mir,
+        functions=(replace(effect_mir.functions[0], effects=("io",)),)
+        + effect_mir.functions[1:],
+    )
+    assert "MIR0111" in {issue.code for issue in collect_mir_issues(bad_effects)}
 
     empty = NyxCompiler(str(ROOT)).check_source(
         "fn empty() {}\n",
@@ -192,7 +220,7 @@ def run_mir_suite() -> bool:
         assert verified.returncode == 0, verified.stdout + verified.stderr
         assert "Experimental MIR verified" in verified.stdout
 
-    print("[PASS] MIR model, builder, verifier, round-trip, printer, fingerprints, CLI, and M1 gate")
+    print("[PASS] MIR model, builder, verifier, round-trip, printer, fingerprints, effect inference, CLI, and M1 gate")
     return True
 
 

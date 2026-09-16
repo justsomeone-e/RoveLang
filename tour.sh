@@ -13,4 +13,8 @@ else
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec "$PY_CMD" "$SCRIPT_DIR/tour/tour.py" "$@"
+if [ "$#" -eq 0 ]; then
+    exec "$PY_CMD" "$SCRIPT_DIR/tour/tour.py" core
+else
+    exec "$PY_CMD" "$SCRIPT_DIR/tour/tour.py" "$@"
+fi

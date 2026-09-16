@@ -22,7 +22,8 @@ struct FunctionSignature {
     name: string,
     param_types: Array<string>,
     return_type: string,
-    defaults: Array<string>
+    defaults: Array<string>,
+    generic_params: Array<string>
 }
 
 struct Scope {
@@ -146,8 +147,8 @@ impl TypeChecker {
         return ""
     }
 
-    fn register_function(self, name: string, ptypes: Array<string>, ret: string, defaults: Array<string>) {
-        self.functions.push(FunctionSignature(name, ptypes, ret, defaults))
+    fn register_function(self, name: string, ptypes: Array<string>, ret: string, defaults: Array<string>, generic_params: Array<string>) {
+        self.functions.push(FunctionSignature(name, ptypes, ret, defaults, generic_params))
         self.register_symbol(name, ret)
     }
 
@@ -157,7 +158,7 @@ impl TypeChecker {
                 return self.functions[i]
             }
         }
-        return FunctionSignature("", [], "", [])
+        return FunctionSignature("", [], "", [], [])
     }
 
     fn register_struct_field(self, sname: string, fname: string, ftype: string) {
@@ -322,13 +323,27 @@ impl TypeChecker {
                 } else {
                     for i in 0..len(node.children)-1 {
                         var arg_t = self.infer_type(node.children[i])
-                        if not self.is_compatible(fn_sig.param_types[i], arg_t) {
+                        var expected = fn_sig.param_types[i]
+                        var direct_generic = false
+                        for g in 0..len(fn_sig.generic_params)-1 {
+                            if expected == fn_sig.generic_params[g] { direct_generic = true }
+                        }
+                        if not direct_generic and not self.is_compatible(expected, arg_t) {
                             self.has_error = true
                             self.error_msg = "Argument " + to_string(i+1) + " type mismatch in '" + node.name + "': expected " + fn_sig.param_types[i] + " but got " + arg_t
                         }
                     }
                 }
-                return fn_sig.return_type
+                var inferred_return = fn_sig.return_type
+                for i in 0..len(node.children)-1 {
+                    for g in 0..len(fn_sig.generic_params)-1 {
+                        if fn_sig.param_types[i] == fn_sig.generic_params[g] and
+                            inferred_return == fn_sig.generic_params[g] {
+                            inferred_return = self.infer_type(node.children[i])
+                        }
+                    }
+                }
+                return inferred_return
             }
 
             var fn_t = self.lookup_symbol(node.name)
@@ -581,7 +596,7 @@ impl TypeChecker {
             }
             var public_return_type = node.type_name
             if node.is_async { public_return_type = "Task<" + node.type_name + ">" }
-            self.register_function(node.name, param_types, public_return_type, defaults)
+            self.register_function(node.name, param_types, public_return_type, defaults, node.generic_args)
 
             var prev_ret = self.current_fn_return_type
             var prev_async = self.current_fn_is_async

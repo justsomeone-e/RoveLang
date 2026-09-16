@@ -1,57 +1,228 @@
-// nyx Standard Library - std/http
-// Lightweight Cross-Platform HTTP Networking Engine
+// Nyx Standard Library - std/http
+// Experimental hosted HTTP client for the native C++ target.
+// curl is executed directly with an argument vector; no command shell is used.
 
 #native include "string"
-#native include "cstdio"
+#native include "vector"
+#native include "cstddef"
 
 #native raw {
-inline std::string _nyx_http_get(const std::string& url) {
-    std::string cmd = "curl -sL \"" + url + "\"";
 #ifdef _WIN32
-    FILE* pipe = _popen(cmd.c_str(), "r");
+#include <windows.h>
 #else
-    FILE* pipe = popen(cmd.c_str(), "r");
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #endif
-    if (!pipe) return "";
-    char buffer[256];
-    std::string result = "";
-    while (fgets(buffer, sizeof(buffer), pipe) != NULL) {
-        result += buffer;
-    }
-#ifdef _WIN32
-    _pclose(pipe);
-#else
-    pclose(pipe);
-#endif
-    return result;
+
+static constexpr std::size_t _NYX_HTTP_MAX_RESPONSE = 8u * 1024u * 1024u;
+static constexpr std::size_t _NYX_HTTP_MAX_REQUEST_BODY = 16u * 1024u;
+
+inline bool _nyx_http_url_is_supported(const std::string& url) {
+    return url.rfind("https://", 0) == 0 || url.rfind("http://", 0) == 0;
 }
 
-inline std::string _nyx_http_post(const std::string& url, const std::string& body, const std::string& content_type) {
-    std::string cmd = "curl -sL -X POST -H \"Content-Type: " + content_type + "\" -d \"" + body + "\" \"" + url + "\"";
 #ifdef _WIN32
-    FILE* pipe = _popen(cmd.c_str(), "r");
-#else
-    FILE* pipe = popen(cmd.c_str(), "r");
-#endif
-    if (!pipe) return "";
-    char buffer[256];
-    std::string result = "";
-    while (fgets(buffer, sizeof(buffer), pipe) != NULL) {
-        result += buffer;
+inline std::string _nyx_http_quote_windows_arg(const std::string& value) {
+    if (value.empty()) return "\"\"";
+    if (value.find_first_of(" \t\"") == std::string::npos) return value;
+
+    std::string result = "\"";
+    std::size_t backslashes = 0;
+    for (char ch : value) {
+        if (ch == '\\') {
+            ++backslashes;
+            continue;
+        }
+        if (ch == '"') {
+            result.append(backslashes * 2 + 1, '\\');
+            result.push_back('"');
+            backslashes = 0;
+            continue;
+        }
+        result.append(backslashes, '\\');
+        backslashes = 0;
+        result.push_back(ch);
     }
-#ifdef _WIN32
-    _pclose(pipe);
-#else
-    pclose(pipe);
-#endif
+    result.append(backslashes * 2, '\\');
+    result.push_back('"');
     return result;
 }
+#endif
+
+inline std::string _nyx_http_run(const std::vector<std::string>& arguments) {
+    if (arguments.empty()) return "";
+
+#ifdef _WIN32
+    SECURITY_ATTRIBUTES security{};
+    security.nLength = sizeof(security);
+    security.bInheritHandle = TRUE;
+
+    HANDLE read_pipe = nullptr;
+    HANDLE write_pipe = nullptr;
+    if (!CreatePipe(&read_pipe, &write_pipe, &security, 0)) return "";
+    if (!SetHandleInformation(read_pipe, HANDLE_FLAG_INHERIT, 0)) {
+        CloseHandle(read_pipe);
+        CloseHandle(write_pipe);
+        return "";
+    }
+
+    std::string command_line;
+    for (const auto& argument : arguments) {
+        if (!command_line.empty()) command_line.push_back(' ');
+        command_line += _nyx_http_quote_windows_arg(argument);
+    }
+    std::vector<char> mutable_command(command_line.begin(), command_line.end());
+    mutable_command.push_back('\0');
+
+    STARTUPINFOA startup{};
+    startup.cb = sizeof(startup);
+    startup.dwFlags = STARTF_USESTDHANDLES;
+    startup.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+    startup.hStdOutput = write_pipe;
+    startup.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+    PROCESS_INFORMATION process{};
+
+    const BOOL started = CreateProcessA(
+        nullptr,
+        mutable_command.data(),
+        nullptr,
+        nullptr,
+        TRUE,
+        CREATE_NO_WINDOW,
+        nullptr,
+        nullptr,
+        &startup,
+        &process
+    );
+    CloseHandle(write_pipe);
+    if (!started) {
+        CloseHandle(read_pipe);
+        return "";
+    }
+
+    std::string output;
+    char buffer[4096];
+    DWORD received = 0;
+    while (ReadFile(read_pipe, buffer, sizeof(buffer), &received, nullptr) && received > 0) {
+        if (output.size() < _NYX_HTTP_MAX_RESPONSE) {
+            const std::size_t remaining = _NYX_HTTP_MAX_RESPONSE - output.size();
+            output.append(buffer, static_cast<std::size_t>(received) < remaining ? received : remaining);
+        }
+    }
+    CloseHandle(read_pipe);
+    WaitForSingleObject(process.hProcess, INFINITE);
+    DWORD exit_code = 1;
+    GetExitCodeProcess(process.hProcess, &exit_code);
+    CloseHandle(process.hThread);
+    CloseHandle(process.hProcess);
+    return exit_code == 0 ? output : std::string();
+#else
+    int output_pipe[2];
+    if (pipe(output_pipe) != 0) return "";
+
+    const pid_t child = fork();
+    if (child < 0) {
+        close(output_pipe[0]);
+        close(output_pipe[1]);
+        return "";
+    }
+    if (child == 0) {
+        if (dup2(output_pipe[1], STDOUT_FILENO) < 0) _exit(126);
+        close(output_pipe[0]);
+        close(output_pipe[1]);
+        std::vector<char*> argv;
+        argv.reserve(arguments.size() + 1);
+        for (const auto& argument : arguments) {
+            argv.push_back(const_cast<char*>(argument.c_str()));
+        }
+        argv.push_back(nullptr);
+        execvp(argv[0], argv.data());
+        _exit(127);
+    }
+
+    close(output_pipe[1]);
+    std::string output;
+    char buffer[4096];
+    ssize_t received = 0;
+    while ((received = read(output_pipe[0], buffer, sizeof(buffer))) > 0) {
+        if (output.size() < _NYX_HTTP_MAX_RESPONSE) {
+            const std::size_t remaining = _NYX_HTTP_MAX_RESPONSE - output.size();
+            output.append(buffer, static_cast<std::size_t>(received) < remaining
+                ? static_cast<std::size_t>(received)
+                : remaining);
+        }
+    }
+    close(output_pipe[0]);
+    int status = 0;
+    if (waitpid(child, &status, 0) < 0) return "";
+    return WIFEXITED(status) && WEXITSTATUS(status) == 0 ? output : std::string();
+#endif
 }
+
+inline std::vector<std::string> _nyx_http_base_args() {
+    return {
+        "curl", "-fsSL",
+        "--proto", "=http,https",
+        "--proto-redir", "=http,https",
+        "--connect-timeout", "15",
+        "--max-time", "60"
+    };
+}
+
+inline std::string _nyx_http_get_impl(const std::string& url) {
+    if (!_nyx_http_url_is_supported(url)) return "";
+    auto arguments = _nyx_http_base_args();
+    arguments.push_back("--");
+    arguments.push_back(url);
+    return _nyx_http_run(arguments);
+}
+
+inline std::string _nyx_http_post_impl(
+    const std::string& url,
+    const std::string& body,
+    const std::string& content_type
+) {
+    if (!_nyx_http_url_is_supported(url)) return "";
+    if (body.size() > _NYX_HTTP_MAX_REQUEST_BODY) return "";
+    if (content_type.find_first_of("\r\n") != std::string::npos) return "";
+
+    auto arguments = _nyx_http_base_args();
+    arguments.push_back("-X");
+    arguments.push_back("POST");
+    arguments.push_back("-H");
+    arguments.push_back("Content-Type: " + content_type);
+    arguments.push_back("--data-binary");
+    arguments.push_back(body);
+    arguments.push_back("--");
+    arguments.push_back(url);
+    return _nyx_http_run(arguments);
+}
+
+inline const char* _nyx_http_get(const char* url) {
+    static thread_local std::string response;
+    response = _nyx_http_get_impl(url ? std::string(url) : std::string());
+    return response.c_str();
+}
+
+inline const char* _nyx_http_post(const char* url, const char* body, const char* content_type) {
+    static thread_local std::string response;
+    response = _nyx_http_post_impl(
+        url ? std::string(url) : std::string(),
+        body ? std::string(body) : std::string(),
+        content_type ? std::string(content_type) : std::string()
+    );
+    return response.c_str();
+}
+}
+
+extern "C++" fn _nyx_http_get(url: string) -> string
+extern "C++" fn _nyx_http_post(url: string, body: string, content_type: string) -> string
 
 fn http_get(url: string) -> string {
-    return _nyx_http_get(url);
+    return _nyx_http_get(url)
 }
 
 fn http_post(url: string, body: string, content_type: string) -> string {
-    return _nyx_http_post(url, body, content_type);
+    return _nyx_http_post(url, body, content_type)
 }

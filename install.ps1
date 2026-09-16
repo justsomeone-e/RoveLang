@@ -25,9 +25,13 @@ function Find-NyxPython {
     foreach ($name in @("python", "python3")) {
         $command = Get-Command $name -ErrorAction SilentlyContinue
         if ($command) {
+            $commandPath = @($command.Path, $command.Definition, $command.Source) |
+                Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Leaf) } |
+                Select-Object -First 1
+            if (-not $commandPath) { continue }
             try {
-                & $command.Source -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)" *> $null
-                if ($LASTEXITCODE -eq 0) { return $command.Source }
+                & $commandPath -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)" *> $null
+                if ($LASTEXITCODE -eq 0) { return $commandPath }
             } catch {
                 continue
             }
@@ -93,8 +97,12 @@ try {
             $SourceRoot = Get-ChildItem -LiteralPath $TempExtract -Directory |
                 Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName "src") -PathType Container } |
                 Select-Object -First 1 -ExpandProperty FullName
+            if (-not $SourceRoot) {
+                throw "Downloaded archive did not contain a Nyx source root with src/."
+            }
         } catch {
-            Write-Host "[!] Source download failed; native core installation can still continue from a release binary." -ForegroundColor Yellow
+            Write-Host "[!] Source download or extraction failed: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "[!] Native core installation can still continue from a release binary." -ForegroundColor Yellow
         }
     }
 

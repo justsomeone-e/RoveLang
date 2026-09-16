@@ -11,7 +11,7 @@ from typing import Tuple
 from .types import MIRType
 
 
-MIR_SCHEMA_VERSION = 1
+MIR_SCHEMA_VERSION = 3
 
 
 @dataclass(frozen=True, slots=True)
@@ -272,6 +272,17 @@ class ThrowTerminator:
     span: MIRSpan
 
 
+@dataclass(frozen=True, slots=True)
+class SuspendTerminator:
+    task: Operand
+    destination: Place
+    resume: int
+    suspend_id: int
+    span: MIRSpan
+    unwind: int | None = None
+    error_destination: Place | None = None
+
+
 Terminator = (
     GotoTerminator
     | SwitchIntTerminator
@@ -282,6 +293,7 @@ Terminator = (
     | AssertTerminator
     | UnreachableTerminator
     | ThrowTerminator
+    | SuspendTerminator
 )
 
 
@@ -302,6 +314,24 @@ class MIRBasicBlock:
 
 
 @dataclass(frozen=True, slots=True)
+class MIRSuspendPoint:
+    id: int
+    block: int
+    resume: int
+    live_locals: Tuple[int, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class MIRCoroutine:
+    state_local: int
+    frame_locals: Tuple[int, ...]
+    suspend_points: Tuple[MIRSuspendPoint, ...]
+    start_symbol: str
+    resume_symbol: str
+    destroy_symbol: str
+
+
+@dataclass(frozen=True, slots=True)
 class MIRFunction:
     name: str
     symbol: str
@@ -310,6 +340,9 @@ class MIRFunction:
     return_local: int
     blocks: Tuple[MIRBasicBlock, ...]
     span: MIRSpan
+    effects: Tuple[str, ...] = ()
+    is_async: bool = False
+    coroutine: MIRCoroutine | None = None
 
 
 @dataclass(frozen=True, slots=True)

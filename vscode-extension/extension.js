@@ -20,21 +20,20 @@ async function activate(context) {
             ],
             outputChannelName: 'Nyx Language Server'
         };
-        languageClient = new LanguageClient(
+        const client = new LanguageClient(
             'nyxLanguageServer',
             'Nyx Language Server',
             serverOptions,
             clientOptions
         );
-        try {
-            await languageClient.start();
-            context.subscriptions.push({
-                dispose: () => languageClient ? languageClient.stop() : undefined
-            });
-        } catch (error) {
-            languageClient = undefined;
+        languageClient = client;
+        context.subscriptions.push({
+            dispose: () => languageClient === client ? client.stop() : undefined
+        });
+        client.start().catch(error => {
+            if (languageClient === client) languageClient = undefined;
             console.warn(`Nyx language server could not start: ${error.message}`);
-        }
+        });
     }
 
     registerNyxCommands(vscode, context);

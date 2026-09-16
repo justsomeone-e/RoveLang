@@ -39,6 +39,7 @@ from .model import (
     StorageLiveStatement,
     SwitchIntTerminator,
     SwitchValueTerminator,
+    SuspendTerminator,
     ThrowTerminator,
     UnaryRValue,
     UnreachableTerminator,
@@ -48,6 +49,7 @@ from .model import (
     MIR_SCHEMA_VERSION,
 )
 from .types import MIRType
+from .effects import VALID_MIR_EFFECTS, infer_module_effects
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +75,10 @@ class MIRVerifier:
             for definition in getattr(module, "type_definitions", ())
         }
         self._ownership_issue_keys: set[tuple[str, int, int, str]] = set()
+        self.inferred_effects = {
+            function.symbol: function.effects
+            for function in infer_module_effects(module).functions
+        } if isinstance(module, MIRModule) else {}
 
     def collect(self) -> tuple[MIRVerificationIssue, ...]:
         if not isinstance(self.module, MIRModule):
@@ -128,6 +134,21 @@ class MIRVerifier:
 
     def _verify_function(self, function: MIRFunction) -> None:
         self._verify_span(function.span)
+        if function.effects:
+            unknown_effects = set(function.effects) - VALID_MIR_EFFECTS
+            if unknown_effects:
+                self._issue(
+                    "MIR0110",
+                    f"Function '{function.name}' declares unknown effects {sorted(unknown_effects)}",
+                    function.span,
+                )
+            expected_effects = self.inferred_effects.get(function.symbol, ())
+            if not unknown_effects and function.effects != expected_effects:
+                self._issue(
+                    "MIR0111",
+                    f"Function '{function.name}' effect set {function.effects} does not match inferred {expected_effects}",
+                    function.span,
+                )
         local_ids = [local.id for local in function.locals]
         if local_ids != list(range(len(function.locals))):
             self._issue("MIR0100", "Local ids must be dense and ordered from zero", function.span)
@@ -147,6 +168,29 @@ class MIRVerifier:
             self._verify_span(local.span)
             if not isinstance(local.type, MIRType):
                 self._issue("MIR0106", f"Local {local.id} has an invalid type", local.span)
+
+        if function.is_async and function.coroutine is None:
+            self._issue("MIR0112", f"Async function '{function.name}' lacks coroutine metadata", function.span)
+        if not function.is_async and function.coroutine is not None:
+            self._issue("MIR0113", f"Synchronous function '{function.name}' carries coroutine metadata", function.span)
+        if function.coroutine is not None:
+            coroutine = function.coroutine
+            state = local_map.get(coroutine.state_local)
+            if state is None or state.kind != "coroutine-state" or state.type.name != "int":
+                self._issue("MIR0114", "Coroutine state local must be an int coroutine-state local", function.span)
+            for local_id in coroutine.frame_locals:
+                if local_id not in local_map:
+                    self._issue("MIR0114", f"Coroutine frame references unknown local {local_id}", function.span)
+            point_ids = [point.id for point in coroutine.suspend_points]
+            if point_ids != list(range(len(point_ids))):
+                self._issue("MIR0115", "Coroutine suspend ids must be dense and ordered", function.span)
+            lifecycle = (
+                coroutine.start_symbol,
+                coroutine.resume_symbol,
+                coroutine.destroy_symbol,
+            )
+            if any(not symbol for symbol in lifecycle) or len(set(lifecycle)) != 3:
+                self._issue("MIR0116", "Coroutine lifecycle symbols must be non-empty and distinct", function.span)
 
         block_ids = [block.id for block in function.blocks]
         if not function.blocks:
@@ -244,6 +288,27 @@ class MIRVerifier:
                     self._issue("MIR0406", "Caught throw requires an error destination", span)
             if terminator.destination is not None:
                 self._place_type(terminator.destination, locals_by_id, span)
+        elif isinstance(terminator, SuspendTerminator):
+            task_type = self._operand_type(terminator.task, locals_by_id, span)
+            destination_type = self._place_type(terminator.destination, locals_by_id, span)
+            if task_type is not None:
+                if task_type.name != "Task" or len(task_type.arguments) != 1:
+                    self._issue("MIR0407", f"Suspend operand must be Task<T>, got {task_type}", span)
+                elif destination_type is not None and destination_type != task_type.arguments[0]:
+                    self._issue(
+                        "MIR0407",
+                        f"Suspend destination type {destination_type} does not match {task_type.arguments[0]}",
+                        span,
+                    )
+            self._require_block(terminator.resume, valid_blocks, span)
+            if terminator.unwind is not None:
+                self._require_block(terminator.unwind, valid_blocks, span)
+                if terminator.error_destination is None:
+                    self._issue("MIR0408", "Suspend unwind requires an error destination", span)
+            if terminator.error_destination is not None:
+                self._place_type(terminator.error_destination, locals_by_id, span)
+            if terminator.suspend_id < 0:
+                self._issue("MIR0115", "Suspend id must be non-negative", span)
         elif not isinstance(terminator, (ReturnTerminator, UnreachableTerminator)):
             self._issue("MIR0403", "Block requires exactly one known terminator", span)
 
@@ -472,6 +537,22 @@ class MIRVerifier:
             elif terminator.destination is not None:
                 self._ownership_require(terminator.destination, caught, span, report, "throw destination")
             return [(terminator.target, tuple(caught))]
+        if isinstance(terminator, SuspendTerminator):
+            self._ownership_operand(terminator.task, state, span, report)
+            resumed = list(state)
+            if terminator.destination.projections:
+                self._ownership_require(
+                    terminator.destination, resumed, span, report, "suspend destination",
+                )
+            else:
+                resumed[terminator.destination.local] = "init"
+            edges = [(terminator.resume, tuple(resumed))]
+            if terminator.unwind is not None:
+                failed = list(state)
+                if terminator.error_destination is not None and not terminator.error_destination.projections:
+                    failed[terminator.error_destination.local] = "init"
+                edges.append((terminator.unwind, tuple(failed)))
+            return edges
         return []
 
     def _ownership_rvalue(

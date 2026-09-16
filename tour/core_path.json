@@ -1,0 +1,12 @@
+[
+  "intro01", "intro02",
+  "variables01", "variables02", "variables05",
+  "types01",
+  "functions01", "functions02",
+  "if01", "loops01", "loops02", "match01",
+  "arrays01", "arrays03",
+  "structs01", "structs02",
+  "enums01",
+  "errors01", "null01", "result02", "result03",
+  "pipeline01", "defer01", "modules01", "quiz01"
+]

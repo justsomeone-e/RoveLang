@@ -1,8 +1,40 @@
 # Nyx Deep Compiler Architecture and Formal Roadmap
 
-Status: research and design proposal. This document does not claim that the
-described MIR, semantic model, proofs, ABI revisions, or backend migrations are
-implemented.
+Status: implementation roadmap with per-milestone evidence. M0-M3 and the M4
+core foundations are implemented as recorded below; the M4 exit gate, full M5
+backend parity, formal proofs, ABI revisions, and later milestones remain open.
+
+Audience: compiler contributors deciding what semantic work is safe to build
+next. This is a living architecture and implementation roadmap, not the Nyx
+language specification and not a claim that the research agenda has been
+formally proved.
+
+## Current state at a glance
+
+Validation scope for this snapshot: the named targeted suites and the full
+`python -u tests/run_all_tests.py` battery are green after the latest identity,
+generic-instance, dispatch, coroutine, graph-checking, and enum-pattern fixes.
+This is repository regression evidence, not hosted multi-platform release
+evidence.
+
+| Milestone | State | Implemented boundary | Current evidence | Exit-gate gap |
+| --- | --- | --- | --- | --- |
+| M0 identities/contracts | Foundation implemented | Stable source/module/definition/type identities, feature manifest, non-flattened parsed module graph | Full battery; focused module/manifest suites also pass | Compatibility linking still flattens the final AST/HIR program |
+| M1 MIR skeleton | Complete | Versioned model, verifier, printer, serialization, pass fingerprints and CLI tooling | Full battery; `tests/mir_suite.py` passes | None for the stated M1 boundary |
+| M2 scalar CFG | Complete | Executable scalar/control-flow MIR and reference interpreter | Full battery; `tests/mir_lowering_suite.py` passes | None for the stated scalar boundary |
+| M3 cleanup semantics | Complete for currently lowered HIR | Shared short-circuit, match/guard, Result propagation, defer and unwind CFG | Full battery; `tests/mir_cleanup_suite.py` passes | New source constructs must prove that no emitter-local lowering remains |
+| M4 memory/ABI | Core implemented; exit gate open | Aggregate places, ownership operations, verifier, layouts and ABI classification | Full battery; `tests/mir_memory_abi_suite.py` passes | Stable-target aggregate parity and complete ownership-bearing layouts |
+| M5 backend migration | In progress | Versioned legalization and bounded executable pilots for all listed targets | Full battery; `tests/mir_legalization_suite.py` passes | Full MIR-surface differential parity, async adapters and remaining aggregate/runtime cases |
+| M6-M8 platform expansion | Not complete | Isolated static-dispatch, generic-instance and coroutine foundations | Full battery; focused dispatch/instance/coroutine suites pass | Vertical language slices, ecosystem work, backend promotion and formal validation |
+| M9-M24 platform scale | Planned; some foundations exist | Optimizer, target model, workspace, registry, tooling, debug, FFI, concurrency, unsafe, instrumentation, editions and supply-chain tracks | No single completion claim; individual evidence is recorded per track below | Each track requires its own implementation, negative, reproducibility and integration gates |
+
+The non-negotiable migration rule is: **do not delete an existing emitter's
+semantic lowering until the replacement MIR path passes positive, negative,
+runtime, and differential-parity tests.**
+
+Sections 19-24 are a long-term formal-methods research agenda. They define a
+possible proof direction and trusted boundary; they are not release gates for
+the current executable compiler unless a milestone explicitly adopts one.
 
 Nyx should grow by strengthening a small target-independent semantic core, not
 by adding keywords or duplicating lowering logic across emitters. The intended
@@ -104,20 +136,30 @@ modules when the public interface fingerprint is unchanged.
 ### 2.4 Current repository evidence
 
 The architectural pressure above is visible in the current implementation. The
-following findings are an audit of the repository state, not claims that the
-proposed replacements already exist.
+following findings distinguish implemented foundations from remaining design
+work.
 
-#### Generics currently carry names rather than resolved instances
+#### Generic declarations retain names; reachable instances now have identities
 
 [`IRFunction`](../../src/ir/model.py#L263), `IRStruct`, and `IREnum` carry
-`generic_params` as tuples of strings. The current model does not attach a
-resolved generic parameter identity, constraint set, substitution map, concrete
-instance identity, or monomorphization record.
+`generic_params` as tuples of strings. `src/ir/instances.py` now infers
+substitutions for reachable generic function calls, recursively discovers calls
+made by instantiated generic bodies, deduplicates recursion, and assigns
+deterministic `InstanceId` values based on `DefId` and interned concrete
+`TypeId` arguments. Generic call result types are substituted before entering
+Typed HIR, so `identity<T>(1)` has type `int` rather than leaking `T`.
 
-Consequences include:
+This is not complete monomorphization. The current model still lacks resolved
+`GenericParamId` values, constraint records, and trait-selected method
+instances. Function bodies plus reachable generic struct and enum layouts are
+cloned with concrete substitutions before MIR lowering. When
+callers supply module-graph `DefId` values the collector uses them; its
+source-local fallback exists only while flattened HIR remains the compatibility
+path.
 
-- `Box<int>` and `Box<string>` do not yet have a dedicated compiler instance
-  identity at this layer;
+Remaining consequences include:
+
+- generic trait methods do not yet have dedicated selected instances;
 - trait-bound resolution can leak into backend-specific logic;
 - C++, Rust, LLVM, and Wasm can accidentally choose different generic
   representations or lowering behavior.
@@ -132,15 +174,9 @@ MonomorphInstance
 CanonicalTypeId
 ```
 
-#### Type compatibility is intentionally permissive
+#### Type relations are separated; legacy compatibility remains transitional
 
-[`compatible()`](../../src/ir/types.py#L132) currently performs broad
-compatibility checks, including generic-name compatibility when one side lacks
-fully specified arguments. That behavior can support transitional HIR, but it
-must not become the final definition of overload resolution, generic identity,
-or ABI equality.
-
-It should be decomposed into:
+[`src/ir/types.py`](../../src/ir/types.py) now exposes four distinct predicates:
 
 ```text
 is_exact_type(left, right)
@@ -149,66 +185,106 @@ is_coercible(source, destination)
 is_abi_compatible(left, right, target)
 ```
 
-#### Async is represented but not yet modeled as a state machine
+HIR verification and MIR coercion use the precise assignment/coercion
+predicates. Nested generic arguments are compared recursively, with `any`
+acting only as the explicit unresolved-type wildcard. ABI compatibility is
+currently conservative and scalar-layout based. The old `compatible()` helper
+remains only for unmigrated HIR consumers and preserves their historical loose
+generic/pointer behavior; it is not an identity or ABI authority. Nominal
+layout compatibility still depends on the future canonical layout engine.
+
+#### Async now has target-independent suspend and frame semantics
 
 The HIR contains [`IRAwait`](../../src/ir/model.py#L57),
 [`IRSpawn`](../../src/ir/model.py#L214), and the
-[`IRFunction.is_async`](../../src/ir/model.py#L270) flag. It does not yet encode:
+[`IRFunction.is_async`](../../src/ir/model.py#L270) flag.
+
+MIR schema v3 lowers every `await` to a numbered `SuspendTerminator` with an
+explicit resume block and destination. `src/mir/coroutines.py` performs
+backward liveness, records the locals that survive each suspension, and builds
+a deterministic coroutine-frame description with a dedicated state local.
+Every frame publishes target-independent `start`, `resume`, and `destroy`
+lifecycle symbols for legalization adapters.
+The reference interpreter models hot, memoized Tasks, including repeated await
+of the same Task. User throws stored by a failed Task cross the suspend edge to
+the surrounding MIR unwind destination without catching runtime traps. The
+verifier rejects missing/malformed coroutine metadata.
+
+The remaining contract and lowering work is:
 
 ```text
-suspend point identity
-coroutine frame
-locals live across await
-start/resume/destroy paths
 cancellation
-async exception transfer
-single-await versus multi-await Task policy
-hot versus cold Task behavior
+backend-specific frame allocation and destruction
 ```
 
-Those decisions belong in the Nyx Task contract and coroutine MIR lowering,
+The shared MIR now owns suspension identity and frame liveness. The remaining
+lifecycle decisions belong in the Nyx Task contract and target legalization,
 not in direct backend syntax generation.
 
-#### Imports are flattened into the root AST
+#### A module graph now accompanies the flattened compatibility AST
 
-[`ModuleLoader.load_program()`](../../src/core/module_loader.py#L148) prepends
-collected imported declarations to root statements. Parsed modules are cached,
-but their declarations are ultimately combined into one root program.
+[`ModuleLoader.load_program()`](../../src/core/module_loader.py) still prepends
+collected imported declarations to root statements for compatibility. It now
+also retains a non-flattened [`ModuleGraph`](../../src/core/identities.py) with
+stable source/module/definition identities, import edges, interned type IDs,
+and separate interface/implementation fingerprints.
 
-This simplifies the current compiler but obstructs a long-term implementation
-of:
+Definition identity uses a module-qualified declaration-path hash rather than
+the declaration's transient list position. Inserting a different public
+declaration before an existing definition therefore changes its local index
+without changing its `DefId` equality or stable key.
+Public interface records are canonicalized independently of source declaration
+order, avoiding invalidation from harmless reordering. The graph also computes
+a deterministic dependency-first initialization order and rejects cycles in
+that ordering. `resolve_visible()` now performs module-local/direct-import name
+resolution over `DefId` values, honors selective-import filters, keeps local
+definitions shadowing imports, and reports ambiguous candidate identities.
+
+`ModuleLoader.load_program_graph()` now exposes a `LoadedProgramGraph` whose
+module table retains each parsed AST under its own `ModuleId`; its root module
+contains only root declarations/imports rather than transitively prepended
+bodies. The old flattened `compatibility_program` is carried explicitly beside
+that graph instead of masquerading as the module model.
+
+This establishes deterministic identity, invalidation, and a real parsed-module
+container without changing Typed HIR v1 bytes. Downstream checking and HIR
+resolution still consume the explicit compatibility AST, so the following
+migration work remains:
 
 ```text
-real module namespaces
 public and private visibility
 same-named private declarations
 separate compilation units
-interface-only invalidation
 cyclic interface diagnostics
-package initialization order
 parallel compilation
 ```
 
-The replacement should preserve module boundaries and make dependant modules
-consume public interface fingerprints rather than flattened AST declarations.
+The next replacement step is to make name/type resolution consume graph records
+and public interface fingerprints directly, then remove flattening only behind
+an explicitly versioned compiler boundary.
 
-#### Traits have declarations but no complete dispatch model
+#### Traits now have a bounded static-dispatch model
 
 [`IRTrait`](../../src/ir/model.py#L284) and
-[`IRImpl`](../../src/ir/model.py#L291) carry methods and target names. The model
-does not yet distinguish:
+[`IRImpl`](../../src/ir/model.py#L291) carry methods and target names.
+`src/ir/dispatch.py` resolves receiver calls to one concrete implementation,
+turns the receiver into an ordinary first argument, concretizes the `self`
+type, and exposes the selected method as a normal function before MIR lowering.
+The MIR interpreter corpus proves that the resulting call no longer depends on
+backend method lookup.
+
+The model does not yet distinguish:
 
 ```text
 resolved TraitId and ImplId
 associated types
 generic bounds
-static dispatch
 dynamic dispatch
 witness or vtable layout
 object-safety rules
 ```
 
-The first complete implementation should resolve static dispatch before MIR:
+The implemented bounded path resolves static dispatch before MIR:
 
 ```text
 trait call
@@ -219,7 +295,9 @@ trait call
   -> emit an ordinary MIR call
 ```
 
-Dynamic trait objects should remain a separate capability and ABI project.
+Ambiguous same-target method candidates are rejected by the materializer.
+Generic trait constraints, associated types, specialization, and dynamic trait
+objects remain a separate type-system and ABI project.
 
 #### Existing pass fingerprints are a useful foundation
 
@@ -402,6 +480,15 @@ effects allow the compiler to:
 - prevent optimizations from moving effectful calls;
 - calculate a program's required capability set.
 
+Implementation status (2026-09-14): MIR schema v3 stores canonical effect
+metadata and the source async marker on every lowered function.
+`src/mir/effects.py` computes direct effects and propagates callee effects to a
+fixed point over the module call graph. `src/mir/verifier.py` rejects unknown
+or stale declarations with `MIR0110` and `MIR0111`. This is internal metadata;
+there is deliberately no user-facing effect syntax yet. Async functions are
+conservatively marked `may_suspend` until coroutine lowering can prove a
+smaller set.
+
 Capabilities may later be declared by a package manifest:
 
 ```toml
@@ -448,6 +535,17 @@ CanonicalTypeId
 HIR should retain generic declarations and constraints. The initial MIR path
 should receive concrete monomorphized instances. A collector discovers all
 reachable concrete functions, methods, statics, and layouts before codegen.
+
+Implementation status (2026-09-15): the first target-independent collector is
+implemented in `src/ir/instances.py` for reachable generic functions. It uses
+canonical concrete type arguments, deterministic `InstanceId` keys, recursive
+call discovery, and duplicate-instance suppression. `tests/ir_instances_suite.py`
+covers two concrete instantiations, transitive generic calls, deduplication,
+stable repeated collection, concrete HIR materialization, generic struct layout
+materialization, and MIR interpreter execution. `lower_hir_to_mir`
+automatically materializes reachable generic functions, structs, and enums
+before CFG lowering. Constraints, static trait dispatch, and migrated backend
+parity remain open.
 
 Monomorphization keys must include canonical type arguments and relevant
 compile-time parameters. Collection requires recursion/cycle guards and a code
@@ -867,6 +965,39 @@ runtime ABI version
 Incremental caching should begin only after stable identities, deterministic
 serialization, module boundaries, pure queries, and public interface hashes
 exist. Otherwise a fast cache can produce stale or semantically invalid builds.
+
+### 13.1 Compiler performance plan
+
+Compiler speed must be improved from measurements, not from assumptions. Nyx
+should record cold and warm timings for tokenization, parsing, interface
+collection, name resolution, type checking, HIR/MIR lowering, legalization,
+code generation, and the external native compiler invocation. A benchmark
+result is scoped to its machine, toolchain, corpus, and build profile; it is not
+a universal compiler-speed claim.
+
+The implementation order is:
+
+1. Measure each compiler phase and retain a fixed benchmark corpus.
+2. Cache parsed modules, collected interfaces, and typed HIR using the query
+   keys above.
+3. Invalidate only changed modules and declarations whose public interfaces or
+   dependencies changed.
+4. Lower and emit independent modules in parallel, while preserving
+   deterministic output ordering and diagnostics.
+5. Reuse native object files through an explicitly configured compiler cache
+   such as `ccache` or `sccache` when the external toolchain supports it.
+6. Add a persistent compiler process/daemon only after query boundaries and
+   cache invalidation are correct; it must not become a second source of
+   compiler semantics.
+7. Move the stable frontend path to the native `nyxc` implementation in
+   bounded slices, with differential parity against the reference frontend.
+
+The first warm-build success criterion should be concrete: an unchanged
+project must avoid parsing, type-checking, lowering, and native recompilation
+for unaffected modules. Cache hits must still verify compiler version, target,
+feature flags, dependency interfaces, runtime ABI, and source fingerprints.
+Correctness and deterministic invalidation take priority over a fast but stale
+build.
 
 ## 14. Debug information and provenance
 
@@ -1602,6 +1733,12 @@ semantics-free skeleton remains available as `lower_hir_skeleton`; `nyx emit
 mir` now uses the subsequently completed executable lowering path. The default
 HIR-to-backend route remains unchanged.
 
+MIR schema v3 records `effects`, `is_async`, and target-independent coroutine
+metadata on functions.
+Lowering annotates these fields through target-independent fixed-point effect
+inference before verification; hand-built unannotated fixtures remain accepted
+for focused structural tests.
+
 Purpose: create the representation without migrating production codegen.
 
 Work:
@@ -1696,8 +1833,9 @@ Emitters no longer independently lower these source semantics.
 
 ### M4: aggregates, ownership, memory, and ABI
 
-Implementation status (2026-09-09): complete for the first executable M4
-contract. MIR now carries struct/enum definitions, aggregate construction,
+Implementation status (2026-09-09): the first executable M4 core is
+implemented, but the milestone exit gate remains open. MIR now carries
+struct/enum definitions, aggregate construction,
 field/index/dereference/variant projections, and explicit copy, move, borrow,
 retain, release, deinit, and drop operations. The verifier performs
 conservative CFG-wide initialization and move-state analysis. `src/mir/layout.py`
@@ -1761,12 +1899,14 @@ Implementation status (2026-09-09):
 
 - `src/mir/legalization.py` publishes versioned operation, type, runtime,
   ownership, effect, and ABI profiles in the required migration order;
-- legalization contract schema v2 publishes explicit binary and unary
-  operation allowlists for every target, so unknown operations are rejected
-  before emitter dispatch rather than failing inside generated code;
-- stable `MIRG1000`-`MIRG1010` diagnostics reject unknown targets, missing
+- legalization contract schema v3 publishes explicit binary and unary
+  operation allowlists plus legal effect sets for every target, so unknown
+  operations and unsupported effects are rejected before emitter dispatch
+  rather than failing inside generated code;
+- stable `MIRG1000`-`MIRG1011` diagnostics reject unknown targets, missing
   profiles, illegal types/operations/projections, unsupported runtime calls,
-  unwind edges, unavailable emitters, and emitter-contract violations;
+  unwind edges, unavailable emitters, emitter-contract violations, and effects
+  without a target lowering;
 - `src/mir/codegen_cpp.py`, `src/mir/codegen_llvm.py`, and
   `src/mir/codegen_wasm.py`, `src/mir/codegen_rust.py`,
   `src/mir/codegen_javascript.py`, `src/mir/codegen_python.py`, plus
@@ -1775,13 +1915,41 @@ Implementation status (2026-09-09):
   explicit CFG control flow, calls, assertions, wrapping `int64` arithmetic,
   division traps, strings, floats, and canonical `print` output. The C++ pilot
   additionally legalizes arrays, checked index projections, structs, fields,
-  optionals, payload enums, `Result`, lexical cleanup CFG, and caught throws;
+  optionals, payload enums, `Result`, lexical cleanup CFG, direct caught throws,
+  and interprocedural call-unwind edges. A dedicated user-throw carrier keeps
+  language exceptions distinct from runtime traps;
 - the C++ ownership mapping covers borrow/dereference, copy/move, deinit, and
   non-unwinding drop. Explicit MIR retain/release operations map to C++ RAII
   copy/move/destruction instead of emitting a second reference-counting layer;
+- the Rust ownership mapping now lowers copy to `Clone`, move to
+  `std::mem::take`, retain/release to Rust value semantics, and explicit deinit
+  and non-unwinding drop without introducing a second reference-counting layer.
+  Borrow/dereference uses a typed `NyxPtr<T>` carrier that preserves the MIR
+  mutable-borrow check instead of exposing an unchecked raw pointer surface;
 - the first Wasm slice accepts pure `int`/`bool` functions, user calls, and
   dispatcher-based CFG. It emits both WAT and binary Wasm while rejecting
-  strings, host calls, casts, heap values, and aggregates at legalization.
+  strings, host calls, casts, and unsupported heap values at legalization.
+  The aggregate slice supports `Array<int>`, `Array<bool>`, `Array<string>`, and
+  `Array<struct>` through a wasm32
+  `{data, length, capacity}` descriptor, deep copy, move clearing,
+  bounds-checked index reads/writes, descriptor-aware immutable UTF-8 string
+  elements, inline layout-sized struct elements, detached element copies, and
+  `len`. Nested int, bool, string, and nominal-struct arrays additionally deep-clone every inner
+  descriptor and data allocation and accept checked multi-index reads/writes; other aggregate element types
+  remain rejected before emitter dispatch. Structs with int, byte-sized bool,
+  and immutable UTF-8 string fields use deterministic wasm32 field offsets,
+  width-correct `i32.store8`/`i32.load8_u` bool access, descriptor-aware field
+  construction/assignment, byte-level value copies, and checked field selection.
+  Nested nominal structs are stored inline and chained field projections use
+  layout-derived offsets while preserving outer value-copy isolation. Nominal enums with int payloads or one
+  bool/immutable string/nominal-struct payload keep their canonical named MIR tags while Wasm
+  legalization maps them to deterministic `i32` discriminants and stores
+  payloads at layout-defined offsets. Results with int, bool, string, or
+  nominal-struct payloads share the same tagged representation and are verified on both `Ok` and `Err`
+  control-flow paths.
+  When typed-HIR inference temporarily introduces `any` on the unused Result
+  branch, Wasm cast legalization re-homes the tag and payload into the target
+  layout rather than treating unequal layouts as the same pointer.
   WebAssembly-native masked shifts now match the canonical signed-i64 rule.
   Checked division/remainder helpers preserve Nyx's
   divide-by-zero trap and signed `MIN / -1` wrapping contract;
@@ -1798,7 +1966,8 @@ Implementation status (2026-09-09):
   dispatcher. Generated source is compiled and executed by `rustc` against the
   MIR interpreter and the shared numeric corpus. Its first aggregate slice maps
   arrays to `Vec<T>`, structs to generated nominal Rust types, nullable values
-  to `Option<T>`, and Nyx copy boundaries to explicit clones;
+  to `Option<T>`, and Nyx copy boundaries to explicit clones. Payload enums are
+  emitted as native Rust enums with typed variant extraction;
 - the Node.js ES2022 pilot preserves Nyx `int` as 64-bit `BigInt` rather than
   lossy JavaScript `number`, including wrapping arithmetic, signed division,
   remainder, shifts, scalar CFG, user calls, and canonical `print` formatting.
@@ -1811,14 +1980,37 @@ Implementation status (2026-09-09):
   structs, optionals, projected mutation, iteration, and copies execute against
   the MIR interpreter with `deepcopy` at Nyx copy boundaries. Tagged payload
   dictionaries preserve enum, Option, and Result discriminants;
+- the JavaScript and Python pilots lower interprocedural user `throw`/`catch`
+  through dedicated carriers, preserving lexical cleanup output while leaving
+  runtime errors outside the language catch path;
 - the C17 pilot uses explicit unsigned-bit conversion for defined signed-i64
   wrapping, masks shifts, handles the signed division edge, tracks temporary
-  concatenated strings, and compiles real scalar CFG with Clang in C17 mode;
-- drop unwind edges, the remaining Wasm aggregate and Rust enum/ownership surfaces,
-  enum/result payloads outside C++/JavaScript/Python, the C17 aggregate surface, and broader
-  target runtime surfaces remain
+  concatenated strings, and compiles real scalar CFG with Clang in C17 mode.
+  Its aggregate slice emits acyclic nominal C structs with int, bool, string,
+  and recursively nested nominal-struct fields, including construction,
+  by-value copies, field reads, and projected field assignment. Declarations
+  are dependency ordered and recursive by-value layouts are rejected. Direct
+  arrays of int, bool, and string plus recursively nested arrays of primitives
+  or supported structs are legal struct fields; generated
+  recursive clone helpers preserve their value isolation through struct copies,
+  arrays of structs, function boundaries, and boxed tagged payloads. Natural
+  nested generic closers such as `Array<Array<int>>` are parsed contextually
+  without changing expression-level right-shift semantics;
+  Arrays of int, bool, string, and supported nominal structs, including nested
+  combinations of those array types, use explicit
+  `{data, length}` representations, tracked allocation, deep value copies,
+  checked constant/dynamic index reads and writes, and `len`. Tagged enum,
+  Option, and Result values preserve their discriminants. Enum variants may
+  carry multiple indexed int, bool, and immutable string payloads, or one
+  supported array/nominal-struct payload. Multiple ownership-bearing payloads
+  remain rejected until their clone/drop layout is explicit;
+- drop unwind edges, remaining recursive Wasm aggregate combinations,
+  ownership-bearing multi-payload layouts, and broader target runtime surfaces remain
   open M5 work. Every migration-order target now has a bounded executable pilot;
-  none of those pilots imply full backend parity.
+  none of those pilots imply full backend parity. `may_suspend` is intentionally
+  rejected by every migrated target with `MIRG1011` until each target has an
+  explicit adapter for the shared coroutine frame/suspend contract; emitters
+  may not improvise async semantics independently.
 
 Therefore M5 infrastructure, the broad C++ slice, LLVM scalar path, and first
 executable Wasm, Rust, JavaScript, Python, and C17 slices are implemented. The M5 exit gate
@@ -1923,7 +2115,194 @@ It must compile, run, reject unsupported semantics, and pass differential tests.
 Formal claims clearly identify their trusted computing base and proof boundary.
 ```
 
-## 30. Delivery phases
+## 30. M9-M24 platform scale roadmap
+
+M0-M8 establish the semantic core. M9-M24 extend that core into a complete
+toolchain and platform. These are roadmap commitments, not current support
+claims; a track becomes implemented only after its own executable gate passes.
+
+### M9: optimizer architecture
+
+Build a target-independent optimization layer after canonical MIR and before
+target legalization. The intended pipeline is:
+
+```text
+Canonical MIR -> Optimization MIR -> derived SSA -> analyses -> transforms
+  -> verified MIR -> target legalization
+```
+
+Required foundations are dominator trees, liveness, call-graph and loop
+analysis, constant propagation, dead-code elimination, inlining policy, LICM,
+SROA, bounds-check analysis, escape analysis, and a conservative alias model.
+SSA is a derived representation; ownership and canonical control-flow
+invariants remain authoritative. Every transform needs before/after
+fingerprints, negative verifier cases, and differential observations.
+
+### M10: cross-compilation, target model and capability resolution
+
+Replace ad-hoc target names with a versioned `TargetSpec` containing:
+
+```text
+architecture, operating_system, environment, ABI, endian, pointer_width,
+cpu_features, object_format, linker, sysroot, libc, freestanding
+```
+
+`nyx build --target` must resolve a canonical target triple, select a layout,
+legalization profile, runtime, linker and artifact naming policy. Hosted,
+WASI and freestanding targets must be separate profiles; a native C++ emitter
+alone is not evidence of embedded support.
+
+The current capability registry is a target-feature contract: it can answer
+whether a named feature or standard-library module is supported and it rejects
+unsupported combinations. It is not yet a resolver. The planned resolver must
+turn an abstract request into an explicit, inspectable plan before MIR
+legalization:
+
+```text
+CapabilityRequest -> CapabilityResolver -> CapabilityPlan -> legalization
+```
+
+The request language must distinguish three relations:
+
+```text
+requires   a capability is mandatory
+one_of     one explicitly permitted implementation must be selected
+optional   use the capability when available; otherwise use the defined absence path
+```
+
+Resolution must use a declared preference order and may select a runtime
+adapter only when that adapter advertises the required semantic contract. For
+example, `parallel_execution` may select native threads, Wasm threads or
+cooperative tasks only if the program explicitly permits those alternatives;
+the resolver must not silently replace threaded semantics with a single-thread
+approximation. A scalar implementation of SIMD may be an automatic fallback
+only when the observable semantics are proven equivalent. Every selected
+provider, adapter, fallback reason and target assumption must be recorded in
+the plan and available to diagnostics (`nyx explain`).
+
+No emitter may re-decide capability selection. If no permitted provider can
+satisfy the request, compilation must stop with a stable capability error.
+Resolver tests must cover positive selection, preference ordering, rejected
+fallbacks, adapter contracts, plan serialization and target reproducibility.
+
+### M11: build system and workspaces
+
+Define the build graph for `nyx build`, multi-package workspaces, build scripts,
+feature flags, debug/release profiles, target-specific dependencies, artifact
+caches and deterministic parallel scheduling. The graph must distinguish
+source, interface, implementation and generated-artifact fingerprints and must
+never execute an untrusted build script without an explicit capability policy.
+
+### M12: package platform
+
+Extend the existing lockfile, offline cache and checksum foundations into a
+registry protocol with `nyx publish`, `nyx search`, `nyx update` and `nyx audit`.
+The contract includes namespaces, ownership, yanked/deprecated versions,
+private registries, signed metadata, source and binary caches, resolver
+backtracking, and reproducible package archives. Registry metadata changes
+must be integrity-checked just like package contents.
+
+### M13: developer tooling platform
+
+Promote the existing LSP and editor contract into a versioned tooling surface:
+completion, hover, diagnostics, semantic tokens, go-to-definition, references,
+rename, inlay hints, code actions, formatter, linter, `nyx fix`, `nyx doc`,
+`nyx test` and `nyx bench`. Diagnostics must preserve stable codes, spans,
+notes, expected/found types and machine-readable fix-its.
+
+### M14: debugger and profiler
+
+Define DWARF and CodeView emission, source maps across HIR/MIR/legalization,
+breakpoints, variable inspection, watch expressions, async frame display,
+CPU sampling, allocation and memory profiling. Debug information must be
+derived from retained provenance rather than emitter-specific guesses.
+
+### M15: cross-language FFI generator
+
+Generate checked bindings from C headers and explicit C++ wrapper contracts,
+with Rust/Python adapters and Wasm WIT output as separate targets. Pointer
+ownership, calling convention, layout, nullability, varargs and lifetime
+contracts must be represented in the manifest and rejected before emission;
+parsing a header is not proof that its ABI is safe.
+
+### M16: concurrency memory model
+
+Specify atomics, `Relaxed`, `Acquire`, `Release`, `AcqRel` and `SeqCst`
+ordering, synchronization edges, happens-before, data-race definition and
+visibility. Define the Nyx equivalents of `Send`/`Sync` for tasks, channels and
+shared values. The reference interpreter and MIR verifier must agree on the
+observable subset before target adapters are admitted.
+
+### M17: unsafe model
+
+Make `unsafe` a typed contract, not a blanket escape hatch. Specify raw-pointer
+provenance, alignment, initialization, dereference lifetime, aliasing,
+MMIO/FFI boundaries and which operations require an unsafe block. Unsafe code
+may opt out of selected guarantees, but it must not silently change safe-code
+semantics.
+
+### M18: compiler instrumentation
+
+Add opt-in bounds, initialization, ownership, undefined-behavior and race
+instrumentation with stable diagnostics and runtime policies. Instrumentation
+must preserve source provenance, be removable for release builds, and have
+positive and negative fixtures so a sanitizer result is not confused with a
+proof of safety.
+
+### M19: PGO and LTO
+
+Define reproducible profile capture, profile validation, code-generation-unit
+policy, thin/full LTO boundaries and cache invalidation. PGO/LTO may optimize
+only after MIR verification and must retain enough provenance for debugging
+and translation validation.
+
+### M20: compatibility and editions
+
+Introduce versioned language editions in the manifest, deprecation diagnostics,
+edition-aware parsing and a `nyx migrate --edition` tool. Old editions must
+remain buildable under their documented rules while new editions can evolve
+without silently changing existing source meaning.
+
+### M21: plugin architecture
+
+Version compiler plugins, lint plugins, backend interfaces and procedural
+tools. Plugins receive explicit phase contracts and capabilities, cannot mutate
+trusted identities or bypass verification, and must declare compatibility with
+compiler, HIR, MIR and ABI schema versions.
+
+### M22: supply-chain security
+
+Unify package signatures, provenance attestations, SBOMs, reproducible builds,
+dependency audits and trusted release metadata. Existing release checksums and
+SBOM generation are foundations, not a complete package trust model. Verify
+that attestations refer to the exact artifact bytes being published.
+
+### M23: embedded and freestanding profile
+
+Define allocator-free and `no_std` profiles, startup/linker contracts,
+interrupts, timers, MMIO, memory maps, ARM/RISC-V layouts, HAL capabilities,
+flashing and debug workflows. `#native` and C++ generation are insufficient
+without a complete freestanding runtime and board-level acceptance fixture.
+
+### M24: AI compiler protocol
+
+Expose structured JSON diagnostics, fix-its, compiler state and proof/checker
+results for human and machine clients. An AI may propose code, an optimization
+or a proof, but the Nyx parser, HIR verifier, MIR verifier and translation
+validator remain authoritative:
+
+```text
+proposal -> parse/check -> HIR verify -> MIR verify -> validate -> accept/reject
+```
+
+AI output must never be treated as evidence merely because it is plausible or
+because another model agrees with it.
+
+Each M9-M24 track requires a design record, a canonical manifest entry, an
+executable acceptance corpus, rejection tests, reproducibility evidence and a
+documented exit gate before it can be promoted.
+
+## 31. Delivery phases
 
 ### v5.1: compiler foundations
 
@@ -1944,11 +2323,14 @@ Formal claims clearly identify their trusted computing base and proof boundary.
 
 ### v5.3: generics and dispatch
 
-- Substitution engine.
-- Monomorphization collector.
-- Stable instance mangling.
+- Recursive type substitution engine (function boundary implemented).
+- Monomorphization collector (reachable generic functions and concrete HIR
+  function bodies plus struct and enum layouts implemented; method
+  materialization remains open).
+- Stable instance identity and target-independent instance symbols (implemented);
+  target ABI/export mangling remains open.
 - Generic constraints and diagnostics.
-- Static trait dispatch.
+- Static trait dispatch (non-generic concrete impl selection implemented).
 - Duplicate-instantiation cache.
 
 ### v5.4: ownership, layout, and ABI
@@ -1988,7 +2370,7 @@ Formal claims clearly identify their trusted computing base and proof boundary.
 - C#/.NET and Java/JVM backend RFCs.
 - Initial formal Nyx Core and executable reference semantics.
 
-## 31. Formalization maturity levels
+## 32. Formalization maturity levels
 
 Formal work should advance gradually:
 
@@ -2006,7 +2388,7 @@ Level 7  end-to-end semantic preservation
 The project should not block practical compiler progress on complete formal
 verification. Each level should produce usable tooling and stronger evidence.
 
-## 32. Immediate starting sequence
+## 33. Immediate starting sequence
 
 The first implementation batch should remain narrow:
 
@@ -2023,7 +2405,7 @@ The first implementation batch should remain narrow:
 
 No new public keyword is required for this sequence.
 
-## 33. Research references
+## 34. Research references
 
 - Rust MIR: <https://rustc-dev-guide.rust-lang.org/mir/index.html>
 - Rust MIR passes: <https://rustc-dev-guide.rust-lang.org/mir/passes.html>
@@ -2062,7 +2444,7 @@ No new public keyword is required for this sequence.
 - Dart C interoperability: <https://dart.dev/interop/c-interop>
 - Erlang process semantics: <https://www.erlang.org/doc/system/ref_man_processes.html>
 
-## 34. Final principle
+## 35. Final principle
 
 Nyx should not measure language maturity by keyword count or backend count.
 Maturity should mean:

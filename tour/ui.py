@@ -209,13 +209,22 @@ def format_success_card(exercise_name: str, exercise_path: str, output: str) -> 
     return box("Success", "\n".join(lines), color_seq=BRIGHT_GREEN)
 
 
-def format_info_card(topic: str, path: str, description: str, hint_level: int = 0) -> str:
+def format_info_card(topic: str, path: str, description: str, hint_level: int = 0,
+                     lesson: dict = None) -> str:
     """Format the current exercise info banner."""
     lines = [
         f"{BOLD}{WHITE}Topic:       {COLOR_NYX_VIOLET}{topic}{RESET}",
         f"{BOLD}{WHITE}File:        {COLOR_NYX_CYAN}{path}{RESET}",
         f"{BOLD}{WHITE}Objective:   {description}{RESET}",
     ]
+    if lesson:
+        lines.extend([
+            "",
+            f"{BOLD}{COLOR_NYX_GOLD}Why:        {RESET}{lesson['why']}",
+            f"{BOLD}{COLOR_NYX_CYAN}Learn:      {RESET}{lesson['learn']}",
+            f"{BOLD}{COLOR_NYX_GREEN}Task:       {RESET}{lesson['task']}",
+            f"{BOLD}{WHITE}Expected:   {RESET}{lesson['expected']}",
+        ])
     if hint_level > 0:
         lines.append(f"{DIM}Hints viewed: {hint_level}{RESET}")
     return box("Current Lesson", "\n".join(lines), color_seq=COLOR_NYX_PURPLE)

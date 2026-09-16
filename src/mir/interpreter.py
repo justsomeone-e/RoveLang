@@ -38,6 +38,7 @@ from .model import (
     StorageLiveStatement,
     SwitchIntTerminator,
     SwitchValueTerminator,
+    SuspendTerminator,
     ThrowTerminator,
     UnaryRValue,
     UnreachableTerminator,
@@ -60,6 +61,23 @@ class _MIRUserThrow(Exception):
     def __init__(self, value: object):
         self.value = value
         super().__init__(str(value))
+
+
+class _MIRTask:
+    """Hot, memoized reference task matching Nyx repeated-await semantics."""
+
+    def __init__(self, thunk):
+        self.value = None
+        self.error: BaseException | None = None
+        try:
+            self.value = thunk()
+        except BaseException as error:
+            self.error = error
+
+    def await_result(self):
+        if self.error is not None:
+            raise self.error
+        return self.value
 
 
 @dataclass(slots=True)
@@ -199,6 +217,20 @@ class MIRInterpreter:
                     raise MIRTrap("Caught throw requires a destination")
                 self._write_place(terminator.destination, locals_, value)
                 block_id = terminator.target
+            elif isinstance(terminator, SuspendTerminator):
+                task = self._operand(terminator.task, locals_)
+                if not isinstance(task, _MIRTask):
+                    raise MIRTrap("MIR suspend operand is not a Task")
+                try:
+                    value = task.await_result()
+                except _MIRUserThrow as thrown:
+                    if terminator.unwind is None or terminator.error_destination is None:
+                        raise
+                    self._write_place(terminator.error_destination, locals_, thrown.value)
+                    block_id = terminator.unwind
+                    continue
+                self._write_place(terminator.destination, locals_, value)
+                block_id = terminator.resume
             elif isinstance(terminator, UnreachableTerminator):
                 raise MIRTrap("Reached unreachable MIR terminator")
             else:
@@ -206,7 +238,10 @@ class MIRInterpreter:
 
     def _invoke(self, symbol: str, arguments: tuple[object, ...]) -> object:
         if symbol in self.functions:
-            return self._call(self.functions[symbol], arguments)
+            function = self.functions[symbol]
+            if function.is_async:
+                return _MIRTask(lambda: self._call(function, arguments))
+            return self._call(function, arguments)
         name = symbol.split("::")[-1]
         if name == "print":
             self.output.append(" ".join(self._format(value) for value in arguments))

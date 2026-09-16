@@ -1,44 +1,47 @@
-# Nyx v5.0.1 — Daydream
+# Nyx v5.0.2 — Daydream
 
-Nyx v5.0.1 is a Windows and native self-host reliability patch for the stable
-Daydream compiler line. It fixes the failures reported in issue #6 without
-changing the v5 language, Typed HIR v1, Bundle ABI v1, or backend maturity
-contracts.
+Nyx v5.0.2 is a checked compiler-foundations patch for the stable Daydream
+line. It expands the MIR pipeline, module and generic validation, backend pilot
+coverage, installer behavior, and the Tour while preserving the v5 language,
+Typed HIR v1, Bundle ABI v1, and backend maturity contracts.
 
-## Fixed
+## Included
 
-- The Nyx-authored type checker now registers C++ foreign-import aliases before
-  checking function bodies, so `examples/07_foreign_cpp.nyx` recognizes `fs`.
-- Optional `null` values now lower to `std::nullopt` instead of `nullptr` in the
-  self-hosted C++ emitter.
-- Generated C++ defines `_CRT_SECURE_NO_WARNINGS` before CRT headers, avoiding
-  MSVC and clang-cl `getenv` deprecation diagnostics.
-- `examples/04_in_file_tests.nyx` now checks the actual `"Holy Easy"`
-  concatenation result, allowing all three in-file tests to run.
-- The Windows installer prefers `npm.cmd` or `npm.exe` when PowerShell blocks
-  `npm.ps1`, and an optional VS Code extension failure no longer aborts the core
-  compiler installation.
-- Installation docs now distinguish the release compiler `nyxc.exe` from the
-  installer-created unified command `nyx.cmd`; no separate `nyx.exe` asset is
-  expected.
+- Checked stable identities for source, modules, definitions, types, and
+  generic instances.
+- Per-module checking foundations with direct-import interfaces and linked HIR.
+- MIR effects, coroutine, dispatch, aggregate, ABI, legalization, and backend
+  pilot improvements with focused positive and negative tests.
+- Experimental native `std/http` support with bounded direct process execution.
+- Windows and Unix installer hardening, including extensionless Unix binaries
+  and safer VS Code executable discovery.
+- A project-driven Core Path for the Tour of Nyx and updated compiler docs.
+- The M9-M24 Deep Compiler roadmap, including the future capability resolver:
+  `requires`, `one_of`, `optional`, explicit preferences, and adapter contracts.
+
+## Scope boundaries
+
+C++20, JavaScript, and Python remain the stable backends. Rust, WebAssembly,
+React, and ASM remain beta where documented. LLVM and C17 remain experimental;
+this release does not claim full language or standard-library parity for them.
+Capability selection is currently a target-feature contract with explicit
+rejection. The planned resolver and `CapabilityPlan` are documented roadmap
+work, not shipped behavior.
 
 ## Install
 
 ### Windows PowerShell
 
-    $env:NYX_RELEASE_TAG = 'v5.0.1'; irm https://raw.githubusercontent.com/justsomeone-e/nyx/v5.0.1/install.ps1 | iex
+    $env:NYX_RELEASE_TAG = 'v5.0.2'; irm https://raw.githubusercontent.com/justsomeone-e/nyx/v5.0.2/install.ps1 | iex
 
 ### Linux / macOS
 
-    curl -fsSL https://raw.githubusercontent.com/justsomeone-e/nyx/v5.0.1/install.sh | NYX_RELEASE_TAG=v5.0.1 bash
+    curl -fsSL https://raw.githubusercontent.com/justsomeone-e/nyx/v5.0.2/install.sh | NYX_RELEASE_TAG=v5.0.2 bash
 
 ## Verification
 
-A freshly built standalone native compiler compiled and executed all three
-reported examples successfully on Windows. The tagged GitHub Actions workflow
-is authoritative for the complete regression battery, Stage1 → Stage2 → Stage3
-reproducibility, Python/Nyx canonical Typed HIR parity, four-platform native
-binaries, VSIX, checksums, SBOM, and provenance.
-
-C++20, JavaScript, and Python remain stable backends. LLVM and C17 remain
-explicitly experimental.
+The final local source revision passed the full regression harness with exit
+code 0: `138/138` suites passed. The tagged GitHub Actions workflow remains
+authoritative for Stage1 → Stage2 → Stage3 reproducibility, Python/Nyx
+canonical Typed HIR parity, four-platform native binaries, VSIX, checksums,
+SBOM, and provenance.

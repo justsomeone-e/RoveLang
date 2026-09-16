@@ -50,6 +50,49 @@ def _generic_type_parts(type_name: str) -> tuple[str, tuple[str, ...]]:
             start = index + 1
     arguments.append(raw_arguments[start:].strip())
     return base.strip(), tuple(arguments)
+
+
+def _substitute_type(type_name: str, substitutions: Dict[str, str]) -> str:
+    text = type_name.strip()
+    suffix = "?" if text.endswith("?") else ""
+    if suffix:
+        text = text[:-1]
+    pointer = "*" if text.startswith("*") else ""
+    if pointer:
+        text = text[1:]
+    if text in substitutions:
+        return pointer + substitutions[text] + suffix
+    base, arguments = _generic_type_parts(text)
+    if not arguments:
+        return pointer + text + suffix
+    rendered = ", ".join(_substitute_type(item, substitutions) for item in arguments)
+    return f"{pointer}{base}<{rendered}>{suffix}"
+
+
+def _collect_type_substitutions(
+    pattern: str,
+    actual: str,
+    generic_params: Set[str],
+    substitutions: Dict[str, str],
+) -> bool:
+    pattern = pattern.strip()
+    actual = actual.strip()
+    if pattern in generic_params:
+        previous = substitutions.get(pattern)
+        if previous is None or previous == "any":
+            substitutions[pattern] = actual
+            return True
+        return actual == "any" or previous == actual
+    pattern_base, pattern_arguments = _generic_type_parts(pattern.rstrip("?"))
+    actual_base, actual_arguments = _generic_type_parts(actual.rstrip("?"))
+    if pattern_base != actual_base or len(pattern_arguments) != len(actual_arguments):
+        return True
+    return all(
+        _collect_type_substitutions(expected, found, generic_params, substitutions)
+        for expected, found in zip(pattern_arguments, actual_arguments)
+    )
+
+
 class TypeChecker:
     def __init__(self, ast: ProgramNode, filepath: str = '<anonymous>', source: str = ''):
         self.ast = ast
@@ -57,6 +100,7 @@ class TypeChecker:
         self.source = source
         self.scopes: List[Dict[str, str]] = [{}]
         self.struct_defs: Dict[str, Dict[str, str]] = {}
+        self.struct_generic_params: Dict[str, tuple[str, ...]] = {}
         self.type_aliases: Dict[str, str] = {}
         self.func_defs: Dict[str, Dict[str, Any]] = {}
         self.is_inside_unsafe = False
@@ -204,9 +248,10 @@ class TypeChecker:
             elif isinstance(stmt, StructDefNode):
                 fields = {}
                 for f in stmt.fields:
-                    f_type = f.type_annot.name if f.type_annot else 'any'
+                    f_type = str(f.type_annot) if f.type_annot else 'any'
                     fields[f.name] = f_type
                 self.struct_defs[stmt.name] = fields
+                self.struct_generic_params[stmt.name] = tuple(stmt.generic_params)
                 self.declare(stmt.name, stmt.name)
             elif isinstance(stmt, TypeAliasNode):
                 actual = str(stmt.actual_type)
@@ -253,6 +298,7 @@ class TypeChecker:
                     'params': params,
                     'defaults': defaults,
                     'is_async': stmt.is_async,
+                    'generic_params': tuple(stmt.generic_params),
                 }
                 self.declare(stmt.name, f'fn->{public_ret}')
             elif isinstance(stmt, ExternFnDeclNode):
@@ -260,9 +306,18 @@ class TypeChecker:
                 params = [(p.name, str(p.type_annot) if p.type_annot else 'any') for p in stmt.params]
                 self.func_defs[stmt.name] = {'ret': ret_t, 'params': params, 'is_extern': True}
                 self.declare(stmt.name, f'fn->{ret_t}')
+            elif isinstance(stmt, VarDeclNode) and getattr(stmt, "_interface_only", False):
+                declared = (
+                    str(stmt.type_annot)
+                    if stmt.type_annot is not None
+                    else getattr(stmt, "inferred_type", "any")
+                )
+                self.declare(stmt.name, declared)
 
         # 2nd Pass: Full Semantic Analysis & Type Inference
         for stmt in self.ast.statements:
+            if getattr(stmt, "_interface_only", False):
+                continue
             self.visit(stmt)
 
     def _validate_integer_literals(self, value: object):
@@ -388,6 +443,8 @@ class TypeChecker:
             self.enter_scope()
             prev_ret = self.current_return_type
             prev_async = self.current_is_async
+            prev_generic_params = self.generic_type_params
+            self.generic_type_params = prev_generic_params | set(node.generic_params)
             self.current_return_type = str(node.return_type) if node.return_type else None
             self.current_is_async = node.is_async
             for p in node.params:
@@ -397,6 +454,7 @@ class TypeChecker:
                 self.visit(s)
             self.current_return_type = prev_ret
             self.current_is_async = prev_async
+            self.generic_type_params = prev_generic_params
             self.exit_scope()
 
         elif isinstance(node, ReturnNode):
@@ -581,8 +639,9 @@ class TypeChecker:
                 self._check_foreign_arguments(node, foreign_callable)
             # Check argument types if function is known
             elif node.callee in self.func_defs:
-                param_specs = self.func_defs[node.callee]['params']
-                defaults = self.func_defs[node.callee].get('defaults') or []
+                definition = self.func_defs[node.callee]
+                param_specs = definition['params']
+                defaults = definition.get('defaults') or []
                 # Resolve omitted trailing arguments by appending their default
                 # value expressions so downstream lowering and code generation
                 # always observe a fully-saturated call.
@@ -600,31 +659,49 @@ class TypeChecker:
                         found=f"{len(node.args)} arguments",
                         help_msg=f"Provide an argument for every parameter without a default value in '{node.callee}()'."
                     )
+                generic_params = set(definition.get('generic_params') or ())
+                substitutions: Dict[str, str] = {}
+                argument_types = [self.infer_type(argument) for argument in node.args]
+                for (_name, parameter_type), argument_type in zip(param_specs, argument_types):
+                    _collect_type_substitutions(
+                        parameter_type, argument_type, generic_params, substitutions,
+                    )
+                node.generic_substitutions = substitutions
                 for idx, arg in enumerate(node.args):
                     if idx < len(param_specs):
                         p_name, p_type = param_specs[idx]
-                        arg_type = self.infer_type(arg)
-                        if not self.is_compatible(p_type, arg_type):
+                        arg_type = argument_types[idx]
+                        expected_type = _substitute_type(p_type, substitutions)
+                        if not self.is_compatible(expected_type, arg_type):
                             DiagnosticEmitter.emit_error(
                                 self.filepath, self.source, arg.line, arg.col,
                                 "E2003", f"Argument type mismatch for parameter '{p_name}' in call to '{node.callee}()'",
-                                expected=p_type,
+                                expected=expected_type,
                                 found=arg_type,
-                                help_msg=f"Function '{node.callee}' expects type '{p_type}' for argument '{p_name}', but received '{arg_type}'."
+                                help_msg=f"Function '{node.callee}' expects type '{expected_type}' for argument '{p_name}', but received '{arg_type}'."
                             )
             elif node.callee in self.struct_defs:
                 struct_fields = list(self.struct_defs[node.callee].items())
+                generic_params = set(self.struct_generic_params.get(node.callee, ()))
+                substitutions: Dict[str, str] = {}
+                argument_types = [self.infer_type(argument) for argument in node.args]
+                for (_name, field_type), argument_type in zip(struct_fields, argument_types):
+                    _collect_type_substitutions(
+                        field_type, argument_type, generic_params, substitutions,
+                    )
+                node.generic_substitutions = substitutions
                 for idx, arg in enumerate(node.args):
                     if idx < len(struct_fields):
                         f_name, f_type = struct_fields[idx]
-                        arg_type = self.infer_type(arg)
-                        if not self.is_compatible(f_type, arg_type):
+                        arg_type = argument_types[idx]
+                        expected_type = _substitute_type(f_type, substitutions)
+                        if not self.is_compatible(expected_type, arg_type):
                             DiagnosticEmitter.emit_error(
                                 self.filepath, self.source, arg.line, arg.col,
                                 "E2006", f"Struct field '{f_name}' type mismatch in constructor for '{node.callee}'",
-                                expected=f_type,
+                                expected=expected_type,
                                 found=arg_type,
-                                help_msg=f"Struct '{node.callee}' field '{f_name}' has type '{f_type}', but received '{arg_type}'."
+                                help_msg=f"Struct '{node.callee}' field '{f_name}' has type '{expected_type}', but received '{arg_type}'."
                             )
                             
             for a in node.args:
@@ -843,8 +920,13 @@ class TypeChecker:
                 variant = self.enum_variants[node.callee]
                 substitutions = {}
                 for payload_type, argument in zip(variant["payload_types"], node.args):
-                    if payload_type in variant["generic_params"]:
-                        substitutions[payload_type] = self.infer_type(argument)
+                    _collect_type_substitutions(
+                        payload_type,
+                        self.infer_type(argument),
+                        set(variant["generic_params"]),
+                        substitutions,
+                    )
+                node.generic_substitutions = substitutions
                 generic_params = variant["generic_params"]
                 if generic_params:
                     arguments = ", ".join(substitutions.get(name, "any") for name in generic_params)
@@ -852,12 +934,43 @@ class TypeChecker:
                 else:
                     inferred = variant["enum"]
             elif node.callee in self.struct_defs:
-                inferred = node.callee
+                generic_params = self.struct_generic_params.get(node.callee, ())
+                substitutions = dict(getattr(node, 'generic_substitutions', {}) or {})
+                for (_name, field_type), argument in zip(
+                    self.struct_defs[node.callee].items(), node.args,
+                ):
+                    _collect_type_substitutions(
+                        field_type,
+                        self.infer_type(argument),
+                        set(generic_params),
+                        substitutions,
+                    )
+                node.generic_substitutions = substitutions
+                if generic_params:
+                    arguments = ", ".join(substitutions.get(name, "any") for name in generic_params)
+                    inferred = f"{node.callee}<{arguments}>"
+                else:
+                    inferred = node.callee
             elif node.callee in self.func_defs:
-                inferred = self.func_defs[node.callee].get(
+                definition = self.func_defs[node.callee]
+                inferred = definition.get(
                     'public_ret',
-                    self.func_defs[node.callee]['ret'],
+                    definition['ret'],
                 )
+                generic_params = set(definition.get('generic_params') or ())
+                if generic_params:
+                    substitutions = dict(getattr(node, 'generic_substitutions', {}) or {})
+                    for (_name, parameter_type), argument in zip(
+                        definition['params'], node.args,
+                    ):
+                        _collect_type_substitutions(
+                            parameter_type,
+                            self.infer_type(argument),
+                            generic_params,
+                            substitutions,
+                        )
+                    node.generic_substitutions = substitutions
+                    inferred = _substitute_type(inferred, substitutions)
             elif node.callee == "Ok" and node.args:
                 inferred = f"Result<{self.infer_type(node.args[0])}, any>"
             elif node.callee == "Err" and node.args:
@@ -870,8 +983,10 @@ class TypeChecker:
             return inferred
         if isinstance(node, MemberAccessNode):
             obj_t = self.infer_type(node.obj)
-            if obj_t in self.struct_defs and node.member in self.struct_defs[obj_t]:
-                inferred = self.struct_defs[obj_t][node.member]
+            owner, arguments = _generic_type_parts(obj_t.rstrip('?'))
+            if owner in self.struct_defs and node.member in self.struct_defs[owner]:
+                substitutions = dict(zip(self.struct_generic_params.get(owner, ()), arguments))
+                inferred = _substitute_type(self.struct_defs[owner][node.member], substitutions)
                 node.inferred_type = inferred
                 return inferred
             node.inferred_type = 'any'

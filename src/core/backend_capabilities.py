@@ -146,6 +146,10 @@ STDLIB_CONTRACTS: Dict[str, StdlibContract] = {
     "encoding": StdlibContract("encoding", PARITY_HOSTS),
     "fs": StdlibContract("fs", PARITY_HOSTS),
     "hash": StdlibContract("hash", PARITY_HOSTS),
+    "http": StdlibContract(
+        "http", frozenset({"cpp"}), "experimental",
+        "Hosted HTTP through a shell-free curl subprocess with bounded requests and responses.",
+    ),
     "json_lite": StdlibContract(
         "json_lite", PARITY_HOSTS, "stable",
         "Flat top-level string/integer field extraction only; not a general JSON parser.",

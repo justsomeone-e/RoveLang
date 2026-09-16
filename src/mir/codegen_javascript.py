@@ -15,7 +15,7 @@ from .model import (
     GotoTerminator, IndexProjection, MIRFunction, MIRModule, MIRStructDef,
     MoveOperand, NopStatement, Operand, PayloadRValue, Place, ReturnTerminator,
     StorageDeadStatement, StorageLiveStatement, SwitchIntTerminator,
-    SwitchValueTerminator, UnaryRValue, UnreachableTerminator, UseRValue,
+    SwitchValueTerminator, ThrowTerminator, UnaryRValue, UnreachableTerminator, UseRValue,
 )
 from .types import MIRType
 
@@ -23,6 +23,9 @@ from .types import MIRType
 _RUNTIME = r'''"use strict";
 
 const nyxI64 = value => BigInt.asIntN(64, value);
+class NyxUserThrow {
+  constructor(value) { this.value = value; }
+}
 const nyxDiv = (left, right) => {
   if (right === 0n) throw new Error("division by zero");
   return nyxI64(left / right);
@@ -181,12 +184,32 @@ class _JavaScriptEmitter:
                     line = f"{call};"
             else:
                 raise MIRCodegenError(f"illegal runtime call reached JavaScript emitter: {value.function}")
+            if value.unwind is not None:
+                if value.error_destination is None:
+                    raise MIRCodegenError("JavaScript MIR call unwind requires an error destination")
+                return [
+                    "try {",
+                    f"  {line}",
+                    "} catch (error) {",
+                    "  if (!(error instanceof NyxUserThrow)) throw error;",
+                    f"  {self._place(value.error_destination)} = error.value;",
+                    f"  pc = {value.unwind};",
+                    "  continue;",
+                    "}",
+                ] + self._goto(value.target)
             return [line] + self._goto(value.target)
         if isinstance(value, AssertTerminator):
             expected = "true" if value.expected else "false"
             return [
                 f"if (Boolean({self._operand(value.condition)}) !== {expected}) throw new Error({json.dumps(value.message)});"
             ] + self._goto(value.target)
+        if isinstance(value, ThrowTerminator):
+            rendered = self._operand(value.value)
+            if value.target is not None and value.destination is not None:
+                return [self._assign_place(value.destination, f"nyxDisplay({rendered})")] + self._goto(
+                    value.target
+                )
+            return [f"throw new NyxUserThrow(nyxDisplay({rendered}));"]
         if isinstance(value, ReturnTerminator):
             assert self.current is not None
             result = self.current.locals[self.current.return_local].type

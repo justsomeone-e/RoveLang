@@ -1,5 +1,19 @@
 # Change Log
 
+## 5.0.2 — Daydream
+
+- Highlight embedded C++, JavaScript, and Rust inside the corresponding
+  `#native raw`, `#native cpp`, `#native js`, and `#native rust` blocks.
+- Install the extension automatically from the Unix installer when VS Code,
+  VS Code Insiders, or VSCodium is detected.
+
+## 5.0.1 — Daydream
+
+- Synchronize the extension package with the Nyx v5.0.1 compiler and language
+  surface.
+- Resolve the canonical `~/.nyx/bin/nyx` command on Linux and macOS as well as
+  the Windows `nyx.cmd` shim.
+
 ## 4.0.0 — Nirvana
 
 - Official release aligned with Nyx v4.0.0 Nirvana compiler and language specification.

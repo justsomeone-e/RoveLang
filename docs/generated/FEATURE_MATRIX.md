@@ -3,7 +3,7 @@
 <!-- Generated from compiler/features.toml; do not edit by hand. -->
 
 - Registry schema: `1`
-- Language version: `5.0.1`
+- Language version: `5.0.2`
 - Typed HIR schema: `1`
 - Bundle ABI: `1`
 
@@ -12,7 +12,7 @@
 - 44 stable keywords
 - 52 AST node kinds
 - 47 Typed HIR node kinds
-- 131 diagnostic codes
+- 141 diagnostic codes
 - 18 builtins and 73 intrinsics
 
 ## Backends
@@ -35,12 +35,15 @@
 | --- | --- | --- | --- |
 | `lexer` | stable | `src/core/lexer.py` | `tests/bootstrap_lexer_test.py`<br>`tests/language_surface_suite.py` |
 | `parser` | stable | `src/core/parser.py` | `tests/bootstrap_parser_test.py`<br>`tests/bootstrap_parser_corpus_test.py` |
+| `module_graph` | experimental | `src/core/identities.py` | `tests/module_resolution_suite.py` |
 | `type_checker` | stable | `src/core/type_checker.py` | `tests/bootstrap_typechecker_test.py`<br>`tests/negative_tests.py` |
 | `typed_hir` | stable | `src/ir/model.py` | `tests/ir_suite.py` |
+| `generic_instances` | experimental | `src/ir/instances.py` | `tests/ir_instances_suite.py` |
+| `static_dispatch` | experimental | `src/ir/dispatch.py` | `tests/mir_dispatch_suite.py` |
 | `hir_verifier` | stable | `src/ir/verifier.py` | `tests/ir_suite.py` |
 | `runtime` | stable | `src/runtime` | `tests/numeric_semantics_suite.py`<br>`tests/cpp_e2e_suite.py`<br>`tests/js_e2e_suite.py` |
 | `backends` | stable | `src/core/backend_capabilities.py` | `tests/capability_suite.py` |
-| `mir` | experimental | `src/mir/model.py` | `tests/mir_suite.py`<br>`tests/mir_lowering_suite.py`<br>`tests/mir_cleanup_suite.py`<br>`tests/mir_memory_abi_suite.py` |
+| `mir` | experimental | `src/mir/model.py` | `tests/mir_suite.py`<br>`tests/mir_lowering_suite.py`<br>`tests/mir_cleanup_suite.py`<br>`tests/mir_memory_abi_suite.py`<br>`tests/mir_coroutine_suite.py` |
 | `mir_legalization` | experimental | `src/mir/legalization.py` | `tests/mir_legalization_suite.py` |
 
 ## Feature contracts
@@ -163,6 +166,7 @@
 | `std/env` | stable | `asm`, `cpp` |
 | `std/fs` | stable | `asm`, `cpp`, `js`, `python` |
 | `std/hash` | stable | `asm`, `cpp`, `js`, `python` |
+| `std/http` | experimental | `cpp` |
 | `std/io` | stable | `asm`, `cpp`, `python` |
 | `std/json` | deprecated | `asm`, `cpp`, `js`, `python` |
 | `std/json_lite` | stable | `asm`, `cpp`, `js`, `python` |

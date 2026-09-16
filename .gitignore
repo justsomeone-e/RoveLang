@@ -93,6 +93,7 @@ tests/**/*.py
 !tests/web_bundle_suite.py
 !tests/self_host_suite.py
 !tests/capability_suite.py
+!tests/http_stdlib_suite.py
 !tests/foreign_import_suite.py
 !tests/payload_enum_suite.py
 !tests/result_propagation_suite.py
@@ -123,6 +124,10 @@ tests/**/*.py
 !tests/mir_cleanup_suite.py
 !tests/mir_memory_abi_suite.py
 !tests/mir_legalization_suite.py
+!tests/ir_instances_suite.py
+!tests/mir_coroutine_suite.py
+!tests/mir_dispatch_suite.py
+!tests/module_graph_checker_suite.py
 tests/**/*.rs
 tests/**/*.wat
 tests/**/*.bin

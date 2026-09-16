@@ -11,6 +11,7 @@ from src.ir.model import (
     IRAssign,
     IRArray,
     IRAssert,
+    IRAwait,
     IRBinary,
     IRBreak,
     IRCall,
@@ -44,7 +45,9 @@ from src.ir.model import (
     IRStruct,
     SourceSpan,
 )
-from src.ir.types import ANY, BOOL, INT, STRING, VOID, compatible
+from src.ir.types import ANY, BOOL, INT, STRING, VOID, IRType, is_coercible
+from src.ir.instances import materialize_generic_instances
+from src.ir.dispatch import materialize_static_dispatch
 
 from .builder import MIRFunctionBuilder
 from .model import (
@@ -73,11 +76,14 @@ from .model import (
     ReturnTerminator,
     SwitchIntTerminator,
     SwitchValueTerminator,
+    SuspendTerminator,
     ThrowTerminator,
     UnaryRValue,
     UseRValue,
 )
 from .types import from_hir_type
+from .effects import infer_module_effects
+from .coroutines import elaborate_coroutines
 from .verifier import verify_mir
 
 
@@ -109,7 +115,13 @@ def lower_hir_skeleton(hir: IRModule) -> MIRModule:
                 f"M1 only lowers empty function bodies; '{item.name}' requires M2 lowering",
                 span,
             )
-        builder = MIRFunctionBuilder(item.name, item.symbol, from_hir_type(item.return_type), span)
+        builder = MIRFunctionBuilder(
+            item.name,
+            item.symbol,
+            from_hir_type(item.return_type),
+            span,
+            is_async=item.is_async,
+        )
         for parameter in item.params:
             builder.new_local(
                 parameter.name,
@@ -121,7 +133,8 @@ def lower_hir_skeleton(hir: IRModule) -> MIRModule:
         builder.set_terminator(entry, ReturnTerminator(span))
         functions.append(builder.finish())
 
-    module = MIRModule(hir.source_name, hir.target, tuple(functions))
+    module = elaborate_coroutines(MIRModule(hir.source_name, hir.target, tuple(functions)))
+    module = infer_module_effects(module)
     verify_mir(module)
     return module
 
@@ -144,6 +157,7 @@ class _FunctionLowerer:
             function.symbol,
             from_hir_type(function.return_type),
             self.span,
+            is_async=function.is_async,
         )
         self.locals: dict[str, int] = {}
         self.current: int | None = None
@@ -151,6 +165,7 @@ class _FunctionLowerer:
         self.defer_scopes: list[list[IRExpr]] = []
         self.exception_targets: list[tuple[int, Place, int]] = []
         self.temporary_counter = 0
+        self.suspend_counter = 0
 
     def lower(self):
         for parameter in self.function.params:
@@ -494,8 +509,23 @@ class _FunctionLowerer:
             if isinstance(case.pattern, IRReference) and case.pattern.name == "_":
                 wildcard_body = case.body
                 continue
-            if isinstance(case.pattern, IRCall) and case.pattern.callee_symbol in self.variants:
-                _, variant = self.variants[case.pattern.callee_symbol]
+            pattern_variant: tuple[str, tuple[IRType, ...]] | None = None
+            if isinstance(case.pattern, IRCall):
+                if case.pattern.callee_symbol in self.variants:
+                    _, variant = self.variants[case.pattern.callee_symbol]
+                    pattern_variant = (variant.name, variant.payload_types)
+                elif (
+                    case.pattern.callee_symbol in ("builtin::Ok", "builtin::Err")
+                    and node.expr.type.name == "Result"
+                    and len(node.expr.type.arguments) == 2
+                ):
+                    result_index = 0 if case.pattern.callee_symbol == "builtin::Ok" else 1
+                    pattern_variant = (
+                        "Ok" if result_index == 0 else "Err",
+                        (node.expr.type.arguments[result_index],),
+                    )
+            if pattern_variant is not None:
+                variant_name, payload_types = pattern_variant
                 if tag_operand is None:
                     tag_local = self._new_temporary(STRING, span)
                     self._push(AssignStatement(
@@ -508,7 +538,7 @@ class _FunctionLowerer:
                 next_block = self.builder.new_block()
                 self._terminate(SwitchValueTerminator(
                     tag_operand,
-                    ((variant.name, case_block),),
+                    ((variant_name, case_block),),
                     next_block,
                     _span(case.pattern.span),
                 ))
@@ -517,8 +547,8 @@ class _FunctionLowerer:
                     if not isinstance(binding, IRReference) or binding.name == "_":
                         continue
                     payload_type = (
-                        variant.payload_types[index]
-                        if index < len(variant.payload_types)
+                        payload_types[index]
+                        if index < len(payload_types)
                         else binding.type
                     )
                     local = self.builder.new_local(
@@ -628,6 +658,24 @@ class _FunctionLowerer:
                 span,
             ))
             return CopyOperand(Place(local))
+        if isinstance(node, IRAwait):
+            task = self._lower_expr(node.expr)
+            destination = self._new_temporary(node.type, span)
+            resume = self.builder.new_block()
+            suspend_id = self.suspend_counter
+            self.suspend_counter += 1
+            unwind = self.exception_targets[-1] if self.exception_targets else None
+            self._terminate(SuspendTerminator(
+                task,
+                Place(destination),
+                resume,
+                suspend_id,
+                span,
+                unwind[0] if unwind else None,
+                unwind[1] if unwind else None,
+            ))
+            self.current = resume
+            return CopyOperand(Place(destination))
         if isinstance(node, IRCall):
             arguments = []
             if node.receiver is not None:
@@ -933,7 +981,7 @@ class _FunctionLowerer:
     def _coerce(self, operand: Operand, source_type, target_type, span: MIRSpan) -> Operand:
         if source_type == target_type:
             return operand
-        if not compatible(target_type, source_type):
+        if not is_coercible(source_type, target_type):
             raise MIRLoweringError(f"Cannot convert {source_type} to {target_type}", span)
         local = self._new_temporary(target_type, span)
         self._push(AssignStatement(
@@ -972,6 +1020,9 @@ class _FunctionLowerer:
 
 def lower_hir_to_mir(hir: IRModule) -> MIRModule:
     """Lower executable Typed HIR into verified target-independent MIR."""
+    hir = materialize_static_dispatch(hir)
+    if any(getattr(item, "generic_params", ()) for item in hir.items):
+        hir = materialize_generic_instances(hir)
     structs = {
         item.symbol: item
         for item in hir.items
@@ -1023,11 +1074,12 @@ def lower_hir_to_mir(hir: IRModule) -> MIRModule:
             body=hir.top_level_statements,
         )
         functions.append(_FunctionLowerer(synthetic, structs, enums, variants).lower())
-    module = MIRModule(
+    module = elaborate_coroutines(MIRModule(
         hir.source_name,
         hir.target,
         tuple(functions),
         type_definitions,
-    )
+    ))
+    module = infer_module_effects(module)
     verify_mir(module)
     return module
