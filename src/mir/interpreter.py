@@ -529,6 +529,8 @@ class MIRInterpreter:
                 return "nan"
             if math.isinf(value):
                 return "inf" if value > 0 else "-inf"
+            if value == 0.0:
+                return "0"
         if isinstance(value, tuple) and value and isinstance(value[0], str):
             payload = ", ".join(MIRInterpreter._format(item) for item in value[1:])
             return f"{value[0]}({payload})"

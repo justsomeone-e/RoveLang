@@ -222,7 +222,10 @@ static int64_t nyx_i64_neg(int64_t value) {
 }
 
 static void nyx_print_i64(int64_t value) { printf("%" PRId64, value); }
-static void nyx_print_f64(double value) { printf("%.16g", value); }
+static void nyx_print_f64(double value) {
+    if (value == 0.0) value = 0.0;
+    printf("%.16g", value);
+}
 static void nyx_print_bool(bool value) { fputs(value ? "true" : "false", stdout); }
 static void nyx_print_string(const char *value) { fputs(value, stdout); }'''
 
