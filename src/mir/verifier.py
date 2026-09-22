@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass, replace
 from typing import Iterable
 
@@ -442,9 +443,11 @@ class MIRVerifier:
         for parameter in function.parameters:
             initial[parameter] = "init"
         incoming: dict[int, tuple[str, ...]] = {0: tuple(initial)}
-        worklist = [0]
+        worklist = deque([0])
+        in_worklist = {0}
         while worklist:
-            block_id = worklist.pop(0)
+            block_id = worklist.popleft()
+            in_worklist.remove(block_id)
             state = list(incoming[block_id])
             edges = self._ownership_transfer(function.blocks[block_id], state, report=False)
             for target, edge_state in edges:
@@ -455,8 +458,9 @@ class MIRVerifier:
                 )
                 if previous != merged:
                     incoming[target] = merged
-                    if target not in worklist:
+                    if target not in in_worklist:
                         worklist.append(target)
+                        in_worklist.add(target)
 
         for block in function.blocks:
             state = incoming.get(block.id)
