@@ -76,10 +76,15 @@ class MIRVerifier:
             for definition in getattr(module, "type_definitions", ())
         }
         self._ownership_issue_keys: set[tuple[str, int, int, str]] = set()
+        self.inferred_module = (
+            infer_module_effects(module)
+            if isinstance(module, MIRModule)
+            else None
+        )
         self.inferred_effects = {
             function.symbol: function.effects
-            for function in infer_module_effects(module).functions
-        } if isinstance(module, MIRModule) else {}
+            for function in self.inferred_module.functions
+        } if self.inferred_module is not None else {}
 
     def collect(self) -> tuple[MIRVerificationIssue, ...]:
         if not isinstance(self.module, MIRModule):
@@ -680,6 +685,17 @@ class MIRVerifier:
 
 def collect_mir_issues(module: MIRModule) -> tuple[MIRVerificationIssue, ...]:
     return MIRVerifier(module).collect()
+
+
+def _verify_and_infer_mir(module: MIRModule) -> MIRModule:
+    """Verify MIR and return the effect-annotated module from the same analysis."""
+    verifier = MIRVerifier(module)
+    issues = verifier.collect()
+    if issues:
+        raise MIRVerificationError(issues)
+    if verifier.inferred_module is None:
+        raise TypeError("MIR verification requires a MIRModule")
+    return verifier.inferred_module
 
 
 def verify_mir(module: MIRModule) -> MIRModule:
