@@ -19,6 +19,7 @@ from src.mir import (
     MIRLocal,
     MIRLoweringError,
     MIRModule,
+    MIRPassContract,
     MIRPassManager,
     MIRSpan,
     MIRType,
@@ -62,6 +63,19 @@ class _IdentityPass:
         return module
 
 
+class _PreservingIdentityPass:
+    name = "preserving-identity"
+    contract = MIRPassContract(
+        required_analyses=("effects",),
+        preserved_analyses=("effects",),
+        invalidated_analyses=(),
+        preserved_invariants=("verified_mir",),
+    )
+
+    def run(self, module: MIRModule) -> MIRModule:
+        return module
+
+
 def run_mir_suite() -> bool:
     print("=" * 70)
     print("NYX M1 EXPERIMENTAL MIR CONTRACT")
@@ -85,6 +99,23 @@ def run_mir_suite() -> bool:
     assert pass_result.module == module and len(pass_result.records) == 1
     assert not pass_result.records[0].changed
     assert pass_result.records[0].before_fingerprint == pass_result.records[0].after_fingerprint
+    assert pass_result.records[0].invalidated_analyses == ("*",)
+
+    preserving = MIRPassManager((_PreservingIdentityPass(),)).run(module)
+    preserving_record = preserving.records[0]
+    assert preserving_record.required_analyses == ("effects",)
+    assert preserving_record.preserved_analyses == ("effects",)
+    assert preserving_record.invalidated_analyses == ()
+    assert preserving_record.preserved_invariants == ("verified_mir",)
+
+    try:
+        MIRPassContract(
+            preserved_analyses=("effects",),
+            invalidated_analyses=("effects",),
+        )
+        raise AssertionError("MIR pass contract accepted contradictory analysis policy")
+    except ValueError as error:
+        assert "preserves and invalidates" in str(error)
 
     function = module.functions[0]
     bad_target = replace(
