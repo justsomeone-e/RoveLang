@@ -52,7 +52,14 @@ from .layout import (
 )
 from .lowering import MIRLoweringError, lower_hir_skeleton, lower_hir_to_mir
 from .model import *
-from .passes import MIRPass, MIRPassManager, MIRPassRecord, MIRPassResult
+from .passes import (
+    DEFAULT_MIR_PASS_CONTRACT,
+    MIRPass,
+    MIRPassContract,
+    MIRPassManager,
+    MIRPassRecord,
+    MIRPassResult,
+)
 from .printer import print_mir
 from .serialization import fingerprint, from_data, from_json, to_data, to_json
 from .effects import MIR_EFFECT_ORDER, VALID_MIR_EFFECTS, infer_module_effects
