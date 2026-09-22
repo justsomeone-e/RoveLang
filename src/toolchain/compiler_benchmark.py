@@ -105,6 +105,58 @@ def measure(source_path: Path, target: str, repetitions: int):
     }
 
 
+def measure_mir(source_path: Path, target: str, repetitions: int):
+    """Measure the experimental MIR pipeline after the checked HIR is available."""
+    from src import api
+    from src.mir import fingerprint, legalize_mir, lower_hir_to_mir, verify_mir
+
+    source = source_path.read_text(encoding="utf-8")
+    compiler = api.NyxCompiler(str(source_path.parent))
+    checked = compiler.check_source(source, filename=str(source_path), target=target)
+    if not checked.success or checked.hir is None:
+        raise RuntimeError(str(checked.diagnostics))
+    hir = checked.hir
+
+    # Warm the Python imports/caches before timed runs.
+    warm_mir = lower_hir_to_mir(hir)
+    legalize_mir(warm_mir, target)
+
+    records = []
+    final_mir = warm_mir
+    for _ in range(repetitions):
+        stages = {}
+
+        start = time.perf_counter_ns()
+        final_mir = lower_hir_to_mir(hir)
+        stages["hir_to_mir_total"] = (time.perf_counter_ns() - start) / 1e6
+
+        start = time.perf_counter_ns()
+        verify_mir(final_mir)
+        stages["mir_verify_isolated"] = (time.perf_counter_ns() - start) / 1e6
+
+        start = time.perf_counter_ns()
+        legalize_mir(final_mir, target)
+        stages["mir_legalize_total"] = (time.perf_counter_ns() - start) / 1e6
+
+        stages["total"] = (
+            stages["hir_to_mir_total"]
+            + stages["mir_verify_isolated"]
+            + stages["mir_legalize_total"]
+        )
+        records.append(stages)
+
+    return {
+        "source": source_path.relative_to(ROOT).as_posix(),
+        "sourceSha256": hashlib.sha256(source_path.read_bytes()).hexdigest(),
+        "mirFingerprint": fingerprint(final_mir),
+        "runsMs": records,
+        "medianMs": {
+            stage: statistics.median(row[stage] for row in records)
+            for stage in records[0]
+        },
+    }
+
+
 def measure_invalidation(corpus_dir: Path, repetitions: int) -> dict:
     from src import api
     main_file = corpus_dir / "main.nyx"
@@ -172,9 +224,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=ROOT / "build/compiler-benchmark.json")
     parser.add_argument("--invalidation-output", type=Path, default=ROOT / "build/import-invalidation-benchmark.json")
+    parser.add_argument("--mir-output", type=Path, default=ROOT / "build/mir-benchmark.json")
     parser.add_argument("--repetitions", type=int, default=3)
     parser.add_argument("--worker", type=int, help=argparse.SUPPRESS)
     parser.add_argument("--invalidation", action="store_true", help="Measure import invalidation corpus")
+    parser.add_argument("--mir", action="store_true", help="Measure experimental HIR-to-MIR, MIR verify, and legalization stages")
     options = parser.parse_args()
     if not 1 <= options.repetitions <= 100:
         parser.error("--repetitions must be between 1 and 100")
@@ -191,33 +245,65 @@ def main():
     if options.worker is not None:
         source = (ROOT / manifest["sources"][options.worker]).resolve()
         source.relative_to(ROOT)
-        print(json.dumps(measure(source, manifest["target"], options.repetitions)))
+        worker_result = (
+            measure_mir(source, manifest["target"], options.repetitions)
+            if options.mir
+            else measure(source, manifest["target"], options.repetitions)
+        )
+        print(json.dumps(worker_result))
         return
     results = []
     for index in range(len(manifest["sources"])):
+        worker_command = [
+            sys.executable,
+            "-m",
+            "src.toolchain.compiler_benchmark",
+            "--worker",
+            str(index),
+            "--repetitions",
+            str(options.repetitions),
+        ]
+        if options.mir:
+            worker_command.append("--mir")
         process = subprocess.run(
-            [sys.executable, "-m", "src.toolchain.compiler_benchmark", "--worker", str(index),
-             "--repetitions", str(options.repetitions)], cwd=ROOT, capture_output=True,
+            worker_command, cwd=ROOT, capture_output=True,
             text=True, encoding="utf-8", timeout=300,
         )
         if process.returncode:
             raise RuntimeError(process.stderr or process.stdout)
         results.append(json.loads(process.stdout))
+    if options.mir:
+        notes = [
+            "Checked Typed HIR is prepared before MIR timing begins.",
+            "hir_to_mir_total includes the lowering path's mandatory MIR verification.",
+            "mir_verify_isolated measures an additional standalone verification of the produced MIR.",
+            "mir_legalize_total includes legalization's own verification gate.",
+            "No target executable is built or timed; this is an experimental MIR stage benchmark.",
+        ]
+        engine = "Python stage-0 experimental MIR pipeline"
+        output_path = options.mir_output
+    else:
+        notes = [
+            "One warmup, fresh subprocess per corpus entry; file read excluded from timings.",
+            "Stage times are instrumented wall times; total includes module resolution and orchestration.",
+            "Peak RSS is the worker lifetime high-water mark, including imports and allocation tracing.",
+            "Python allocation peak comes from a separate untimed compilation.",
+            "No target executable is built or timed; not a native nyxc benchmark or cache speedup claim.",
+        ]
+        engine = "Python stage-0 NyxCompiler API"
+        output_path = options.output
+
     report = {
-        "schemaVersion": 1, "engine": "Python stage-0 NyxCompiler API", "target": manifest["target"],
+        "schemaVersion": 1, "engine": engine, "target": manifest["target"],
         "python": sys.version, "platform": platform.platform(), "machine": platform.machine(),
         "compilerVersion": (ROOT / "VERSION").read_text().strip(),
         "corpusSha256": hashlib.sha256(CORPUS.read_bytes()).hexdigest(),
-        "notes": ["One warmup, fresh subprocess per corpus entry; file read excluded from timings.",
-                  "Stage times are instrumented wall times; total includes module resolution and orchestration.",
-                  "Peak RSS is the worker lifetime high-water mark, including imports and allocation tracing.",
-                  "Python allocation peak comes from a separate untimed compilation.",
-                  "No target executable is built or timed; not a native nyxc benchmark or cache speedup claim."],
+        "notes": notes,
         "results": results,
     }
-    options.output.parent.mkdir(parents=True, exist_ok=True)
-    options.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    print(f"Measured {len(results)} corpus entries: {options.output}")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    print(f"Measured {len(results)} corpus entries: {output_path}")
 
 
 if __name__ == "__main__":
