@@ -284,7 +284,13 @@ normal:
             if kind == "i64":
                 self.lines.append(f"  call i32 (ptr, ...) @printf(ptr @.fmt_i64, i64 {value})")
             elif kind == "double":
-                self.lines.append(f"  call i32 (ptr, ...) @printf(ptr @.fmt_f64, double {value})")
+                normalized = self._temp()
+                self.lines.append(
+                    f"  {normalized} = fadd double {value}, 0.000000e+00"
+                )
+                self.lines.append(
+                    f"  call i32 (ptr, ...) @printf(ptr @.fmt_f64, double {normalized})"
+                )
             elif kind == "i1":
                 selected = self._temp()
                 self.lines.append(f"  {selected} = select i1 {value}, ptr @.true, ptr @.false")

@@ -174,11 +174,24 @@ const Value& index(const std::vector<Value>& values, std::int64_t position) {
 }
 inline std::string to_string(const std::string& value) { return value; }
 inline std::string to_string(bool value) { return value ? "true" : "false"; }
+inline std::string to_string(double value) {
+    if (std::isnan(value)) return "nan";
+    if (std::isinf(value)) return value > 0 ? "inf" : "-inf";
+    if (value == 0.0) return "0";
+    std::ostringstream stream;
+    stream << value;
+    return stream.str();
+}
 template <typename Value>
 std::string to_string(const Value& value) {
     std::ostringstream stream;
     stream << value;
     return stream.str();
+}
+inline void print_one(bool& first, double value) {
+    if (!first) std::cout << ' ';
+    first = false;
+    std::cout << to_string(value);
 }
 template <typename Value>
 void print_one(bool& first, const Value& value) {
