@@ -108,7 +108,7 @@ def measure(source_path: Path, target: str, repetitions: int):
 def measure_mir(source_path: Path, target: str, repetitions: int):
     """Measure the experimental MIR pipeline after the checked HIR is available."""
     from src import api
-    from src.mir import legalize_mir, lower_hir_to_mir, verify_mir
+    from src.mir import fingerprint, legalize_mir, lower_hir_to_mir, verify_mir
 
     source = source_path.read_text(encoding="utf-8")
     compiler = api.NyxCompiler(str(source_path.parent))
@@ -148,7 +148,7 @@ def measure_mir(source_path: Path, target: str, repetitions: int):
     return {
         "source": source_path.relative_to(ROOT).as_posix(),
         "sourceSha256": hashlib.sha256(source_path.read_bytes()).hexdigest(),
-        "mirFingerprint": __import__("src.mir", fromlist=["fingerprint"]).fingerprint(final_mir),
+        "mirFingerprint": fingerprint(final_mir),
         "runsMs": records,
         "medianMs": {
             stage: statistics.median(row[stage] for row in records)
