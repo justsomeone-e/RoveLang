@@ -1,4 +1,4 @@
-"""Structural, symbol, type, and control-flow verification for Nyx HIR."""
+"""Structural, symbol, type, and control-flow verification for Rove HIR."""
 
 from __future__ import annotations
 
@@ -878,11 +878,23 @@ class IRVerifier:
             self._visit_expr(node.expr, active)
             if not node.cases:
                 self._issue("HIR0009", "Match statement must contain at least one case", node.span)
-            for case in node.cases:
+            for index, case in enumerate(node.cases):
+                is_fallback = isinstance(case.pattern, IRReference) or (
+                    isinstance(case.pattern, IRLiteral) and case.pattern.value == "_"
+                )
+                if is_fallback and index != len(node.cases) - 1:
+                    self._issue("HIR0009", "Match statement fallback must be the final arm", case.pattern.span)
                 bindings = self._pattern_bindings(case.pattern)
                 pattern_active = set(active)
                 pattern_active.update(bindings)
                 self._visit_pattern(case.pattern, pattern_active)
+                if not is_fallback:
+                    self._expect_compatible(
+                        node.expr.type,
+                        case.pattern.type,
+                        case.pattern.span,
+                        "Match statement pattern",
+                    )
                 self._visit_block(case.body, pattern_active, loop_depth=loop_depth, return_type=return_type)
         elif isinstance(node, IRTryCatch):
             self._visit_block(node.try_body, active, loop_depth=loop_depth, return_type=return_type)
@@ -1278,11 +1290,12 @@ class IRVerifier:
         if isinstance(statement, IRUnsafeBlock):
             return cls._block_definitely_returns(statement.body)
         if isinstance(statement, IRMatch):
-            has_wildcard = any(
-                isinstance(case.pattern, IRReference) and case.pattern.symbol == "pattern::_"
-                for case in statement.cases
+            has_fallback = bool(statement.cases) and isinstance(
+                statement.cases[-1].pattern, IRReference
             )
-            return has_wildcard and all(cls._block_definitely_returns(case.body) for case in statement.cases)
+            if statement.cases and isinstance(statement.cases[-1].pattern, IRLiteral):
+                has_fallback = statement.cases[-1].pattern.value == "_"
+            return has_fallback and all(cls._block_definitely_returns(case.body) for case in statement.cases)
         return False
 
     @classmethod
