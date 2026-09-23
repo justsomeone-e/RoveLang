@@ -1,19 +1,19 @@
-# Nyx
+# Rove
 
 <p align="left">
-  <a href="https://justsomeone-e.github.io/nyx/studio.html"><img src="https://img.shields.io/badge/Nyx%20Studio-learn%20%26%20inspect-22C55E?style=for-the-badge&amp;logoColor=0F172A&amp;labelColor=0E1318" alt="Open Nyx Studio"></a>
-  <a href="https://justsomeone-e.github.io/nyx/"><img src="https://img.shields.io/badge/interactive%20tour-try%20in%20browser-00F0FF?style=for-the-badge&amp;logoColor=05070A&amp;labelColor=0E1318" alt="Try Tour of Nyx Online"></a>
+  <a href="https://justsomeone-e.github.io/rove/studio.html"><img src="https://img.shields.io/badge/Rove%20Studio-learn%20%26%20inspect-22C55E?style=for-the-badge&amp;logoColor=0F172A&amp;labelColor=0E1318" alt="Open Rove Studio"></a>
+  <a href="https://justsomeone-e.github.io/rove/"><img src="https://img.shields.io/badge/interactive%20tour-try%20in%20browser-00F0FF?style=for-the-badge&amp;logoColor=05070A&amp;labelColor=0E1318" alt="Try Tour of Rove Online"></a>
   <a href="VERSION"><img src="https://img.shields.io/badge/version-5.0.3-0E1318?style=for-the-badge&amp;logoColor=00F0FF&amp;labelColor=05070A" alt="Version"></a>
-  <a href="https://github.com/justsomeone-e/nyx/releases"><img src="https://img.shields.io/badge/status-stable-0E1318?style=for-the-badge&amp;logoColor=00F0FF&amp;labelColor=05070A" alt="Stable Release"></a>
+  <a href="https://github.com/justsomeone-e/rove/releases"><img src="https://img.shields.io/badge/status-stable-0E1318?style=for-the-badge&amp;logoColor=00F0FF&amp;labelColor=05070A" alt="Stable Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0E1318?style=for-the-badge&amp;logoColor=00F0FF&amp;labelColor=05070A" alt="Apache 2.0 License"></a>
   <a href="#backends"><img src="https://img.shields.io/badge/platforms-linux%20%7C%20win%20%7C%20macos-0E1318?style=for-the-badge&amp;labelColor=05070A" alt="Platforms"></a>
 </p>
 
-## About Nyx
+## About Rove
 
 > *Did you ever dream of watching the stars from the gardens of Elysium?*
 
-Nyx began as **HolyEasyLang**, a small experiment by its developer: could
+Rove began as **HolyEasyLang**, a small experiment by its developer: could
 compiled programming become easier to approach without turning into a limited
 toy language? There was no grand compiler platform at the beginning—only a
 language, a growing collection of ideas, and the desire to see how far they
@@ -22,24 +22,29 @@ could be taken.
 As native, JavaScript, Python, Rust, and WebAssembly targets were added, the
 original direct AST-to-backend design could no longer guarantee that every
 target understood a program in the same way. HolyEasyLang became **Nyx**, and
-the compiler was rebuilt around one checked representation shared by its
+the project is now continuing as **Rove**. The compiler was rebuilt around one
+checked representation shared by its
 backends: **Typed HIR v1**.
 
-Today, **Nyx is a compiled, statically typed systems programming language
+Today, **Rove is a compiled, statically typed systems programming language
 designed to keep source code approachable without hiding the machine
 underneath it.**
 
 A single compiler model lowers to native C++20, WebAssembly (WASM ABI v1), Node.js, and Python through an authoritative typed intermediate representation (**Typed HIR v1**) with byte-identical native self-hosting.
 
 > [!IMPORTANT]
-> **Nyx `v5.0.3` "Daydream"** is the current stable v5 maintenance release. It fixes duplicate browser preview execution, separates Studio and Tour state, and refreshes the documentation UI without promoting experimental backends. C++20, JavaScript, and Python remain the stable backends; LLVM and C17 remain explicitly experimental.
+> **Nyx `v5.0.3` "Daydream"** is the final release under the old name. The current
+> source tree uses the **Rove** identity. Existing `.nyx` source files, `nyx.toml`,
+> `nyx.lock`, `nyx`, `nyxc`, and the versioned `nyx_host_v1` ABI remain accepted as
+> compatibility surfaces while new projects use `.rove`, `rove.toml`, `rove.lock`,
+> `rove`, and `rovec`.
 
 <div align="center">
-  <img src="assets/terminal_animated.svg?v=5.0.3" width="92%" alt="nyx interactive live execution"/>
+  <img src="assets/terminal_animated.svg?v=5.0.3" width="92%" alt="rove interactive live execution"/>
 </div>
 
 <p align="left">
-  <a href="https://justsomeone-e.github.io/nyx/"><b>TRY ONLINE (TOUR &amp; PLAYGROUND)</b></a> •
+  <a href="https://justsomeone-e.github.io/rove/"><b>TRY ONLINE (TOUR &amp; PLAYGROUND)</b></a> •
   <a href="#manifesto">MANIFESTO</a> •
   <a href="#language-tour">LANGUAGE TOUR</a> •
   <a href="#architecture">ARCHITECTURE</a> •
@@ -57,9 +62,9 @@ A single compiler model lowers to native C++20, WebAssembly (WASM ABI v1), Node.
 
 ## `01` — The Engineering Manifesto
 
-**Nyx is a compiled, statically typed language for readable source code and explicit native targets.**
+**Rove is a compiled, statically typed language for readable source code and explicit native targets.**
 
-Nyx keeps the source surface small while exposing target choices, generated code,
+Rove keeps the source surface small while exposing target choices, generated code,
 and runtime boundaries to the programmer.
 
 ```text
@@ -76,7 +81,7 @@ and runtime boundaries to the programmer.
                        ONE UNIFIED COMPILER CONTRACT
 ```
 
-Nyx parses, type-checks, resolves modules, and lowers programs through one typed
+Rove parses, type-checks, resolves modules, and lowers programs through one typed
 intermediate representation (**Typed HIR v1**). Backends consume that checked
 representation and report unsupported capabilities instead of silently changing
 program semantics.
@@ -96,13 +101,13 @@ program semantics.
 
 ## `02` — Language Tour
 
-Nyx supports top-level scripts and larger typed programs on the same language surface.
+Rove supports top-level scripts and larger typed programs on the same language surface.
 
 ### Zero-Ceremony Scripting
 
 For quick automation, pipelines, or algorithm prototyping, no `fn main()` or boilerplate wrapper is required. Top-level statements execute sequentially:
 
-```nyx
+```rove
 #target cpp
 
 let base_freq: int = 5000
@@ -116,7 +121,7 @@ base_freq * multiplier |> print
 
 Functions can be expression-bodied, branching produces values, and data flows naturally through forward-piping operators:
 
-```nyx
+```rove
 fn classify(code: int) -> string =
     match code {
         200 => "ok",
@@ -144,9 +149,9 @@ fn main() {
 
 ### Systems Rigor: Safety, Scope, & Concurrency
 
-When writing performance-critical systems code, Nyx delivers structured safety without ceremony:
+When writing performance-critical systems code, Rove delivers structured safety without ceremony:
 
-```nyx
+```rove
 #target cpp
 
 struct Build {
@@ -206,14 +211,14 @@ Core v4 features: `let`/`var`/`const`, explicit `set`, `guard ... else`, `defer`
 
 ## `03` — Compiler Architecture
 
-The Nyx toolchain operates through an authoritative, deterministic middle-end:
+The Rove toolchain operates through an authoritative, deterministic middle-end:
 
 <div align="center">
-  <img src="assets/pipeline_animated.svg?v=4.0.0" width="98%" alt="nyx compiler architecture pipeline"/>
+  <img src="assets/pipeline_animated.svg?v=4.0.0" width="98%" alt="rove compiler architecture pipeline"/>
 </div>
 
 ```text
-                      NYX SOURCE CODE (.nyx)
+                      ROVE SOURCE CODE (.rove)
                                │
                                ▼
                    [ UTF-8 Lexer / Scanner ]
@@ -246,19 +251,19 @@ The Nyx toolchain operates through an authoritative, deterministic middle-end:
 
 ### Reproducible Native Self-Hosting
 
-Nyx does not depend on a host runtime. The production toolchain compiles itself through a hermetic bootstrap cycle:
+Rove does not depend on a host runtime. The production toolchain compiles itself through a hermetic bootstrap cycle:
 
 ```text
 stage-0 bootstrap (Python reference)
        │
        ▼
-native nyxc (stage 1) ──► generates stage-2 C++ ──► compiled to native stage 2
+native rovec (stage 1) ──► generates stage-2 C++ ──► compiled to native stage 2
                                                          │
                                                          ▼
                                        emits byte-identical stage-3 C++
 ```
 
-* **No Python Dependency**: The distributed `nyxc` native compiler performs `check`, `emit-cpp`, `compile`, and targets queries independently.
+* **No Python Dependency**: The distributed `rovec` native compiler performs `check`, `emit-cpp`, `compile`, and targets queries independently.
 * **Topological Module Resolution**: Handles diamond dependencies, eliminates module duplicates, detects circular imports, and resolves symbols deterministically.
 
 ---
@@ -268,7 +273,7 @@ native nyxc (stage 1) ──► generates stage-2 C++ ──► compiled to nati
 
 ## `04` — Compiler & Backend Matrix
 
-Nyx exposes multiple code-generation backends with explicit capability gating. Targets that cannot support a language feature fail at compile time with a clear diagnostic instead of silently producing deviant runtime behavior.
+Rove exposes multiple code-generation backends with explicit capability gating. Targets that cannot support a language feature fail at compile time with a clear diagnostic instead of silently producing deviant runtime behavior.
 
 ```text
 ┌─────────────┬──────────────────────────────┬──────────────┬───────────────┐
@@ -288,7 +293,7 @@ Nyx exposes multiple code-generation backends with explicit capability gating. T
 
 | Subsystem | Exact Compiler Guarantee |
 | :-- | :-- |
-| **Source Standard** | Strictly UTF-8 encoded `.nyx` files with 44 canonical v4 keywords. |
+| **Source Standard** | Strictly UTF-8 encoded `.rove` files with 44 canonical v4 keywords. |
 | **Integer Semantics** | Signed `i64` with defined two's-complement overflow wrapping, integer division, and bitwise shifts. |
 | **Floating-Point** | IEEE-754 `binary64` with canonical cross-platform formatting for `nan`, `inf`, and `-0.0`. |
 | **String Architecture** | UTF-8 sequences with embedded `\0` safety, `\uXXXX` escapes, interpolation, and zero implicit normalization mutations. |
@@ -301,12 +306,12 @@ Nyx exposes multiple code-generation backends with explicit capability gating. T
 
 ## `05` — Zero-Leak WebAssembly: Bundle ABI v1
 
-Compiling for the web should not require manually orchestrating memory offsets, byte lengths, and pointer arithmetic in JavaScript. Nyx packages complete WebAssembly modules with type-safe host wrappers in a single command:
+Compiling for the web should not require manually orchestrating memory offsets, byte lengths, and pointer arithmetic in JavaScript. Rove packages complete WebAssembly modules with type-safe host wrappers in a single command:
 
 ```bash
-nyx bundle src/crypto.nyx --output dist/crypto
-nyx bundle src/crypto.nyx --output dist/crypto --react
-nyx bundle src/crypto.nyx --output dist/crypto --package --react --vue --svelte
+rove bundle src/crypto.rove --output dist/crypto
+rove bundle src/crypto.rove --output dist/crypto --react
+rove bundle src/crypto.rove --output dist/crypto --package --react --vue --svelte
 ```
 
 ### Emitted Artifact Suite
@@ -318,20 +323,20 @@ nyx bundle src/crypto.nyx --output dist/crypto --package --react --vue --svelte
 | `<module>.mjs` | ES2022 loader with grow-safe views, typed marshalling, host imports, and Promise caching |
 | `<module>.d.ts` | 100% pointer-free TypeScript declaration interface |
 | `<module>.react.tsx` | Native React 19 client hook with Concurrent Mode / Suspense safety |
-| `package.json` | Optional npm manifest with conditional exports and Nyx ABI metadata |
+| `package.json` | Optional npm manifest with conditional exports and Rove ABI metadata |
 | `<module>.{react,vue,svelte}.{mjs,d.ts}` | Optional framework adapters for React 19, Vue 3, and Svelte 5 |
 
 ### Memory Protocol
 
-ABI v1 requires modules to export `memory`, `__nyx_alloc(i32)`, `__nyx_free(i32, i32)`, and `__nyx_abi_version() -> 1`. Strings cross the boundary as a packed 64-bit scalar `(length << 32) | pointer`; numeric arrays use borrowed `(pointer, length)` pairs. The generated JavaScript layer refreshes views after heap growth, releases input buffers inside `finally` blocks, and frees caller-owned return strings immediately after decoding. Browser capabilities use the separately versioned `nyx_host_v1` import namespace. Versioning and ownership rules are defined in [`docs/internals/COMPATIBILITY_CONTRACTS.md`](docs/internals/COMPATIBILITY_CONTRACTS.md).
+ABI v1 requires modules to export `memory`, `__rove_alloc(i32)`, `__rove_free(i32, i32)`, and `__rove_abi_version() -> 1`. Strings cross the boundary as a packed 64-bit scalar `(length << 32) | pointer`; numeric arrays use borrowed `(pointer, length)` pairs. The generated JavaScript layer refreshes views after heap growth, releases input buffers inside `finally` blocks, and frees caller-owned return strings immediately after decoding. Browser capabilities use the separately versioned `rove_host_v1` import namespace. Versioning and ownership rules are defined in [`docs/internals/COMPATIBILITY_CONTRACTS.md`](docs/internals/COMPATIBILITY_CONTRACTS.md).
 
 ```tsx
 'use client'
 
-import { useNyxModule } from './crypto.react'
+import { useRoveModule } from './crypto.react'
 
 export function VerificationWidget() {
-    const { hashToken } = useNyxModule()
+    const { hashToken } = useRoveModule()
     return <div>Digest: {hashToken("payload-secret")}</div>
 }
 ```
@@ -341,7 +346,7 @@ export function VerificationWidget() {
 ### Browser host API
 
 `std/web` exposes typed opaque handles for DOM nodes, events, listeners, and
-Canvas 2D operations. Nyx code imports no browser globals directly; the
+Canvas 2D operations. Rove code imports no browser globals directly; the
 generated ESM loader supplies and validates host ABI v1. A complete keyboard
 and animation-loop example lives in [`examples/web_pong`](examples/web_pong/README.md).
 
@@ -355,12 +360,12 @@ The repository checks language invariants across target boundaries with an autom
 
 ```text
 ╔══════════════════════════════════════════════════════════════════════╗
-║                   NYX v5.0.3 VERIFICATION BATTERY                  ║
+║                   ROVE v5.0.3 VERIFICATION BATTERY                  ║
 ╠══════════════════════════════════════════════════════════════════════╣
 ║                                                                      ║
 ║  Edge-case regression test suite              ──► 138 / 138 PASS    ║
 ║  Typed HIR corpus emission test               ──► 162 / 162 PASS    ║
-║  Nyx/Python canonical HIR byte parity         ──► 194 / 194 PASS    ║
+║  Rove/Python canonical HIR byte parity         ──► 194 / 194 PASS    ║
 ║  Cross-backend runtime execution parity       ──► 3 × 138 PASS      ║
 ║  Deterministic backend code generation        ──► 3 × 10  PASS      ║
 ║  Standard library HIR verification            ──► 17 / 17 PASS      ║
@@ -380,11 +385,11 @@ The repository checks language invariants across target boundaries with an autom
 
 ## `07` — Diagnostics v2
 
-Compiler errors should instruct, not confuse. Nyx diagnostics feature precise source spans, context snippets, and machine-actionable hints indexed in [`ERROR_REFERENCE.md`](ERROR_REFERENCE.md):
+Compiler errors should instruct, not confuse. Rove diagnostics feature precise source spans, context snippets, and machine-actionable hints indexed in [`ERROR_REFERENCE.md`](ERROR_REFERENCE.md):
 
 ```text
 error[E1302]: ambiguous symbol collision
-  --> src/network/client.nyx:24:9
+  --> src/network/client.rove:24:9
    |
 24 |     use protocol.packet
    |         ^^^^^^^^^^^^^^^
@@ -400,9 +405,9 @@ error[E1302]: ambiguous symbol collision
 ## `08` — Installation
 
 Standalone native installers are provided for Windows, Linux, and macOS.
-Releases bundle the precompiled `nyxc` compiler (`nyxc.exe` on Windows). The
-documented `nyx` command is an installer-created wrapper (`nyx.cmd` on Windows),
-not a separate `nyx.exe` release asset.
+Releases bundle the precompiled `rovec` compiler (`rovec.exe` on Windows). The
+documented `rove` command is an installer-created wrapper (`rove.cmd` on Windows),
+not a separate `rove.exe` release asset.
 
 ### Windows (PowerShell)
 
@@ -414,7 +419,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 *Or install directly via the release script:*
 
 ```powershell
-$env:NYX_RELEASE_TAG = 'v5.0.3'; irm https://raw.githubusercontent.com/justsomeone-e/nyx/main/install.ps1 | iex
+$env:ROVE_RELEASE_TAG = 'v5.0.3'; irm https://raw.githubusercontent.com/justsomeone-e/rove/main/install.ps1 | iex
 ```
 
 ### Linux & macOS (Bash)
@@ -427,7 +432,7 @@ chmod +x install.sh
 *Or install directly via curl:*
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/justsomeone-e/nyx/main/install.sh | NYX_RELEASE_TAG=v5.0.3 bash
+curl -fsSL https://raw.githubusercontent.com/justsomeone-e/rove/main/install.sh | ROVE_RELEASE_TAG=v5.0.3 bash
 ```
 
 ### Toolchain Dependencies
@@ -438,12 +443,12 @@ curl -fsSL https://raw.githubusercontent.com/justsomeone-e/nyx/main/install.sh |
 | **`js`** | Node.js (≥18 LTS with ES2022 support) |
 | **`python`** | Python 3.10+ |
 | **`rust`** | `rustc` / Cargo (2021 edition) |
-| **`wasm`** | None (Nyx bundles its own binary WAT/WASM assembler) |
+| **`wasm`** | None (Rove bundles its own binary WAT/WASM assembler) |
 
 Run the built-in diagnostic doctor to verify your environment:
 
 ```bash
-nyx doctor
+rove doctor
 ```
 
 ---
@@ -452,15 +457,15 @@ nyx doctor
 
 ## `09` — Developer Tooling & VS Code
 
-Nyx's editor support covers diagnostics, navigation, and common build commands.
+Rove's editor support covers diagnostics, navigation, and common build commands.
 
 <div align="center">
-  <img src="assets/features_animated.svg?v=4.0.0" width="98%" alt="nyx features"/>
+  <img src="assets/features_animated.svg?v=4.0.0" width="98%" alt="rove features"/>
 </div>
 
 ### Local Visual Studio Code Extension
 
-Nyx ships with a fully integrated, zero-telemetry local extension (`nyx-language-support-v5.0.3.vsix`):
+Rove ships with a fully integrated, zero-telemetry local extension (`rove-language-support-v5.0.3.vsix`):
 
 * **Language Server Protocol**: Built-in JSON-RPC server powering syntax diagnostics, hover documentation, completion, and definition lookups.
 * **Persistent Execution Console**: Windows executables run in an integrated persistent shell—never closing abruptly before you inspect output.
@@ -469,12 +474,12 @@ Nyx ships with a fully integrated, zero-telemetry local extension (`nyx-language
 Install locally with:
 
 ```bash
-code --install-extension nyx-language-support-v5.0.3.vsix
+code --install-extension rove-language-support-v5.0.3.vsix
 ```
 
 The Windows and Unix installers also register the bundled extension
 automatically when VS Code, VS Code Insiders, or VSCodium is detected. Restart
-the editor after installation; `.nyx` files should display `Nyx` as their
+the editor after installation; `.rove` files should display `Rove` as their
 language mode.
 
 ---
@@ -484,35 +489,35 @@ language mode.
 ## `10` — Command Line Workflow
 
 ```bash
-# Initialize a new Nyx project workspace
-nyx new telemetry_service
+# Initialize a new Rove project workspace
+rove new telemetry_service
 cd telemetry_service
 
 # Run type checking and HIR semantic analysis
-nyx check src/main.nyx
+rove check src/main.rove
 
 # Build and execute with the default native C++20 backend
-nyx run src/main.nyx
+rove run src/main.rove
 
 # Compile an optimized standalone native release binary
-nyx build src/main.nyx --target cpp --release
+rove build src/main.rove --target cpp --release
 
 # Execute via the Node.js ES2022 backend
-nyx run src/main.nyx --target js
+rove run src/main.rove --target js
 
 # Emit standalone Intel-syntax x86_64 assembly (.s)
-nyx build src/main.nyx --target asm
+rove build src/main.rove --target asm
 
 # Package for WebAssembly with TypeScript bindings
-nyx build src/main.nyx --target wasm
+rove build src/main.rove --target wasm
 
 # Choose an output directory and optionally emit the React 19 hook
-nyx bundle src/main.nyx --output dist/bundle --react
+rove bundle src/main.rove --output dist/bundle --react
 
 # Run native self-hosting compiler commands directly
-nyxc check src/main.nyx
-nyxc emit-cpp src/main.nyx -o dist/main.cpp
-nyxc compile src/main.nyx -o dist/main
+rovec check src/main.rove
+rovec emit-cpp src/main.rove -o dist/main.cpp
+rovec compile src/main.rove -o dist/main
 ```
 
 ---
@@ -521,7 +526,7 @@ nyxc compile src/main.nyx -o dist/main
 
 ## `11` — Nirvana and the Road to v5
 
-The Nyx release lifecycle is bound to verifiable technical milestones rather than calendar estimates:
+The Rove release lifecycle is bound to verifiable technical milestones rather than calendar estimates:
 
 | Version | Codename | Conceptual Meaning | Core Architectural Milestone | Status |
 | :-- | :-- | :-- | :-- | :-- |
@@ -552,15 +557,15 @@ does not promote LLVM or C17 beyond their documented capability contracts.
 ## `12` — Project Structure
 
 ```text
-nyx/
-├── compiler/          # Self-hosted compiler written in Nyx (Frontend, HIR Lowerer, C++ Emitter)
+rove/
+├── compiler/          # Self-hosted compiler written in Rove (Frontend, HIR Lowerer, C++ Emitter)
 ├── src/
 │   ├── core/          # Stage-0 Lexer, Parser, Type Checker, Module Resolution, Diagnostics
 │   ├── ir/            # Typed HIR v1 definition, serialization passes, semantic verifier
 │   ├── codegen/       # Target emitters (C++20, JS, Python, Rust, WASM, ASM), Native Linkers
 │   ├── self_host/     # Stage reproducibility & bootstrap orchestration
 │   ├── stdlib/        # Capability-gated standard library modules
-│   └── cli.py         # Primary nyx CLI entrypoint
+│   └── cli.py         # Primary rove CLI entrypoint
 ├── vscode-extension/ # VS Code extension (LSP client, syntax, themes, snippets, task runners)
 ├── tests/             # Regression suites, backend parity, differential fuzzing, ABI tests
 ├── tools/             # Reproducible release packagers, SBOM generators, audit scripts
@@ -602,7 +607,7 @@ Before opening a pull request, verify that:
 3. **Verification Battery Passes**: All 138+ regression tests, 194 HIR parity tests, and 530 fuzz passes must succeed:
    ```bash
    python -m unittest discover tests
-   nyx self-host verify
+   rove self-host verify
    ```
 4. **Diagnostics are Actionable**: Error messages must carry precise spans and clear explanations.
 
@@ -612,14 +617,14 @@ Before opening a pull request, verify that:
 
 ## `15` — License & Commercial Freedom
 
-The Nyx compiler, standard library, and associated tooling are licensed under the **Apache License, Version 2.0**.
+The Rove compiler, standard library, and associated tooling are licensed under the **Apache License, Version 2.0**.
 
 ### Commercial Freedom & Trademark Protection
 
 **Your code is your own.**
 
-- **No Viral Restrictions**: You are 100% free to license, distribute, sell, or keep proprietary any software, binaries, libraries, or WebAssembly modules you create with Nyx.
-- **Trademark Protection (Section 6)**: The Apache 2.0 license explicitly protects the Nyx name, logo, and brand against unauthorized commercial hijacking, misrepresentation, or false endorsement.
+- **No Viral Restrictions**: You are 100% free to license, distribute, sell, or keep proprietary any software, binaries, libraries, or WebAssembly modules you create with Rove.
+- **Trademark Protection (Section 6)**: The Apache 2.0 license explicitly protects the Rove name, logo, and brand against unauthorized commercial hijacking, misrepresentation, or false endorsement.
 - **Patent Grant (Section 3)**: Grants an explicit, perpetual patent license covering contributor patents to protect users and downstream developers.
 
 
