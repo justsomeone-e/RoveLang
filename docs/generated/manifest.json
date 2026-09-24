@@ -20,7 +20,7 @@
     },
     {
       "path": "generated/metrics/metrics.wat",
-      "sha256": "f94a068440b21b82f1a9e642a4bc3b245e6b02e5d295ccbf82ce6cba18cf2c22"
+      "sha256": "6fe3f0289eadbe04a9f3f124ebe954c3ed2e514d33cd5953e09e8a0f14010541"
     },
     {
       "path": "generated/metrics/package.json",
