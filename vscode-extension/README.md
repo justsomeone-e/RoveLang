@@ -62,6 +62,6 @@ No marketplace download is required for a local package. After upgrading the
 extension or compiler, run **Developer: Reload Window** once so VS Code restarts
 the Rove language server with the new files.
 
-The older Nyx extension does not register `.rove` files. Install this Rove VSIX
+The earlier editor extension does not register `.rove` files. Install this Rove VSIX
 to make `.rove` use the Rove grammar and completion provider. For diagnostics,
 hover, and go-to-definition, install the `rove` CLI or set `rove.server.path`.
