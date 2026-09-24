@@ -22,7 +22,7 @@ fn compute_power(base: int, exp: int) -> int {
 }
 
 fn greet_developer(name: string) -> string {
-    return $"Hello from Nyx WebAssembly, {name}!";
+    return $"Hello from Rove WebAssembly, {name}!";
 }
 
 fn sum_values(values: Array<int>) -> int {

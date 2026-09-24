@@ -196,7 +196,7 @@ def run_all_138():
     print("=" * 70)
     
     for idx, (name, code, expected) in enumerate(test_cases, 1):
-        filepath = os.path.join(test_dir, f"{name}.nyx")
+        filepath = os.path.join(test_dir, f"{name}.rove")
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(code)
             

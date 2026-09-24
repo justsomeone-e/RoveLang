@@ -39,13 +39,13 @@ def run_smoke_test():
         
         proj_dir = os.path.join(temp_sandbox, "smoke_project")
         assert os.path.exists(os.path.join(proj_dir, "nyx.toml")), "nyx.toml must exist"
-        assert os.path.exists(os.path.join(proj_dir, "src", "main.nyx")), "src/main.nyx must exist"
+        assert os.path.exists(os.path.join(proj_dir, "src", "main.rove")), "src/main.rove must exist"
         print("  [PASS] Project created with valid structure and manifest")
         passed_steps += 1
 
         # Step 3: nyx check
         print("[3/5] Testing 'nyx check' on generated project...")
-        main_nyx = os.path.join(proj_dir, "src", "main.nyx")
+        main_nyx = os.path.join(proj_dir, "src", "main.rove")
         res = subprocess.run([sys.executable, cli_py, "check", main_nyx], cwd=proj_dir, capture_output=True, encoding='utf-8', errors='replace')
         assert res.returncode == 0 and "Check Passed" in res.stdout
         print("  [PASS] Semantic validation passed with 0 errors")

@@ -41,7 +41,7 @@ def _run(command, *, cwd=ROOT_DIR, env=None, timeout=240):
 
 
 def _build_native_fixture(directory: str) -> str:
-    executable = "nyxc.exe" if os.name == "nt" else "nyxc"
+    executable = "rovec.exe" if os.name == "nt" else "rovec"
     output_path = os.path.join(directory, executable)
     build = _run(
         [sys.executable, CLI_PATH, "self-host", "build", "-o", output_path],
@@ -59,16 +59,16 @@ def _build_native_fixture(directory: str) -> str:
 def _exercise_stale_native_rejection() -> None:
     with tempfile.TemporaryDirectory(prefix="nyx_stale_native_") as directory:
         environment = os.environ.copy()
-        environment["NYX_INSTALL_DIR"] = os.path.join(directory, "install")
-        environment["NYX_SKIP_PATH_UPDATE"] = "1"
-        environment["NYX_SKIP_EDITOR_INSTALL"] = "1"
+        environment["ROVE_INSTALL_DIR"] = os.path.join(directory, "install")
+        environment["ROVE_SKIP_PATH_UPDATE"] = "1"
+        environment["ROVE_SKIP_EDITOR_INSTALL"] = "1"
         if os.name == "nt":
             fake_native = os.path.join(directory, "stale-nyxc.cmd")
             with open(fake_native, "w", encoding="ascii", newline="\r\n") as handle:
-                handle.write("@echo off\necho Usage: nyxc ^<input.nyx^> ^<output.cpp^>\nexit /b 0\n")
+                handle.write("@echo off\necho Usage: nyxc ^<input.rove^> ^<output.cpp^>\nexit /b 0\n")
             powershell = shutil.which("pwsh") or shutil.which("powershell")
             assert powershell
-            environment["NYX_NATIVE_COMPILER_PATH"] = fake_native
+            environment["ROVE_NATIVE_COMPILER_PATH"] = fake_native
             rejected = _run(
                 [
                     powershell,
@@ -83,30 +83,34 @@ def _exercise_stale_native_rejection() -> None:
         else:
             fake_native = os.path.join(directory, "stale-nyxc")
             with open(fake_native, "w", encoding="utf-8", newline="\n") as handle:
-                handle.write("#!/usr/bin/env sh\necho 'Usage: nyxc <input.nyx> <output.cpp>'\nexit 0\n")
+                handle.write("#!/usr/bin/env sh\necho 'Usage: nyxc <input.rove> <output.cpp>'\nexit 0\n")
             os.chmod(fake_native, 0o755)
-            environment["NYX_NATIVE_COMPILER_PATH"] = fake_native
+            environment["ROVE_NATIVE_COMPILER_PATH"] = fake_native
             rejected = _run([shutil.which("bash") or "bash", UNIX_INSTALLER], env=environment)
         assert rejected.returncode != 0
-        assert "does not point to a working nyxc" in (rejected.stderr + rejected.stdout)
+        assert "does not point to a working rovec" in (rejected.stderr + rejected.stdout)
 
 
 def _exercise_install(install_dir: str, wrapper: str) -> None:
-    native_name = "nyxc.exe" if os.name == "nt" else "nyxc"
+    native_name = "rovec.exe" if os.name == "nt" else "rovec"
     installed_native = os.path.join(install_dir, "bin", native_name)
     assert os.path.isfile(installed_native)
+    legacy_native = os.path.join(
+        install_dir, "bin", "nyxc.exe" if os.name == "nt" else "nyxc"
+    )
+    assert os.path.isfile(legacy_native)
     assert os.path.isfile(os.path.join(install_dir, "src", "cli.py"))
-    assert os.path.isfile(os.path.join(install_dir, "compiler", "parser.nyx"))
+    assert os.path.isfile(os.path.join(install_dir, "compiler", "parser.rove"))
     assert os.path.isfile(os.path.join(install_dir, "VERSION"))
     assert os.path.isfile(os.path.join(install_dir, "LICENSE"))
 
     version = _run([wrapper, "--version"], cwd=install_dir)
     assert version.returncode == 0, version.stderr or version.stdout
-    assert f"nyxc {VERSION} (native self-host)" in version.stdout
+    assert f"rovec {VERSION} (native self-host)" in version.stdout
 
     version_alias = _run([wrapper, "version"], cwd=install_dir)
     assert version_alias.returncode == 0, version_alias.stderr or version_alias.stdout
-    assert f"nyxc {VERSION} (native self-host)" in version_alias.stdout
+    assert f"rovec {VERSION} (native self-host)" in version_alias.stdout
 
     messages = [
         {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
@@ -128,12 +132,12 @@ def _exercise_install(install_dir: str, wrapper: str) -> None:
     assert b'"id": 1' in lsp.stdout and b'"hoverProvider": true' in lsp.stdout
     assert b'"id": 2' in lsp.stdout and b'"result": null' in lsp.stdout
 
-    sample_path = os.path.join(install_dir, "native-installer-smoke.nyx")
+    sample_path = os.path.join(install_dir, "native-installer-smoke.rove")
     with open(sample_path, "w", encoding="utf-8", newline="\n") as handle:
         handle.write("fn main() { print(42); }\n")
     checked = _run([wrapper, "check", sample_path], cwd=install_dir)
     assert checked.returncode == 0, checked.stderr or checked.stdout
-    assert "NYX_CHECK_OK" in checked.stdout
+    assert "ROVE_CHECK_OK" in checked.stdout
 
     binary_path = os.path.join(
         install_dir, "native-installer-smoke.exe" if os.name == "nt" else "native-installer-smoke"
@@ -143,12 +147,12 @@ def _exercise_install(install_dir: str, wrapper: str) -> None:
         cwd=install_dir,
     )
     assert compiled.returncode == 0, compiled.stderr or compiled.stdout
-    assert "NYX_BUILD_OK" in compiled.stdout
+    assert "ROVE_BUILD_OK" in compiled.stdout
     executed = _run([binary_path], cwd=install_dir)
     assert executed.returncode == 0, executed.stderr or executed.stdout
     assert executed.stdout.strip() == "42"
 
-    top_level_path = os.path.join(install_dir, "top-level-cpp-smoke.nyx")
+    top_level_path = os.path.join(install_dir, "top-level-cpp-smoke.rove")
     with open(top_level_path, "w", encoding="utf-8", newline="\n") as handle:
         handle.write('#target cpp\nprint("helloworld")\n')
     top_level_run = _run([wrapper, "run", top_level_path], cwd=install_dir)
@@ -178,22 +182,22 @@ def _exercise_unix_editor_install(native_fixture: str) -> None:
         environment = os.environ.copy()
         environment["HOME"] = fake_home
         environment["PATH"] = fake_bin + os.pathsep + environment.get("PATH", "")
-        environment["NYX_INSTALL_DIR"] = install_dir
-        environment["NYX_NATIVE_COMPILER_PATH"] = native_fixture
-        environment["NYX_SKIP_PATH_UPDATE"] = "1"
-        environment.pop("NYX_SKIP_EDITOR_INSTALL", None)
+        environment["ROVE_INSTALL_DIR"] = install_dir
+        environment["ROVE_NATIVE_COMPILER_PATH"] = native_fixture
+        environment["ROVE_SKIP_PATH_UPDATE"] = "1"
+        environment.pop("ROVE_SKIP_EDITOR_INSTALL", None)
         install = _run([shutil.which("bash") or "bash", UNIX_INSTALLER], env=environment)
         assert install.returncode == 0, install.stderr or install.stdout
 
-        extension_dir = os.path.join(fake_home, ".vscode", "extensions", "nyx-lang-support")
+        extension_dir = os.path.join(fake_home, ".vscode", "extensions", "rove-lang-support")
         assert os.path.isfile(os.path.join(extension_dir, "package.json"))
-        assert os.path.isfile(os.path.join(extension_dir, "syntaxes", "nyx.tmLanguage.json"))
-        assert "Installed Nyx editor support" in install.stdout
+        assert os.path.isfile(os.path.join(extension_dir, "syntaxes", "rove.tmLanguage.json"))
+        assert "Installed Rove editor support" in install.stdout
 
 
 def run_installer_suite() -> bool:
     print("=" * 70)
-    print("NYX NATIVE-FIRST PORTABLE INSTALLER CONTRACT")
+    print("ROVE NATIVE-FIRST PORTABLE INSTALLER CONTRACT")
     print("=" * 70)
 
     _exercise_stale_native_rejection()
@@ -206,10 +210,10 @@ def run_installer_suite() -> bool:
             assert powershell, "PowerShell is required for the Windows installer contract"
             with tempfile.TemporaryDirectory(prefix="nyx_install_contract_") as install_dir:
                 environment = os.environ.copy()
-                environment["NYX_INSTALL_DIR"] = install_dir
-                environment["NYX_NATIVE_COMPILER_PATH"] = native_fixture
-                environment["NYX_SKIP_PATH_UPDATE"] = "1"
-                environment["NYX_SKIP_EDITOR_INSTALL"] = "1"
+                environment["ROVE_INSTALL_DIR"] = install_dir
+                environment["ROVE_NATIVE_COMPILER_PATH"] = native_fixture
+                environment["ROVE_SKIP_PATH_UPDATE"] = "1"
+                environment["ROVE_SKIP_EDITOR_INSTALL"] = "1"
                 install = _run(
                     [
                         powershell,
@@ -222,7 +226,7 @@ def run_installer_suite() -> bool:
                     env=environment,
                 )
                 assert install.returncode == 0, install.stderr or install.stdout
-                wrapper = os.path.join(install_dir, "bin", "nyx.cmd")
+                wrapper = os.path.join(install_dir, "bin", "rove.cmd")
                 assert os.path.isfile(wrapper)
                 _exercise_install(install_dir, wrapper)
         else:
@@ -230,13 +234,13 @@ def run_installer_suite() -> bool:
             assert bash, "Bash is required for the Unix installer contract"
             with tempfile.TemporaryDirectory(prefix="nyx_install_contract_") as install_dir:
                 environment = os.environ.copy()
-                environment["NYX_INSTALL_DIR"] = install_dir
-                environment["NYX_NATIVE_COMPILER_PATH"] = native_fixture
-                environment["NYX_SKIP_PATH_UPDATE"] = "1"
-                environment["NYX_SKIP_EDITOR_INSTALL"] = "1"
+                environment["ROVE_INSTALL_DIR"] = install_dir
+                environment["ROVE_NATIVE_COMPILER_PATH"] = native_fixture
+                environment["ROVE_SKIP_PATH_UPDATE"] = "1"
+                environment["ROVE_SKIP_EDITOR_INSTALL"] = "1"
                 install = _run([bash, UNIX_INSTALLER], env=environment)
                 assert install.returncode == 0, install.stderr or install.stdout
-                wrapper = os.path.join(install_dir, "bin", "nyx")
+                wrapper = os.path.join(install_dir, "bin", "rove")
                 assert os.path.isfile(wrapper)
                 _exercise_install(install_dir, wrapper)
             _exercise_unix_editor_install(native_fixture)
@@ -251,37 +255,42 @@ def run_installer_suite() -> bool:
     assert 'cp -R "$SOURCE_ROOT/src/." "$SRC_DIR/"' in unix_source
     assert "for legal_file in VERSION LICENSE;" in unix_source
     assert 'exec "$native" "$@"' in unix_source
+    assert '"rovec $EXPECTED_VERSION "*' in unix_source
     assert '"nyxc $EXPECTED_VERSION "*' in unix_source
     assert 'node_modules' not in unix_source
-    assert 'nyx_commands.js' in unix_source
+    assert 'rove_commands.js' in unix_source
+    assert "ROVE_NATIVE_COMPILER_PATH" in unix_source
     assert "NYX_NATIVE_COMPILER_PATH" in unix_source
     assert "sha256sum" in unix_source and "shasum" in unix_source
-    assert "Python 3.10+ is required to run Nyx" not in unix_source
+    assert "Python 3.10+ is required to run Rove" not in unix_source
     assert "releases/latest" not in unix_source
     assert 'for command_name in nyx he' not in unix_source
     assert 'npm ci --omit=dev --ignore-scripts' in unix_source
-    assert '.vscode/extensions/nyx-lang-support' in unix_source
-    assert '.vscode-oss/extensions/nyx-lang-support' in unix_source
+    assert '.vscode/extensions/rove-lang-support' in unix_source
+    assert '.vscode-oss/extensions/rove-lang-support' in unix_source
     assert 'sudo pacman -S --needed base-devel' in unix_source
 
     with open(WINDOWS_INSTALLER, "r", encoding="utf-8") as handle:
         windows_source = handle.read()
     assert "C:\\Users\\USER" not in windows_source
+    assert "ROVE_INSTALL_DIR" in windows_source
     assert "NYX_INSTALL_DIR" in windows_source
+    assert "ROVE_NATIVE_COMPILER_PATH" in windows_source
     assert "NYX_NATIVE_COMPILER_PATH" in windows_source
     assert "Get-FileHash" in windows_source
+    assert 'StartsWith("rovec $ExpectedVersion ")' in windows_source
     assert 'StartsWith("nyxc $ExpectedVersion ")' in windows_source
     assert '@("VERSION", "LICENSE")' in windows_source
     assert "Prioritized $BinDir in User PATH" in windows_source
     assert "$nativeCommands" in windows_source
-    assert '"nyx_commands.js"' in windows_source
+    assert '"rove_commands.js"' in windows_source
     assert 'vscode-extension\\*' not in windows_source
     assert 'Get-Command "npm.cmd", "npm.exe"' in windows_source
     assert "$NpmCandidate.Path, $NpmCandidate.Source, $NpmCandidate.Definition" in windows_source
     assert "$NpmCandidate.Source.EndsWith" not in windows_source
     assert "$command.Path, $command.Definition, $command.Source" in windows_source
     assert "& $command.Source -c" not in windows_source
-    assert "Downloaded archive did not contain a Nyx source root with src/." in windows_source
+    assert "Downloaded archive did not contain a Rove source root with src/." in windows_source
     assert 'cmd.exe /c npm ci --omit=dev --ignore-scripts' in windows_source
     assert "VS Code extension installation skipped" in windows_source
     assert "[string][System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture" in windows_source
@@ -291,10 +300,10 @@ def run_installer_suite() -> bool:
     with open(RELEASE_WORKFLOW, "r", encoding="utf-8") as handle:
         release_source = handle.read()
     for asset in (
-        "nyxc-windows-x86_64.exe",
-        "nyxc-linux-x86_64",
-        "nyxc-macos-x86_64",
-        "nyxc-macos-arm64",
+        "rovec-windows-x86_64.exe",
+        "rovec-linux-x86_64",
+        "rovec-macos-x86_64",
+        "rovec-macos-arm64",
     ):
         assert asset in release_source
     assert "actions/upload-artifact@v4" in release_source
@@ -307,7 +316,7 @@ def run_installer_suite() -> bool:
     assert "actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6" in release_source
     assert "attestations: write" in release_source and "id-token: write" in release_source
     assert "npm run package" in release_source
-    assert "nyx-language-support-${{ github.ref_name }}.vsix" in release_source
+    assert "rove-language-support-${{ github.ref_name }}.vsix" in release_source
     assert "dist/*.vsix" in release_source
     assert os.path.isfile(RELEASE_PACKAGER)
 
@@ -322,7 +331,7 @@ def run_installer_suite() -> bool:
     assert "C:\\Users\\USER" not in extension_source
     with open(os.path.join(ROOT_DIR, "vscode-extension", "package.json"), "r", encoding="utf-8") as handle:
         extension_manifest = handle.read()
-    assert "nyx.runCurrentFile" in extension_manifest
+    assert "rove.runCurrentFile" in extension_manifest
 
     with tempfile.TemporaryDirectory(prefix="nyx_scaffold_contract_") as scaffold_dir:
         scaffold = _run([sys.executable, CLI_PATH, "new", "portable_app"], cwd=scaffold_dir)
