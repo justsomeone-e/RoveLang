@@ -545,6 +545,24 @@ def _llvm_contract_rejection_modules() -> dict[str, MIRModule]:
     ))
     invalid_len.set_terminator(len_exit, ReturnTerminator(span))
 
+    invalid_to_string = MIRFunctionBuilder(
+        "main", "function::main", MIRType("any"), span
+    )
+    wrong_destination = invalid_to_string.new_local(
+        "wrong_destination", int_type, "variable", span
+    )
+    string_entry = invalid_to_string.new_block()
+    string_exit = invalid_to_string.new_block()
+    invalid_to_string.set_terminator(string_entry, CallTerminator(
+        "builtin::to_string",
+        (ConstOperand(int_type, 7),),
+        Place(wrong_destination),
+        string_exit,
+        None,
+        span,
+    ))
+    invalid_to_string.set_terminator(string_exit, ReturnTerminator(span))
+
     recursive = MIRStructDef(
         "Recursive",
         "type::Recursive",
@@ -562,6 +580,9 @@ def _llvm_contract_rejection_modules() -> dict[str, MIRModule]:
         ),
         "invalid-len": MIRModule(
             span.source, "llvm", (invalid_len.finish(),)
+        ),
+        "invalid-to-string": MIRModule(
+            span.source, "llvm", (invalid_to_string.finish(),)
         ),
         "recursive-struct": MIRModule(
             span.source, "llvm", (), (recursive,)
@@ -1451,6 +1472,7 @@ def run_mir_legalization_suite() -> bool:
         "mixed-operands": {"MIRG1010"},
         "string-to-int-cast": {"MIRG1004"},
         "invalid-len": {"MIRG1007"},
+        "invalid-to-string": {"MIRG1007"},
         "recursive-struct": {"MIRG1002"},
     }
     for name, rejected_module in llvm_contract_rejections.items():
@@ -1485,9 +1507,7 @@ def run_mir_legalization_suite() -> bool:
             issues = collect_legalization_issues(
                 struct_display, target, require_emitter=True
             )
-            if target in {"cpp", "rust", "js", "python", "c"} or (
-                target == "llvm" and name != "to-string"
-            ):
+            if target in {"cpp", "llvm", "rust", "js", "python", "c"}:
                 assert not issues, (name, issues)
                 continue
             assert any(
@@ -2032,6 +2052,7 @@ def run_mir_legalization_suite() -> bool:
     assert MIRInterpreter(struct_to_string).run().output == ("Cell(6, rove)",)
     for target, emitter, runner in (
         ("cpp", emit_legalized_cpp, _compile_and_run_cpp),
+        ("llvm", emit_legalized_llvm, _compile_and_run_llvm),
         ("c", emit_legalized_c17, _compile_and_run_c17),
         ("js", emit_legalized_javascript, _run_javascript),
         ("python", emit_legalized_python, _run_python),
@@ -2044,6 +2065,24 @@ def run_mir_legalization_suite() -> bool:
         struct_to_string, "rust", require_emitter=True
     )
     _assert_rust_runtime(emit_legalized_rust(struct_to_string), "Cell(6, rove)\n")
+    long_label = "x" * 128
+    llvm_capture = _lower_source(
+        "struct Cell { value: int, label: string }\n"
+        "enum Packet { Data(Array<Array<Cell>>), Empty() }\n"
+        "fn main() { print("
+        f'to_string(Data([[Cell(-7, "{long_label}")], [Cell(2, "rove")]])), '
+        "to_string(Empty()), to_string(2.0), to_string(-0.0), "
+        'to_string(1.2345678901234567), to_string("")) }\n',
+        "m5-llvm-captured-display.rove",
+    )
+    expected_llvm_capture = "\n".join(MIRInterpreter(llvm_capture).run().output) + "\n"
+    assert f"Cell(-7, {long_label})" in expected_llvm_capture
+    assert not collect_legalization_issues(
+        llvm_capture, "llvm", require_emitter=True
+    )
+    assert _compile_and_run_llvm(emit_legalized_llvm(llvm_capture)) == (
+        expected_llvm_capture
+    )
     nested_struct_tag = _lower_source(
         "struct Cell { value: int }\n"
         "enum Batch { Cells(Array<Array<Cell>>), Empty() }\n"
@@ -2819,7 +2858,7 @@ def run_mir_legalization_suite() -> bool:
     )
     print(
         "[PASS] 7 target profiles, stable negative diagnostics, no-fallback gate, "
-        "scalar/aggregate/payload/ownership MIR interpreter parity, C++/LLVM pilots with nested LLVM value structs, recursively deep-copied Array<int|bool|float|string|acyclic-struct> including nested arrays and tagged struct-array ownership, primitive/string tagged Result+enum payloads with canonical display, boxed multi-array/struct tagged payload clone/drop parity plus direct/tagged primitive/nested-array display and consuming-builtin cleanup, explicit LLVM deinit/drop destruction, and LLVM emitter-contract negatives, "
+        "scalar/aggregate/payload/ownership MIR interpreter parity, C++/LLVM pilots with nested LLVM value structs, recursively deep-copied Array<int|bool|float|string|acyclic-struct> including nested arrays and tagged struct-array ownership, primitive/string tagged Result+enum payloads with canonical display, boxed multi-array/struct tagged payload clone/drop parity plus direct/tagged primitive/nested-array display, captured LLVM to_string, and consuming-builtin cleanup, explicit LLVM deinit/drop destruction, and LLVM emitter-contract negatives, "
         f"executable Wasm/JavaScript/Python/C17 CFG pilots, {rust_evidence} validation, C17 acyclic deep-cloned value structs/recursive Array<int|bool|float|f64|string|struct>/nested collection fields/tagged multi-primitive|array|struct and binary64 display/to_string parity, Rust/JS/Python "
         "aggregate parity, Wasm Array<int|bool|float|string|struct>+nested int|bool|float|string|struct arrays/nested int+bool+float+string-struct/int+bool+float+string+struct-enum/Result<int|float|struct,int|bool|float|string> parity, "
         "C++/Rust/JS/Python local and interprocedural throw/catch parity, C++/LLVM/Rust/JS/Python nested struct-enum/Result<Array<int>,string> parity, C++/Rust/JS/Python lazy memoized async/await with suspend-unwind parity, Rust/JS/Python payload-enum parity, "

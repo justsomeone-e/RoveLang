@@ -92,7 +92,6 @@ class _LLVMEmitter:
         parts = [
             "; Experimental Rove legalized MIR -> LLVM IR output.",
             "; The production Typed HIR LLVM emitter remains the parity oracle.",
-            "declare i32 @printf(ptr, ...)",
             "declare i32 @snprintf(ptr, i64, ptr, ...)",
             "declare double @strtod(ptr, ptr)",
             "declare ptr @strchr(ptr, i32)",
@@ -101,6 +100,7 @@ class _LLVMEmitter:
             "declare void @exit(i32)",
             "declare void @free(ptr)",
             "declare ptr @malloc(i64)",
+            "declare ptr @realloc(ptr, i64)",
             "declare i32 @strcmp(ptr, ptr)",
             "declare i64 @strlen(ptr)",
             "declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1 immarg)",
@@ -112,7 +112,6 @@ class _LLVMEmitter:
             '@.f64_inf = private unnamed_addr constant [4 x i8] c"inf\\00"',
             '@.f64_negative_inf = private unnamed_addr constant [5 x i8] c"-inf\\00"',
             '@.f64_zeros = private unnamed_addr constant [22 x i8] c"0000000000000000000000"',
-            '@.fmt_str = private unnamed_addr constant [3 x i8] c"%s\\00"',
             '@.space = private unnamed_addr constant [2 x i8] c" \\00"',
             '@.newline = private unnamed_addr constant [2 x i8] c"\\0A\\00"',
             '@.open = private unnamed_addr constant [2 x i8] c"(\\00"',
@@ -123,8 +122,10 @@ class _LLVMEmitter:
             '@.true = private unnamed_addr constant [5 x i8] c"true\\00"',
             '@.false = private unnamed_addr constant [6 x i8] c"false\\00"',
             "%rove_tagged = type { ptr, [4 x i64] }",
+            "%rove_text_sink = type { ptr, i64, i64 }",
             "",
             self._division_helpers(),
+            self._text_sink_helpers(),
             self._float_display_helpers(),
             self._array_helpers(),
         ]
@@ -150,36 +151,116 @@ class _LLVMEmitter:
         return "\n".join(parts).rstrip() + "\n"
 
     @staticmethod
-    def _float_display_helpers() -> str:
-        return r"""define void @rove_emit_chars(ptr %source, i32 %length) {
+    def _text_sink_helpers() -> str:
+        return """define void @rove_emit_bytes(ptr %sink, ptr %source, i64 %length) {
 entry:
-  %index = alloca i32
-  store i32 0, ptr %index
-  br label %check
-check:
-  %current = load i32, ptr %index
-  %more = icmp slt i32 %current, %length
-  br i1 %more, label %body, label %done
-body:
-  %address = getelementptr i8, ptr %source, i32 %current
-  %character = load i8, ptr %address
-  %wide = zext i8 %character to i32
+  %stdout = icmp eq ptr %sink, null
+  br i1 %stdout, label %stdout_init, label %capture
+stdout_init:
+  %index_slot = alloca i64
+  store i64 0, ptr %index_slot
+  br label %stdout_check
+stdout_check:
+  %index = load i64, ptr %index_slot
+  %more = icmp ult i64 %index, %length
+  br i1 %more, label %stdout_byte, label %done
+stdout_byte:
+  %address = getelementptr i8, ptr %source, i64 %index
+  %byte = load i8, ptr %address
+  %wide = zext i8 %byte to i32
   call i32 @putchar(i32 %wide)
-  %next = add i32 %current, 1
-  store i32 %next, ptr %index
-  br label %check
+  %next = add i64 %index, 1
+  store i64 %next, ptr %index_slot
+  br label %stdout_check
+capture:
+  %data_slot = getelementptr %rove_text_sink, ptr %sink, i32 0, i32 0
+  %length_slot = getelementptr %rove_text_sink, ptr %sink, i32 0, i32 1
+  %capacity_slot = getelementptr %rove_text_sink, ptr %sink, i32 0, i32 2
+  %old_length = load i64, ptr %length_slot
+  %new_length = add i64 %old_length, %length
+  %needed = add i64 %new_length, 1
+  %overflow = icmp sle i64 %needed, %old_length
+  br i1 %overflow, label %fail, label %capacity_check
+capacity_check:
+  %capacity = load i64, ptr %capacity_slot
+  %enough = icmp sge i64 %capacity, %needed
+  br i1 %enough, label %reuse, label %grow
+reuse:
+  %old_data = load ptr, ptr %data_slot
+  br label %write
+grow:
+  %too_large_to_double = icmp sgt i64 %capacity, 4611686018427387903
+  %doubled = mul i64 %capacity, 2
+  %candidate = select i1 %too_large_to_double, i64 %needed, i64 %doubled
+  %needs_more = icmp slt i64 %candidate, %needed
+  %at_least_needed = select i1 %needs_more, i64 %needed, i64 %candidate
+  %below_minimum = icmp slt i64 %at_least_needed, 64
+  %new_capacity = select i1 %below_minimum, i64 64, i64 %at_least_needed
+  %previous_data = load ptr, ptr %data_slot
+  %new_data = call ptr @realloc(ptr %previous_data, i64 %new_capacity)
+  %allocation_failed = icmp eq ptr %new_data, null
+  br i1 %allocation_failed, label %fail, label %grown
+grown:
+  store ptr %new_data, ptr %data_slot
+  store i64 %new_capacity, ptr %capacity_slot
+  br label %write
+write:
+  %data = phi ptr [ %old_data, %reuse ], [ %new_data, %grown ]
+  %destination = getelementptr i8, ptr %data, i64 %old_length
+  call void @llvm.memcpy.p0.p0.i64(ptr %destination, ptr %source, i64 %length, i1 false)
+  %terminator = getelementptr i8, ptr %destination, i64 %length
+  store i8 0, ptr %terminator
+  store i64 %new_length, ptr %length_slot
+  br label %done
+fail:
+  call void @exit(i32 1)
+  unreachable
 done:
   ret void
 }
 
-define void @rove_print_f64(double %value) {
+define void @rove_emit_cstr(ptr %sink, ptr %source) {
+entry:
+  %length = call i64 @strlen(ptr %source)
+  call void @rove_emit_bytes(ptr %sink, ptr %source, i64 %length)
+  ret void
+}
+
+define void @rove_emit_char(ptr %sink, i8 %byte) {
+entry:
+  %source = alloca i8
+  store i8 %byte, ptr %source
+  call void @rove_emit_bytes(ptr %sink, ptr %source, i64 1)
+  ret void
+}
+
+define void @rove_emit_chars(ptr %sink, ptr %source, i32 %length) {
+entry:
+  %wide_length = zext i32 %length to i64
+  call void @rove_emit_bytes(ptr %sink, ptr %source, i64 %wide_length)
+  ret void
+}
+
+define void @rove_emit_i64(ptr %sink, i64 %value) {
+entry:
+  %buffer = alloca [32 x i8]
+  %count = call i32 (ptr, i64, ptr, ...) @snprintf(
+      ptr %buffer, i64 32, ptr @.fmt_i64, i64 %value)
+  %length = zext i32 %count to i64
+  call void @rove_emit_bytes(ptr %sink, ptr %buffer, i64 %length)
+  ret void
+}"""
+
+    @staticmethod
+    def _float_display_helpers() -> str:
+        return r"""define void @rove_print_f64(ptr %sink, double %value) {
 entry:
   %bits = bitcast double %value to i64
   %absolute = and i64 %bits, 9223372036854775807
   %nan = icmp ugt i64 %absolute, 9218868437227405312
   br i1 %nan, label %print_nan, label %check_inf
 print_nan:
-  call i32 (ptr, ...) @printf(ptr @.fmt_str, ptr @.f64_nan)
+  call void @rove_emit_cstr(ptr %sink, ptr @.f64_nan)
   ret void
 check_inf:
   %inf = icmp eq i64 %absolute, 9218868437227405312
@@ -187,13 +268,13 @@ check_inf:
 print_inf:
   %inf_negative = icmp slt i64 %bits, 0
   %inf_text = select i1 %inf_negative, ptr @.f64_negative_inf, ptr @.f64_inf
-  call i32 (ptr, ...) @printf(ptr @.fmt_str, ptr %inf_text)
+  call void @rove_emit_cstr(ptr %sink, ptr %inf_text)
   ret void
 check_zero:
   %zero = icmp eq i64 %absolute, 0
   br i1 %zero, label %print_zero, label %prepare
 print_zero:
-  call i32 @putchar(i32 48)
+  call void @rove_emit_char(ptr %sink, i8 48)
   ret void
 prepare:
   %candidate = alloca [64 x i8]
@@ -314,7 +395,7 @@ ready:
   %trimmed_digits = getelementptr i8, ptr %digits, i32 %first_digit
   br i1 %negative, label %print_negative, label %select_notation
 print_negative:
-  call i32 @putchar(i32 45)
+  call void @rove_emit_char(ptr %sink, i8 45)
   br label %select_notation
 select_notation:
   %above_lower = icmp sgt i32 %decimal, -6
@@ -325,41 +406,44 @@ fixed_select:
   %leading_fraction = icmp sle i32 %decimal, 0
   br i1 %leading_fraction, label %fixed_fraction, label %fixed_whole_select
 fixed_fraction:
-  call i32 @putchar(i32 48)
-  call i32 @putchar(i32 46)
+  call void @rove_emit_char(ptr %sink, i8 48)
+  call void @rove_emit_char(ptr %sink, i8 46)
   %fraction_zeros = sub i32 0, %decimal
-  call void @rove_emit_chars(ptr @.f64_zeros, i32 %fraction_zeros)
-  call void @rove_emit_chars(ptr %trimmed_digits, i32 %length)
+  call void @rove_emit_chars(ptr %sink, ptr @.f64_zeros, i32 %fraction_zeros)
+  call void @rove_emit_chars(ptr %sink, ptr %trimmed_digits, i32 %length)
   br label %done
 fixed_whole_select:
   %whole = icmp sge i32 %decimal, %length
   br i1 %whole, label %fixed_whole, label %fixed_split
 fixed_whole:
-  call void @rove_emit_chars(ptr %trimmed_digits, i32 %length)
+  call void @rove_emit_chars(ptr %sink, ptr %trimmed_digits, i32 %length)
   %whole_zeros = sub i32 %decimal, %length
-  call void @rove_emit_chars(ptr @.f64_zeros, i32 %whole_zeros)
+  call void @rove_emit_chars(ptr %sink, ptr @.f64_zeros, i32 %whole_zeros)
   br label %done
 fixed_split:
-  call void @rove_emit_chars(ptr %trimmed_digits, i32 %decimal)
-  call i32 @putchar(i32 46)
+  call void @rove_emit_chars(ptr %sink, ptr %trimmed_digits, i32 %decimal)
+  call void @rove_emit_char(ptr %sink, i8 46)
   %fraction_start = getelementptr i8, ptr %trimmed_digits, i32 %decimal
   %fraction_length = sub i32 %length, %decimal
-  call void @rove_emit_chars(ptr %fraction_start, i32 %fraction_length)
+  call void @rove_emit_chars(ptr %sink, ptr %fraction_start, i32 %fraction_length)
   br label %done
 scientific:
-  call void @rove_emit_chars(ptr %trimmed_digits, i32 1)
+  call void @rove_emit_chars(ptr %sink, ptr %trimmed_digits, i32 1)
   %has_fraction = icmp sgt i32 %length, 1
   br i1 %has_fraction, label %scientific_fraction, label %scientific_exponent
 scientific_fraction:
-  call i32 @putchar(i32 46)
+  call void @rove_emit_char(ptr %sink, i8 46)
   %scientific_fraction_start = getelementptr i8, ptr %trimmed_digits, i32 1
   %scientific_fraction_length = sub i32 %length, 1
-  call void @rove_emit_chars(ptr %scientific_fraction_start, i32 %scientific_fraction_length)
+  call void @rove_emit_chars(ptr %sink, ptr %scientific_fraction_start, i32 %scientific_fraction_length)
   br label %scientific_exponent
 scientific_exponent:
-  call i32 @putchar(i32 101)
+  call void @rove_emit_char(ptr %sink, i8 101)
   %exponent = sub i32 %decimal, 1
-  call i32 (ptr, ...) @printf(ptr @.fmt_f64_exponent, i32 %exponent)
+  %formatted_exponent = alloca [16 x i8]
+  %exponent_length = call i32 (ptr, i64, ptr, ...) @snprintf(
+      ptr %formatted_exponent, i64 16, ptr @.fmt_f64_exponent, i32 %exponent)
+  call void @rove_emit_chars(ptr %sink, ptr %formatted_exponent, i32 %exponent_length)
   br label %done
 done:
   ret void
@@ -961,6 +1045,20 @@ entry:
                 raise MIRCodegenError(f"call '{terminator.function}' has no continuation")
             if terminator.function == "builtin::print":
                 self._print(tuple(terminator.arguments))
+            elif terminator.function == "builtin::to_string":
+                if len(terminator.arguments) != 1 or terminator.destination is None:
+                    raise MIRCodegenError("builtin::to_string requires one argument and a destination")
+                sink = self._temp()
+                data_slot = self._temp()
+                rendered = self._temp()
+                self.lines.append(f"  {sink} = alloca %rove_text_sink")
+                self.lines.append(f"  store %rove_text_sink zeroinitializer, ptr {sink}")
+                self._emit_argument(terminator.arguments[0], sink)
+                self.lines.append(
+                    f"  {data_slot} = getelementptr %rove_text_sink, ptr {sink}, i32 0, i32 0"
+                )
+                self.lines.append(f"  {rendered} = load ptr, ptr {data_slot}")
+                self.lines.append(f"  store ptr {rendered}, ptr {self._place(terminator.destination)}")
             elif terminator.function == "builtin::len":
                 if len(terminator.arguments) != 1 or terminator.destination is None:
                     raise MIRCodegenError("builtin::len requires one argument and a destination")
@@ -1069,36 +1167,42 @@ entry:
     def _print(self, arguments: tuple[Operand, ...]) -> None:
         for index, argument in enumerate(arguments):
             if index:
-                self.lines.append("  call i32 (ptr, ...) @printf(ptr @.space)")
-            kind, value = self._operand(argument, clone_owned=False)
-            value_type = self._operand_mir_type(argument)
-            if kind == "%rove_tagged" and value_type is not None:
-                self._print_tagged(value_type, value)
-            else:
-                self._print_typed_value(value_type, kind, value)
-            if (
-                isinstance(argument, MoveOperand)
-                and value_type is not None
-                and self._type_requires_drop(value_type)
-            ):
-                self._destroy_place(argument.place)
-        self.lines.append("  call i32 (ptr, ...) @printf(ptr @.newline)")
+                self._emit_text("null", "@.space")
+            self._emit_argument(argument, "null")
+        self._emit_text("null", "@.newline")
 
-    def _print_scalar(self, kind: str, value: str) -> None:
+    def _emit_argument(self, argument: Operand, sink: str) -> None:
+        kind, value = self._operand(argument, clone_owned=False)
+        value_type = self._operand_mir_type(argument)
+        if kind == "%rove_tagged" and value_type is not None:
+            self._print_tagged(value_type, value, sink)
+        else:
+            self._print_typed_value(value_type, kind, value, sink)
+        if (
+            isinstance(argument, MoveOperand)
+            and value_type is not None
+            and self._type_requires_drop(value_type)
+        ):
+            self._destroy_place(argument.place)
+
+    def _emit_text(self, sink: str, value: str) -> None:
+        self.lines.append(f"  call void @rove_emit_cstr(ptr {sink}, ptr {value})")
+
+    def _print_scalar(self, kind: str, value: str, sink: str) -> None:
         if kind == "i64":
-            self.lines.append(f"  call i32 (ptr, ...) @printf(ptr @.fmt_i64, i64 {value})")
+            self.lines.append(f"  call void @rove_emit_i64(ptr {sink}, i64 {value})")
         elif kind == "double":
-            self.lines.append(f"  call void @rove_print_f64(double {value})")
+            self.lines.append(f"  call void @rove_print_f64(ptr {sink}, double {value})")
         elif kind == "i1":
             selected = self._temp()
             self.lines.append(f"  {selected} = select i1 {value}, ptr @.true, ptr @.false")
-            self.lines.append(f"  call i32 (ptr, ...) @printf(ptr @.fmt_str, ptr {selected})")
+            self._emit_text(sink, selected)
         elif kind == "ptr":
-            self.lines.append(f"  call i32 (ptr, ...) @printf(ptr @.fmt_str, ptr {value})")
+            self._emit_text(sink, value)
         else:
             raise MIRCodegenError(f"LLVM print does not support value type '{kind}'")
 
-    def _print_tagged(self, value_type: MIRType, value: str) -> None:
+    def _print_tagged(self, value_type: MIRType, value: str, sink: str) -> None:
         variants = self._tag_variants(value_type)
         if variants is None:
             raise MIRCodegenError(
@@ -1106,8 +1210,8 @@ entry:
             )
         tag = self._temp()
         self.lines.append(f"  {tag} = extractvalue %rove_tagged {value}, 0")
-        self._print_scalar("ptr", tag)
-        self.lines.append("  call i32 (ptr, ...) @printf(ptr @.open)")
+        self._print_scalar("ptr", tag, sink)
+        self._emit_text(sink, "@.open")
 
         serial = self.synthetic_block
         self.synthetic_block += 1
@@ -1139,39 +1243,39 @@ entry:
             self.lines.append(label + ":")
             for index, payload_type in enumerate(payloads):
                 if index:
-                    self.lines.append("  call i32 (ptr, ...) @printf(ptr @.comma)")
+                    self._emit_text(sink, "@.comma")
                 kind, payload = self._decode_tag_payload(value, index, payload_type)
-                self._print_typed_value(payload_type, kind, payload)
+                self._print_typed_value(payload_type, kind, payload, sink)
             self.lines.append(f"  br label %{done_label}")
         self.lines.append(done_label + ":")
-        self.lines.append("  call i32 (ptr, ...) @printf(ptr @.close)")
+        self._emit_text(sink, "@.close")
 
-    def _print_typed_value(self, value_type: MIRType, kind: str, value: str) -> None:
+    def _print_typed_value(self, value_type: MIRType, kind: str, value: str, sink: str) -> None:
         if self._array_spec(value_type) is not None:
-            self._print_array(value_type, value)
+            self._print_array(value_type, value, sink)
             return
         if value_type.name in self.structs:
-            self._print_struct(value_type, value)
+            self._print_struct(value_type, value, sink)
             return
-        self._print_scalar(kind, value)
+        self._print_scalar(kind, value, sink)
 
-    def _print_struct(self, value_type: MIRType, value: str) -> None:
+    def _print_struct(self, value_type: MIRType, value: str, sink: str) -> None:
         definition = self.structs[value_type.name]
         name = self.string_names[definition.name][0]
-        self._print_scalar("ptr", f"@{name}")
-        self.lines.append("  call i32 (ptr, ...) @printf(ptr @.open)")
+        self._print_scalar("ptr", f"@{name}", sink)
+        self._emit_text(sink, "@.open")
         for index, field in enumerate(definition.fields):
             if index:
-                self.lines.append("  call i32 (ptr, ...) @printf(ptr @.comma)")
+                self._emit_text(sink, "@.comma")
             field_value = self._temp()
             field_kind = self._type(field.type)
             self.lines.append(
                 f"  {field_value} = extractvalue {self._type(value_type)} {value}, {index}"
             )
-            self._print_typed_value(field.type, field_kind, field_value)
-        self.lines.append("  call i32 (ptr, ...) @printf(ptr @.close)")
+            self._print_typed_value(field.type, field_kind, field_value, sink)
+        self._emit_text(sink, "@.close")
 
-    def _print_array(self, value_type: MIRType, value: str) -> None:
+    def _print_array(self, value_type: MIRType, value: str, sink: str) -> None:
         array = self._array_spec(value_type)
         if array is None:
             raise MIRCodegenError(f"LLVM print does not support array type '{value_type}'")
@@ -1186,8 +1290,8 @@ entry:
         data = self._temp()
         length = self._temp()
         index_slot = self._temp()
+        self._emit_text(sink, "@.array_open")
         self.lines.extend((
-            "  call i32 (ptr, ...) @printf(ptr @.array_open)",
             f"  {data} = extractvalue {descriptor_type} {value}, 0",
             f"  {length} = extractvalue {descriptor_type} {value}, 1",
             f"  {index_slot} = alloca i64",
@@ -1208,7 +1312,9 @@ entry:
             f"  {has_prefix} = icmp ne i64 {index}, 0",
             f"  br i1 {has_prefix}, label %{comma_label}, label %{value_label}",
             comma_label + ":",
-            "  call i32 (ptr, ...) @printf(ptr @.comma)",
+        ))
+        self._emit_text(sink, "@.comma")
+        self.lines.extend((
             f"  br label %{value_label}",
             value_label + ":",
         ))
@@ -1218,15 +1324,15 @@ entry:
             f"  {element_ptr} = getelementptr inbounds {element_type}, ptr {data}, i64 {index}",
             f"  {element} = load {element_type}, ptr {element_ptr}",
         ))
-        self._print_typed_value(value_type.arguments[0], element_type, element)
+        self._print_typed_value(value_type.arguments[0], element_type, element, sink)
         next_index = self._temp()
         self.lines.extend((
             f"  {next_index} = add i64 {index}, 1",
             f"  store i64 {next_index}, ptr {index_slot}",
             f"  br label %{check_label}",
             done_label + ":",
-            "  call i32 (ptr, ...) @printf(ptr @.array_close)",
         ))
+        self._emit_text(sink, "@.array_close")
 
     def _tag_variants(
         self, value_type: MIRType

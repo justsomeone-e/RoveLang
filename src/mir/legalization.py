@@ -251,7 +251,7 @@ MIR_BACKEND_PROFILES["llvm"] = replace(
     }),
     legal_types=MIR_BACKEND_PROFILES["llvm"].legal_types | frozenset({"Array"}),
     legal_runtime_calls=MIR_BACKEND_PROFILES["llvm"].legal_runtime_calls | frozenset({
-        "builtin::len",
+        "builtin::len", "builtin::to_string",
     }),
     legal_effects=MIR_BACKEND_PROFILES["llvm"].legal_effects | frozenset({"may_allocate"}),
 )
@@ -820,7 +820,6 @@ class _Legalizer:
                         or self.target == "rust"
                         and self._rust_display_compatible(argument_type)
                         or self.target == "llvm"
-                        and value.function == "builtin::print"
                         and self._llvm_print_compatible(argument_type)
                         or self.target == "c"
                         and self._c_display_compatible(argument_type)
@@ -836,7 +835,7 @@ class _Legalizer:
                     )
             if (
                 self.target == "llvm"
-                and value.function == "builtin::print"
+                and value.function in {"builtin::print", "builtin::to_string"}
                 and any(
                     self._llvm_is_tagged_type(self._operand_mir_type(argument))
                     and not self._llvm_tagged_display_compatible(
@@ -851,7 +850,9 @@ class _Legalizer:
                     "payload types; match this value and print its payload instead",
                     value.span,
                 )
-            if self.target == "llvm" and value.function == "builtin::print":
+            if self.target == "llvm" and value.function in {
+                "builtin::print", "builtin::to_string"
+            }:
                 unsupported = tuple(
                     argument_type
                     for argument in value.arguments
@@ -861,8 +862,18 @@ class _Legalizer:
                 if unsupported:
                     self._issue(
                         "MIRG1007",
-                        "LLVM print supports scalar and concrete primitive/string/array "
+                        "LLVM display supports scalar, array, struct, and compatible "
                         f"tagged values, got {', '.join(str(item) for item in unsupported)}",
+                        value.span,
+                    )
+                if value.function == "builtin::to_string" and (
+                    len(value.arguments) != 1
+                    or value.destination is None
+                    or self._place_mir_type(value.destination) != MIRType("string")
+                ):
+                    self._issue(
+                        "MIRG1007",
+                        "LLVM to_string requires one value and a string destination",
                         value.span,
                     )
             if self.target == "c" and value.function in {
