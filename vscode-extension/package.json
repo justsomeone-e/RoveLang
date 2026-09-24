@@ -1,17 +1,17 @@
 {
-  "name": "nyx-language-support",
-  "displayName": "Nyx Language Toolchain",
-  "description": "Native compiler tooling, IntelliSense, and one-click multi-target workflows for Nyx.",
+  "name": "rove-language-support",
+  "displayName": "Rove Language Toolchain",
+  "description": "Native compiler tooling, IntelliSense, and one-click multi-target workflows for Rove.",
   "version": "5.0.3",
-  "publisher": "nyx",
+  "publisher": "rove",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/justsomeone-e/nyx.git"
+    "url": "https://github.com/justsomeone-e/rove.git"
   },
-  "homepage": "https://github.com/justsomeone-e/nyx#readme",
+  "homepage": "https://github.com/justsomeone-e/rove#readme",
   "bugs": {
-    "url": "https://github.com/justsomeone-e/nyx/issues"
+    "url": "https://github.com/justsomeone-e/rove/issues"
   },
   "galleryBanner": {
     "color": "#171A35",
@@ -21,29 +21,29 @@
     "vscode": "^1.91.0"
   },
   "main": "./extension.js",
-  "icon": "images/nyx-icon.png",
+  "icon": "images/rove-icon.png",
   "scripts": {
     "test": "node test_contract.js",
     "package": "vsce package"
   },
   "activationEvents": [
-    "onLanguage:nyxlang",
-    "onCommand:nyx.runCurrentFile",
-    "onCommand:nyx.buildCurrentFile",
-    "onCommand:nyx.checkCurrentFile",
-    "onCommand:nyx.toolchainDoctor",
-    "onCommand:nyx.openRepository",
-    "onCommand:nyx.openDocumentation",
-    "onCommand:nyx.openReleases",
-    "onCommand:nyx.openRoadmap",
-    "onCommand:nyx.reportIssue"
+    "onLanguage:rovelang",
+    "onCommand:rove.runCurrentFile",
+    "onCommand:rove.buildCurrentFile",
+    "onCommand:rove.checkCurrentFile",
+    "onCommand:rove.toolchainDoctor",
+    "onCommand:rove.openRepository",
+    "onCommand:rove.openDocumentation",
+    "onCommand:rove.openReleases",
+    "onCommand:rove.openRoadmap",
+    "onCommand:rove.reportIssue"
   ],
   "categories": [
     "Programming Languages",
     "Snippets"
   ],
   "keywords": [
-    "nyx",
+    "rove",
     "compiler",
     "language",
     "systems programming",
@@ -52,19 +52,19 @@
   ],
   "contributes": {
     "configuration": {
-      "title": "Nyx",
+      "title": "Rove",
       "properties": {
-        "nyx.server.enabled": {
+        "rove.server.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable diagnostics, hover, completion, and definition support from nyx lsp."
+          "description": "Enable diagnostics, hover, completion, and definition support from rove lsp."
         },
-        "nyx.server.path": {
+        "rove.server.path": {
           "type": "string",
-          "default": "nyx",
-          "description": "Path to the Nyx CLI used for the language server and commands. The default prefers ~/.nyx/bin/nyx before PATH."
+          "default": "rove",
+          "description": "Path to the Rove CLI used for the language server and commands. The default prefers ~/.rove/bin/rove before PATH."
         },
-        "nyx.run.target": {
+        "rove.run.target": {
           "type": "string",
           "enum": [
             "source",
@@ -85,118 +85,119 @@
     },
     "commands": [
       {
-        "command": "nyx.runCurrentFile",
-        "title": "Nyx: Run Current File",
+        "command": "rove.runCurrentFile",
+        "title": "Rove: Run Current File",
         "icon": "$(play)"
       },
       {
-        "command": "nyx.buildCurrentFile",
-        "title": "Nyx: Build Current File",
+        "command": "rove.buildCurrentFile",
+        "title": "Rove: Build Current File",
         "icon": "$(tools)"
       },
       {
-        "command": "nyx.checkCurrentFile",
-        "title": "Nyx: Check Current File",
+        "command": "rove.checkCurrentFile",
+        "title": "Rove: Check Current File",
         "icon": "$(check)"
       },
       {
-        "command": "nyx.toolchainDoctor",
-        "title": "Nyx: Toolchain Doctor"
+        "command": "rove.toolchainDoctor",
+        "title": "Rove: Toolchain Doctor"
       },
       {
-        "command": "nyx.openRepository",
-        "title": "Nyx: Open GitHub Repository",
+        "command": "rove.openRepository",
+        "title": "Rove: Open GitHub Repository",
         "icon": "$(github-inverted)"
       },
       {
-        "command": "nyx.openDocumentation",
-        "title": "Nyx: Open Documentation",
+        "command": "rove.openDocumentation",
+        "title": "Rove: Open Documentation",
         "icon": "$(book)"
       },
       {
-        "command": "nyx.openReleases",
-        "title": "Nyx: Open Releases",
+        "command": "rove.openReleases",
+        "title": "Rove: Open Releases",
         "icon": "$(versions)"
       },
       {
-        "command": "nyx.openRoadmap",
-        "title": "Nyx: Open Compiler Roadmap",
+        "command": "rove.openRoadmap",
+        "title": "Rove: Open Compiler Roadmap",
         "icon": "$(map)"
       },
       {
-        "command": "nyx.reportIssue",
-        "title": "Nyx: Report an Issue",
+        "command": "rove.reportIssue",
+        "title": "Rove: Report an Issue",
         "icon": "$(bug)"
       }
     ],
     "menus": {
       "editor/title": [
         {
-          "command": "nyx.runCurrentFile",
-          "when": "resourceLangId == nyxlang",
+          "command": "rove.runCurrentFile",
+          "when": "resourceLangId == rovelang",
           "group": "navigation@1"
         },
         {
-          "command": "nyx.buildCurrentFile",
-          "when": "resourceLangId == nyxlang",
+          "command": "rove.buildCurrentFile",
+          "when": "resourceLangId == rovelang",
           "group": "navigation@2"
         }
       ],
       "editor/context": [
         {
-          "command": "nyx.runCurrentFile",
-          "when": "resourceLangId == nyxlang",
+          "command": "rove.runCurrentFile",
+          "when": "resourceLangId == rovelang",
           "group": "navigation@1"
         },
         {
-          "command": "nyx.checkCurrentFile",
-          "when": "resourceLangId == nyxlang",
+          "command": "rove.checkCurrentFile",
+          "when": "resourceLangId == rovelang",
           "group": "navigation@2"
         }
       ]
     },
     "keybindings": [
       {
-        "command": "nyx.buildCurrentFile",
+        "command": "rove.buildCurrentFile",
         "key": "ctrl+shift+b",
         "mac": "cmd+shift+b",
-        "when": "editorTextFocus && resourceLangId == nyxlang"
+        "when": "editorTextFocus && resourceLangId == rovelang"
       },
       {
-        "command": "nyx.runCurrentFile",
+        "command": "rove.runCurrentFile",
         "key": "f5",
-        "when": "editorTextFocus && resourceLangId == nyxlang"
+        "when": "editorTextFocus && resourceLangId == rovelang"
       }
     ],
     "languages": [
       {
-        "id": "nyxlang",
+        "id": "rovelang",
         "aliases": [
-          "nyx",
-          "Nyx",
-          "nyxlang"
+          "rove",
+          "Rove",
+          "rovelang"
         ],
         "extensions": [
+          ".rove",
           ".nyx"
         ],
         "configuration": "./language-configuration.json",
         "icon": {
-          "light": "./images/nyx-file-icon.png",
-          "dark": "./images/nyx-file-icon.png"
+          "light": "./images/rove-file-icon.png",
+          "dark": "./images/rove-file-icon.png"
         }
       }
     ],
     "grammars": [
       {
-        "language": "nyxlang",
-        "scopeName": "source.nyx",
-        "path": "./syntaxes/nyx.tmLanguage.json"
+        "language": "rovelang",
+        "scopeName": "source.rove",
+        "path": "./syntaxes/rove.tmLanguage.json"
       }
     ],
     "snippets": [
       {
-        "language": "nyxlang",
-        "path": "./snippets/nyx.snippets.json"
+        "language": "rovelang",
+        "path": "./snippets/rove.snippets.json"
       }
     ]
   },

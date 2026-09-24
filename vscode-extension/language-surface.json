@@ -147,12 +147,12 @@
     {
       "label": "to_string",
       "detail": "fn to_string<T>(value: T) -> string",
-      "documentation": "Formats a value using canonical Nyx scalar text."
+      "documentation": "Formats a value using canonical Rove scalar text."
     },
     {
       "label": "to_int",
       "detail": "fn to_int(value: string) -> int",
-      "documentation": "Parses a signed Nyx integer."
+      "documentation": "Parses a signed Rove integer."
     },
     {
       "label": "contains",
@@ -188,7 +188,7 @@
   "stdlibModules": [
     {
       "name": "std/encoding",
-      "detail": "Nyx stdlib · stable",
+      "detail": "Rove stdlib · stable",
       "documentation": "Standard library module std/encoding.",
       "targets": [
         "asm",
@@ -199,7 +199,7 @@
     },
     {
       "name": "std/env",
-      "detail": "Nyx stdlib · stable",
+      "detail": "Rove stdlib · stable",
       "documentation": "Standard library module std/env.",
       "targets": [
         "asm",
@@ -208,7 +208,7 @@
     },
     {
       "name": "std/fs",
-      "detail": "Nyx stdlib · stable",
+      "detail": "Rove stdlib · stable",
       "documentation": "Standard library module std/fs.",
       "targets": [
         "asm",
@@ -219,7 +219,7 @@
     },
     {
       "name": "std/hash",
-      "detail": "Nyx stdlib · stable",
+      "detail": "Rove stdlib · stable",
       "documentation": "Standard library module std/hash.",
       "targets": [
         "asm",
@@ -230,7 +230,7 @@
     },
     {
       "name": "std/http",
-      "detail": "Nyx stdlib · experimental",
+      "detail": "Rove stdlib · experimental",
       "documentation": "Hosted HTTP through a shell-free curl subprocess with bounded requests and responses.",
       "targets": [
         "cpp"
@@ -238,7 +238,7 @@
     },
     {
       "name": "std/io",
-      "detail": "Nyx stdlib · stable",
+      "detail": "Rove stdlib · stable",
       "documentation": "Standard library module std/io.",
       "targets": [
         "asm",
@@ -248,7 +248,7 @@
     },
     {
       "name": "std/json",
-      "detail": "Nyx stdlib · deprecated",
+      "detail": "Rove stdlib · deprecated",
       "documentation": "Use std/json_lite.",
       "targets": [
         "asm",
@@ -259,7 +259,7 @@
     },
     {
       "name": "std/json_lite",
-      "detail": "Nyx stdlib · stable",
+      "detail": "Rove stdlib · stable",
       "documentation": "Flat top-level string/integer field extraction only; not a general JSON parser.",
       "targets": [
         "asm",
@@ -270,7 +270,7 @@
     },
     {
       "name": "std/math",
-      "detail": "Nyx stdlib · stable",
+      "detail": "Rove stdlib · stable",
       "documentation": "Standard library module std/math.",
       "targets": [
         "asm",
@@ -281,7 +281,7 @@
     },
     {
       "name": "std/memory",
-      "detail": "Nyx stdlib · stable",
+      "detail": "Rove stdlib · stable",
       "documentation": "Standard library module std/memory.",
       "targets": [
         "asm",
@@ -290,7 +290,7 @@
     },
     {
       "name": "std/net",
-      "detail": "Nyx stdlib · stable",
+      "detail": "Rove stdlib · stable",
       "documentation": "Standard library module std/net.",
       "targets": [
         "asm",
@@ -299,7 +299,7 @@
     },
     {
       "name": "std/os",
-      "detail": "Nyx stdlib · stable",
+      "detail": "Rove stdlib · stable",
       "documentation": "Standard library module std/os.",
       "targets": [
         "asm",
@@ -308,7 +308,7 @@
     },
     {
       "name": "std/path",
-      "detail": "Nyx stdlib · stable",
+      "detail": "Rove stdlib · stable",
       "documentation": "Standard library module std/path.",
       "targets": [
         "asm",
@@ -319,7 +319,7 @@
     },
     {
       "name": "std/platform",
-      "detail": "Nyx stdlib · stable",
+      "detail": "Rove stdlib · stable",
       "documentation": "Standard library module std/platform.",
       "targets": [
         "asm",
@@ -328,7 +328,7 @@
     },
     {
       "name": "std/process",
-      "detail": "Nyx stdlib · stable",
+      "detail": "Rove stdlib · stable",
       "documentation": "Standard library module std/process.",
       "targets": [
         "asm",
@@ -339,7 +339,7 @@
     },
     {
       "name": "std/str",
-      "detail": "Nyx stdlib · stable",
+      "detail": "Rove stdlib · stable",
       "documentation": "Standard library module std/str.",
       "targets": [
         "asm",
@@ -351,7 +351,7 @@
     },
     {
       "name": "std/system",
-      "detail": "Nyx stdlib · experimental",
+      "detail": "Rove stdlib · experimental",
       "documentation": "Hosted OS inspection through the native platform ABI.",
       "targets": [
         "asm",
@@ -360,7 +360,7 @@
     },
     {
       "name": "std/terminal",
-      "detail": "Nyx stdlib · experimental",
+      "detail": "Rove stdlib · experimental",
       "documentation": "Terminal, cursor control, screen clearing, and keyboard input.",
       "targets": [
         "asm",
@@ -369,7 +369,7 @@
     },
     {
       "name": "std/thread",
-      "detail": "Nyx stdlib · stable",
+      "detail": "Rove stdlib · stable",
       "documentation": "Standard library module std/thread.",
       "targets": [
         "asm",
@@ -378,7 +378,7 @@
     },
     {
       "name": "std/time",
-      "detail": "Nyx stdlib · stable",
+      "detail": "Rove stdlib · stable",
       "documentation": "Standard library module std/time.",
       "targets": [
         "asm",
@@ -389,8 +389,8 @@
     },
     {
       "name": "std/web",
-      "detail": "Nyx stdlib · experimental",
-      "documentation": "Typed browser host handles and DOM/canvas operations through nyx_host_v1.",
+      "detail": "Rove stdlib · experimental",
+      "documentation": "Typed browser host handles and DOM/canvas operations through rove_host_v1.",
       "targets": [
         "wasm"
       ]

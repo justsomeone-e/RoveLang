@@ -15,14 +15,14 @@
 
 ## 5.0.1 — Daydream
 
-- Synchronize the extension package with the Nyx v5.0.1 compiler and language
+- Synchronize the extension package with the Rove v5.0.1 compiler and language
   surface.
-- Resolve the canonical `~/.nyx/bin/nyx` command on Linux and macOS as well as
-  the Windows `nyx.cmd` shim.
+- Resolve the canonical `~/.rove/bin/rove` command on Linux and macOS as well as
+  the Windows `rove.cmd` shim.
 
 ## 4.0.0 — Nirvana
 
-- Official release aligned with Nyx v4.0.0 Nirvana compiler and language specification.
+- Official release aligned with Rove v4.0.0 Nirvana compiler and language specification.
 - Updated syntax grammar with full support for v4 built-ins (`args`, `map`, `filter`, `fold`, `contains`, `is_number`).
 - Added snippets for enums, type aliases, result handling (`Ok`/`Err`), and functional collection transforms (`map`/`filter`).
 - Synchronized canonical completion catalog and language surface metadata (`language-surface.json`).
@@ -36,12 +36,12 @@
 
 ## 4.0.0-rc.1
 
-- Align the extension package with the Nyx v4.0.0-rc.1 release candidate.
+- Align the extension package with the Rove v4.0.0-rc.1 release candidate.
 - Added full syntax highlighting for string interpolation (`$"..."` with `{expression}` blocks).
 - Added syntax grammar coverage for `yield`, boolean operators (`and`, `or`, `not`), and `Iterator`.
 - Added new snippets for `trait` definitions, `impl Trait for Struct`, and `async fn`.
 - Synced and verified `language-surface.json` compiler metadata catalog.
-- Bundled official release candidate VSIX package (`nyx-language-support-4.0.0-rc.1.vsix`).
+- Bundled official release candidate VSIX package (`rove-language-support-4.0.0-rc.1.vsix`).
 
 ## 4.0.0-dev.2
 
@@ -56,10 +56,10 @@
 - Added one-click Run, Build, Check, and Toolchain Doctor commands.
 - Run and Build now use VS Code's persistent integrated task terminal.
 - Synchronized completions, snippets, icons, and LSP startup with the v4 language surface.
-- Promoted the visible extension identity to **Nyx Language Toolchain** and
+- Promoted the visible extension identity to **Rove Language Toolchain** and
   replaced the undersized dark marketplace mark with a larger transparent icon.
 - Added manifest-level homepage, issue tracker, and gallery metadata.
 - Added Command Palette links for GitHub, documentation, releases, the compiler
   roadmap, and issue reporting.
-- Prefer the canonical `~/.nyx/bin/nyx` installation before `PATH` to avoid
+- Prefer the canonical `~/.rove/bin/rove` installation before `PATH` to avoid
   accidentally launching an older language server shim.

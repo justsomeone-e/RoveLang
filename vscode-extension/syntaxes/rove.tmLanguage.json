@@ -1,133 +1,133 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-  "name": "nyx",
-  "scopeName": "source.nyx",
+  "name": "rove",
+  "scopeName": "source.rove",
   "patterns": [
     {
-      "name": "comment.line.double-slash.nyx",
+      "name": "comment.line.double-slash.rove",
       "match": "//.*$"
     },
     {
-      "name": "meta.preprocessor.target.nyx",
+      "name": "meta.preprocessor.target.rove",
       "match": "(#target)\\s+([a-zA-Z0-9_]+)",
       "captures": {
-        "1": { "name": "keyword.control.directive.nyx" },
-        "2": { "name": "entity.name.type.target.nyx" }
+        "1": { "name": "keyword.control.directive.rove" },
+        "2": { "name": "entity.name.type.target.rove" }
       }
     },
     {
-      "name": "meta.preprocessor.native.include.nyx",
+      "name": "meta.preprocessor.native.include.rove",
       "match": "(#native)\\s+(include)\\s+(<[^>]+>|\"[^\"]+\")",
       "captures": {
-        "1": { "name": "keyword.control.directive.nyx" },
-        "2": { "name": "keyword.other.directive.nyx" },
-        "3": { "name": "string.quoted.other.header.nyx" }
+        "1": { "name": "keyword.control.directive.rove" },
+        "2": { "name": "keyword.other.directive.rove" },
+        "3": { "name": "string.quoted.other.header.rove" }
       }
     },
     {
-      "name": "meta.preprocessor.native.link.nyx",
+      "name": "meta.preprocessor.native.link.rove",
       "match": "(#native)\\s+(link|use)\\s+(\"[^\"]+\")",
       "captures": {
-        "1": { "name": "keyword.control.directive.nyx" },
-        "2": { "name": "keyword.other.directive.nyx" },
-        "3": { "name": "string.quoted.double.nyx" }
+        "1": { "name": "keyword.control.directive.rove" },
+        "2": { "name": "keyword.other.directive.rove" },
+        "3": { "name": "string.quoted.double.rove" }
       }
     },
     {
-      "name": "meta.preprocessor.native.cpp.block.nyx",
+      "name": "meta.preprocessor.native.cpp.block.rove",
       "begin": "(#native)\\s+(raw|cpp)\\s*(\\{)",
       "beginCaptures": {
-        "1": { "name": "keyword.control.directive.nyx" },
-        "2": { "name": "entity.name.type.target.nyx" },
-        "3": { "name": "punctuation.section.block.begin.nyx" }
+        "1": { "name": "keyword.control.directive.rove" },
+        "2": { "name": "entity.name.type.target.rove" },
+        "3": { "name": "punctuation.section.block.begin.rove" }
       },
       "end": "\\}",
       "endCaptures": {
-        "0": { "name": "punctuation.section.block.end.nyx" }
+        "0": { "name": "punctuation.section.block.end.rove" }
       },
       "patterns": [
         { "include": "source.cpp" }
       ]
     },
     {
-      "name": "meta.preprocessor.native.js.block.nyx",
+      "name": "meta.preprocessor.native.js.block.rove",
       "begin": "(#native)\\s+(js)\\s*(\\{)",
       "beginCaptures": {
-        "1": { "name": "keyword.control.directive.nyx" },
-        "2": { "name": "entity.name.type.target.nyx" },
-        "3": { "name": "punctuation.section.block.begin.nyx" }
+        "1": { "name": "keyword.control.directive.rove" },
+        "2": { "name": "entity.name.type.target.rove" },
+        "3": { "name": "punctuation.section.block.begin.rove" }
       },
       "end": "\\}",
       "endCaptures": {
-        "0": { "name": "punctuation.section.block.end.nyx" }
+        "0": { "name": "punctuation.section.block.end.rove" }
       },
       "patterns": [
         { "include": "source.js" }
       ]
     },
     {
-      "name": "meta.preprocessor.native.rust.block.nyx",
+      "name": "meta.preprocessor.native.rust.block.rove",
       "begin": "(#native)\\s+(rust)\\s*(\\{)",
       "beginCaptures": {
-        "1": { "name": "keyword.control.directive.nyx" },
-        "2": { "name": "entity.name.type.target.nyx" },
-        "3": { "name": "punctuation.section.block.begin.nyx" }
+        "1": { "name": "keyword.control.directive.rove" },
+        "2": { "name": "entity.name.type.target.rove" },
+        "3": { "name": "punctuation.section.block.begin.rove" }
       },
       "end": "\\}",
       "endCaptures": {
-        "0": { "name": "punctuation.section.block.end.nyx" }
+        "0": { "name": "punctuation.section.block.end.rove" }
       },
       "patterns": [
         { "include": "source.rust" }
       ]
     },
     {
-      "name": "meta.preprocessor.native.raw.nyx",
+      "name": "meta.preprocessor.native.raw.rove",
       "match": "(#native)\\s+(raw|cpp|js|rust)",
       "captures": {
-        "1": { "name": "keyword.control.directive.nyx" },
-        "2": { "name": "entity.name.type.target.nyx" }
+        "1": { "name": "keyword.control.directive.rove" },
+        "2": { "name": "entity.name.type.target.rove" }
       }
     },
     {
-      "name": "keyword.declaration.nyx",
+      "name": "keyword.declaration.rove",
       "match": "\\b(var|let|set|const|type|struct|impl|trait|enum|fn|extern|async|test)\\b"
     },
     {
-      "name": "keyword.control.nyx",
+      "name": "keyword.control.rove",
       "match": "\\b(if|else|elif|for|in|while|loop|match|return|throw|yield|continue|break|await|defer|guard|try|catch|unsafe|import|use|from|as|assert|spawn)\\b"
     },
     {
-      "name": "keyword.operator.logical.nyx",
+      "name": "keyword.operator.logical.rove",
       "match": "\\b(and|or|not)\\b"
     },
     {
-      "name": "storage.type.nyx",
+      "name": "storage.type.rove",
       "match": "\\b(int|i8|i16|i32|i64|u8|u16|u32|u64|float|f32|f64|bool|string|char|uintptr|void|any|Array|Iterator|Option|Result|Channel|Task)\\b"
     },
     {
-      "name": "support.function.builtin.nyx",
+      "name": "support.function.builtin.rove",
       "match": "\\b(print|println|input|len|length|addr|peek|memdump|delay_ms|contains|is_number|to_string|to_int|args|map|filter|fold|channel|Ok|Err|useState|useEffect|useRef|useMemo|useCallback)\\b"
     },
     {
-      "name": "constant.language.boolean.nyx",
+      "name": "constant.language.boolean.rove",
       "match": "\\b(true|false|null)\\b"
     },
     {
-      "name": "string.quoted.other.angle.nyx",
+      "name": "string.quoted.other.angle.rove",
       "match": "<[a-zA-Z0-9_\\./\\+]+>"
     },
     {
-      "name": "string.interpolated.nyx",
+      "name": "string.interpolated.rove",
       "begin": "\\$\"",
       "end": "\"",
       "patterns": [
         {
-          "name": "constant.character.escape.nyx",
+          "name": "constant.character.escape.rove",
           "match": "\\\\."
         },
         {
-          "name": "meta.interpolation.nyx",
+          "name": "meta.interpolation.rove",
           "begin": "\\{",
           "end": "\\}",
           "patterns": [
@@ -139,47 +139,47 @@
       ]
     },
     {
-      "name": "string.quoted.double.nyx",
+      "name": "string.quoted.double.rove",
       "begin": "\"",
       "end": "\"",
       "patterns": [
         {
-          "name": "constant.character.escape.nyx",
+          "name": "constant.character.escape.rove",
           "match": "\\\\."
         }
       ]
     },
     {
-      "name": "string.quoted.single.nyx",
+      "name": "string.quoted.single.rove",
       "begin": "'",
       "end": "'",
       "patterns": [
         {
-          "name": "constant.character.escape.nyx",
+          "name": "constant.character.escape.rove",
           "match": "\\\\."
         }
       ]
     },
     {
-      "name": "constant.numeric.nyx",
+      "name": "constant.numeric.rove",
       "match": "\\b\\d+(\\.\\d+)?\\b"
     },
     {
-      "name": "keyword.operator.nyx",
+      "name": "keyword.operator.rove",
       "match": "(->|\\|>|\\.\\.|==|!=|>=|<=|>|<|\\+|-|\\*|/|=|&&|\\|\\||!|=>|\\?\\?|\\?\\.)"
     },
     {
-      "name": "entity.name.function.nyx",
+      "name": "entity.name.function.rove",
       "match": "fn\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
       "captures": {
-        "1": { "name": "entity.name.function.nyx" }
+        "1": { "name": "entity.name.function.rove" }
       }
     },
     {
-      "name": "entity.name.type.struct.nyx",
+      "name": "entity.name.type.struct.rove",
       "match": "(?:struct|impl|trait|enum)\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
       "captures": {
-        "1": { "name": "entity.name.type.struct.nyx" }
+        "1": { "name": "entity.name.type.struct.rove" }
       }
     }
   ]

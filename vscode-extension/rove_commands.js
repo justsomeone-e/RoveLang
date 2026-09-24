@@ -1,25 +1,25 @@
 'use strict';
 
-const { resolveNyxCommand } = require('./server_options');
+const { resolveRoveCommand } = require('./server_options');
 
 const NATIVE_REQUIREMENT =
-    'Nyx cpp builds require Clang++, GCC/G++, or MSVC cl with C++20 support. ' +
-    'Put the compiler on PATH or set NYX_CXX; run “Nyx: Toolchain Doctor” to verify it.';
+    'Rove cpp builds require Clang++, GCC/G++, or MSVC cl with C++20 support. ' +
+    'Put the compiler on PATH or set ROVE_CXX; run “Rove: Toolchain Doctor” to verify it.';
 
 const PROJECT_LINKS = Object.freeze({
-    repository: 'https://github.com/justsomeone-e/nyx',
-    documentation: 'https://github.com/justsomeone-e/nyx#readme',
-    releases: 'https://github.com/justsomeone-e/nyx/releases',
-    roadmap: 'https://github.com/justsomeone-e/nyx/blob/main/docs/internals/ROADMAP_AND_BACKEND_GATES.md',
-    issues: 'https://github.com/justsomeone-e/nyx/issues/new'
+    repository: 'https://github.com/justsomeone-e/rove',
+    documentation: 'https://github.com/justsomeone-e/rove#readme',
+    releases: 'https://github.com/justsomeone-e/rove/releases',
+    roadmap: 'https://github.com/justsomeone-e/rove/blob/main/docs/internals/ROADMAP_AND_BACKEND_GATES.md',
+    issues: 'https://github.com/justsomeone-e/rove/issues/new'
 });
 
 const LINK_COMMANDS = Object.freeze([
-    ['nyx.openRepository', 'GitHub repository', PROJECT_LINKS.repository],
-    ['nyx.openDocumentation', 'documentation', PROJECT_LINKS.documentation],
-    ['nyx.openReleases', 'release history', PROJECT_LINKS.releases],
-    ['nyx.openRoadmap', 'compiler roadmap', PROJECT_LINKS.roadmap],
-    ['nyx.reportIssue', 'issue reporter', PROJECT_LINKS.issues]
+    ['rove.openRepository', 'GitHub repository', PROJECT_LINKS.repository],
+    ['rove.openDocumentation', 'documentation', PROJECT_LINKS.documentation],
+    ['rove.openReleases', 'release history', PROJECT_LINKS.releases],
+    ['rove.openRoadmap', 'compiler roadmap', PROJECT_LINKS.roadmap],
+    ['rove.reportIssue', 'issue reporter', PROJECT_LINKS.issues]
 ]);
 
 function sourceTarget(document) {
@@ -27,14 +27,14 @@ function sourceTarget(document) {
     return match ? match[1].toLowerCase() : 'cpp';
 }
 
-async function requireNyxDocument(vscode) {
+async function requireRoveDocument(vscode) {
     const editor = vscode.window.activeTextEditor;
-    if (!editor || editor.document.languageId !== 'nyxlang') {
-        await vscode.window.showWarningMessage('Open a .nyx file before running a Nyx command.');
+    if (!editor || editor.document.languageId !== 'rovelang') {
+        await vscode.window.showWarningMessage('Open a .rove file before running a Rove command.');
         return undefined;
     }
     if (editor.document.isUntitled || !editor.document.uri.fsPath) {
-        await vscode.window.showWarningMessage('Save the Nyx file before running it.');
+        await vscode.window.showWarningMessage('Save the Rove file before running it.');
         return undefined;
     }
     if (editor.document.isDirty && !(await editor.document.save())) {
@@ -55,8 +55,8 @@ function taskScope(vscode, document) {
 }
 
 async function executeTask(vscode, action, document, target) {
-    const configuredCli = vscode.workspace.getConfiguration('nyx.server').get('path', 'nyx');
-    const cli = resolveNyxCommand(configuredCli);
+    const configuredCli = vscode.workspace.getConfiguration('rove.server').get('path', 'rove');
+    const cli = resolveRoveCommand(configuredCli);
     const args = [action];
     if (document) args.push(document.uri.fsPath);
     if (target && target !== 'source' && (action === 'run' || action === 'build')) {
@@ -64,13 +64,13 @@ async function executeTask(vscode, action, document, target) {
     }
 
     const label = action === 'doctor'
-        ? 'Nyx: Toolchain Doctor'
-        : `Nyx: ${action[0].toUpperCase()}${action.slice(1)} ${document.uri.path.split('/').pop()}`;
+        ? 'Rove: Toolchain Doctor'
+        : `Rove: ${action[0].toUpperCase()}${action.slice(1)} ${document.uri.path.split('/').pop()}`;
     const task = new vscode.Task(
-        { type: 'nyx', action },
+        { type: 'rove', action },
         taskScope(vscode, document),
         label,
-        'nyx',
+        'rove',
         new vscode.ShellExecution(cli, args),
         []
     );
@@ -91,7 +91,7 @@ async function maybeExplainNativeRequirement(vscode, context, action, document, 
     if (action !== 'run' && action !== 'build') return true;
     const target = configuredTarget === 'source' ? sourceTarget(document) : configuredTarget;
     if (target !== 'cpp' && target !== 'cpp' && target !== 'native') return true;
-    const key = 'nyx.cppRequirementAcknowledged';
+    const key = 'rove.cppRequirementAcknowledged';
     if (context.globalState.get(key, false)) return true;
 
     const choice = await vscode.window.showInformationMessage(
@@ -110,22 +110,22 @@ async function maybeExplainNativeRequirement(vscode, context, action, document, 
 async function openProjectLink(vscode, label, url) {
     const opened = await vscode.env.openExternal(vscode.Uri.parse(url));
     if (!opened) {
-        await vscode.window.showWarningMessage(`Could not open the Nyx ${label}: ${url}`);
+        await vscode.window.showWarningMessage(`Could not open the Rove ${label}: ${url}`);
     }
 }
 
-function registerNyxCommands(vscode, context) {
+function registerRoveCommands(vscode, context) {
     const registrations = [];
     for (const [commandId, action] of [
-        ['nyx.runCurrentFile', 'run'],
-        ['nyx.buildCurrentFile', 'build'],
-        ['nyx.checkCurrentFile', 'check']
+        ['rove.runCurrentFile', 'run'],
+        ['rove.buildCurrentFile', 'build'],
+        ['rove.checkCurrentFile', 'check']
     ]) {
         registrations.push(vscode.commands.registerCommand(commandId, async () => {
-            const document = await requireNyxDocument(vscode);
+            const document = await requireRoveDocument(vscode);
             if (!document) return;
             const configuredTarget = vscode.workspace
-                .getConfiguration('nyx.run')
+                .getConfiguration('rove.run')
                 .get('target', 'source');
             if (!(await maybeExplainNativeRequirement(
                 vscode, context, action, document, configuredTarget
@@ -133,7 +133,7 @@ function registerNyxCommands(vscode, context) {
             await executeTask(vscode, action, document, configuredTarget);
         }));
     }
-    registrations.push(vscode.commands.registerCommand('nyx.toolchainDoctor', async () => {
+    registrations.push(vscode.commands.registerCommand('rove.toolchainDoctor', async () => {
         await executeTask(vscode, 'doctor');
     }));
     for (const [commandId, label, url] of LINK_COMMANDS) {
@@ -143,10 +143,10 @@ function registerNyxCommands(vscode, context) {
     }
 
     const runButton = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    runButton.name = 'Run Nyx File';
-    runButton.text = '$(play) Nyx';
-    runButton.tooltip = 'Run the active Nyx file in the integrated terminal';
-    runButton.command = 'nyx.runCurrentFile';
+    runButton.name = 'Run Rove File';
+    runButton.text = '$(play) Rove';
+    runButton.tooltip = 'Run the active Rove file in the integrated terminal';
+    runButton.command = 'rove.runCurrentFile';
     runButton.show();
     registrations.push(runButton);
 
@@ -160,6 +160,6 @@ module.exports = {
     PROJECT_LINKS,
     executeTask,
     openProjectLink,
-    registerNyxCommands,
+    registerRoveCommands,
     sourceTarget
 };
