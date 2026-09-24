@@ -7,14 +7,14 @@
       <stop offset="100%" stop-color="#040608"/>
     </linearGradient>
 
-    <!-- Silver-White Metallic Gradient (Original Nyx 3D Logo) -->
+    <!-- Silver-white metallic wordmark gradient -->
     <linearGradient id="silverGrad" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#FFFFFF"/>
       <stop offset="60%" stop-color="#E1E6EB"/>
       <stop offset="100%" stop-color="#B8C2CC"/>
     </linearGradient>
 
-    <!-- Cyan Electric Bevel Gradient (Original Nyx Electric Facet) -->
+    <!-- Cyan electric bevel gradient -->
     <linearGradient id="cyanFacet" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#00F0FF"/>
       <stop offset="100%" stop-color="#0088FF"/>
@@ -105,24 +105,11 @@
   <circle cx="850" cy="180" r="120" fill="#7928ca" opacity="0.07" filter="url(#masterGlow)"/>
 
   <!-- ======================================================== -->
-  <!-- CENTERED ORIGINAL 3D METALLIC NYX LOGO -->
+  <!-- CENTERED ROVE WORDMARK -->
   <!-- ======================================================== -->
-  <g transform="translate(225, 20)" class="metallic-logo">
-    <!-- LETTER 'n' -->
-    <path d="M 60 110 L 96 130 L 96 230 L 60 230 Z" fill="url(#cyanFacet)"/>
-    <path d="M 60 70 L 96 70 L 96 130 L 60 110 Z" fill="url(#silverGrad)"/>
-    <path d="M 96 70 C 130 50 190 50 200 90 L 200 230 L 164 230 L 164 110 C 158 92 126 92 96 106 Z" fill="url(#silverGrad)"/>
-    <path d="M 164 110 L 200 90 L 200 230 L 164 230 Z" fill="url(#shadeFacet)" opacity="0.3"/>
-
-    <!-- LETTER 'y' -->
-    <path d="M 270 70 L 330 160 L 305 178 L 245 70 Z" fill="url(#silverGrad)"/>
-    <path d="M 375 70 L 275 240 L 310 240 L 410 70 Z" fill="url(#silverGrad)"/>
-    <path d="M 315 168 L 348 214 L 325 240 L 295 240 Z" fill="url(#cyanFacet)"/>
-
-    <!-- LETTER 'x' -->
-    <path d="M 460 70 L 515 150 L 460 230 L 495 230 L 535 170 L 575 230 L 610 230 L 555 150 L 610 70 L 575 70 L 535 130 L 495 70 Z" fill="url(#silverGrad)"/>
-    <path d="M 555 150 L 610 70 L 575 70 L 535 130 Z" fill="url(#cyanFacet)"/>
-    <path d="M 515 150 L 460 230 L 495 230 L 535 170 Z" fill="url(#cyanFacet)"/>
+  <g class="metallic-logo" font-family="'Arial Black', 'Inter', sans-serif" font-size="160" font-weight="900" letter-spacing="-8" text-anchor="middle">
+    <text x="504" y="212" fill="url(#shadeFacet)" opacity="0.75">ROVE</text>
+    <text x="500" y="206" fill="url(#silverGrad)" stroke="url(#cyanFacet)" stroke-width="1.2" paint-order="stroke fill">ROVE</text>
   </g>
 
   <!-- SUBTITLES AND COMPILER METADATA (Centered Under Logo) -->
@@ -133,9 +120,9 @@
       <text x="130" y="17" text-anchor="middle" class="mono" font-size="11.5" font-weight="700" fill="#00f0ff" letter-spacing="2">[ SYSTEMS COMPILER ]</text>
     </g>
 
-    <text y="32" class="mono" font-size="14.5" font-weight="700" fill="#ffffff">v3.0.0-beta.3 · Self-Hosting Pipeline</text>
+    <text y="32" class="mono" font-size="14.5" font-weight="700" fill="#ffffff">Rove source preview · Self-Hosting Pipeline</text>
     <text y="54" class="mono" font-size="12" fill="#94a3b8">
-      Multi-Target: <tspan fill="#00f0ff">C++20 Native</tspan> · <tspan fill="#ff0080">x86_64 ASM</tspan> · <tspan fill="#4ade80">Node.js</tspan> · <tspan fill="#f59e0b">Rust</tspan> · <tspan fill="#a855f7">Python</tspan>
+      Multi-Target: <tspan fill="#00f0ff">C++20 Native</tspan> · <tspan fill="#ff0080">WebAssembly</tspan> · <tspan fill="#4ade80">Node.js</tspan> · <tspan fill="#f59e0b">Rust (beta)</tspan> · <tspan fill="#a855f7">Python</tspan>
     </text>
   </g>
 
@@ -147,7 +134,7 @@
     <rect x="0" y="0" width="210" height="52" rx="8" fill="#0c131d" stroke="#00f0ff" stroke-width="1.2" class="badge-card"/>
     <circle cx="22" cy="26" r="5" fill="#00f0ff" filter="url(#glowFilter)"/>
     <text x="40" y="22" class="mono" font-size="11" font-weight="700" fill="#00f0ff">SELF-HOSTING</text>
-    <text x="40" y="39" class="mono" font-size="12" fill="#e2e8f0">100% Token Parity</text>
+    <text x="40" y="39" class="mono" font-size="12" fill="#e2e8f0">Stage 1/2 parity tests</text>
 
     <!-- Badge 2: Assembly Target -->
     <rect x="233" y="0" width="210" height="52" rx="8" fill="#0c131d" stroke="#ff0080" stroke-width="1.2" class="badge-card"/>

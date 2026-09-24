@@ -1,4 +1,4 @@
-// Nyx Standard Library: std/io
+// Rove Standard Library: std/io
 #target cpp
 
 fn println_str(msg: string) {
@@ -18,5 +18,5 @@ fn prompt_input(prompt: string) -> string {
 }
 
 test "std/io comprehensive tests" {
-    println_str("Nyx I/O Test Passed")
+    println_str("Rove I/O Test Passed")
 }

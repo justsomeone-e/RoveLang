@@ -803,7 +803,7 @@ def run_mir_legalization_suite() -> bool:
     assert not collect_legalization_issues(wasm_array, "wasm", require_emitter=True)
     assert MIRInterpreter(wasm_array).run("array_probe").value == 193
     wasm_array_wat = emit_legalized_wat(wasm_array)
-    assert "call $__nyx_mir_array_clone_i64" in wasm_array_wat
+    assert "call $__rove_mir_array_clone_i64" in wasm_array_wat
     assert "i64.load" in wasm_array_wat and "i64.store" in wasm_array_wat
     assert _run_wasm_export(emit_legalized_wasm(wasm_array), "array_probe") == "193\n"
 
@@ -823,9 +823,9 @@ def run_mir_legalization_suite() -> bool:
     assert not collect_legalization_issues(wasm_bool_array, "wasm", require_emitter=True)
     assert MIRInterpreter(wasm_bool_array).run("bool_array_probe").value == 102
     wasm_bool_array_wat = emit_legalized_wat(wasm_bool_array)
-    assert "call $__nyx_mir_array_clone_i32" in wasm_bool_array_wat
-    assert "call $__nyx_mir_array_get_i32" in wasm_bool_array_wat
-    assert "call $__nyx_mir_array_set_i32" in wasm_bool_array_wat
+    assert "call $__rove_mir_array_clone_i32" in wasm_bool_array_wat
+    assert "call $__rove_mir_array_get_i32" in wasm_bool_array_wat
+    assert "call $__rove_mir_array_set_i32" in wasm_bool_array_wat
     assert _run_wasm_export(
         emit_legalized_wasm(wasm_bool_array), "bool_array_probe"
     ) == "102\n"
@@ -844,8 +844,8 @@ def run_mir_legalization_suite() -> bool:
     assert not collect_legalization_issues(wasm_nested_array, "wasm", require_emitter=True)
     assert MIRInterpreter(wasm_nested_array).run("nested_array_probe").value == 1937
     wasm_nested_array_wat = emit_legalized_wat(wasm_nested_array)
-    assert "call $__nyx_mir_array_clone_nested_i64" in wasm_nested_array_wat
-    assert wasm_nested_array_wat.count("call $__nyx_mir_array_get_blob") >= 2
+    assert "call $__rove_mir_array_clone_nested_i64" in wasm_nested_array_wat
+    assert wasm_nested_array_wat.count("call $__rove_mir_array_get_blob") >= 2
     assert "memory.fill" in wasm_nested_array_wat
     assert _run_wasm_export(
         emit_legalized_wasm(wasm_nested_array), "nested_array_probe"
@@ -867,7 +867,7 @@ def run_mir_legalization_suite() -> bool:
     )
     assert MIRInterpreter(wasm_nested_string_array).run("nested_string_array_probe").value == 1528
     wasm_nested_string_array_wat = emit_legalized_wat(wasm_nested_string_array)
-    assert "call $__nyx_mir_array_clone_nested_string" in wasm_nested_string_array_wat
+    assert "call $__rove_mir_array_clone_nested_string" in wasm_nested_string_array_wat
     assert _run_wasm_export(
         emit_legalized_wasm(wasm_nested_string_array), "nested_string_array_probe"
     ) == "1528\n"
@@ -892,7 +892,7 @@ def run_mir_legalization_suite() -> bool:
     )
     assert MIRInterpreter(wasm_nested_bool_array).run("nested_bool_array_probe").value == 1011
     wasm_nested_bool_array_wat = emit_legalized_wat(wasm_nested_bool_array)
-    assert "call $__nyx_mir_array_clone_nested_i32" in wasm_nested_bool_array_wat
+    assert "call $__rove_mir_array_clone_nested_i32" in wasm_nested_bool_array_wat
     assert _run_wasm_export(
         emit_legalized_wasm(wasm_nested_bool_array), "nested_bool_array_probe"
     ) == "1011\n"
@@ -919,7 +919,7 @@ def run_mir_legalization_suite() -> bool:
     )
     assert MIRInterpreter(wasm_nested_struct_array).run("nested_struct_array_probe").value == 19528
     wasm_nested_struct_array_wat = emit_legalized_wat(wasm_nested_struct_array)
-    assert "call $__nyx_mir_array_clone_nested_blob" in wasm_nested_struct_array_wat
+    assert "call $__rove_mir_array_clone_nested_blob" in wasm_nested_struct_array_wat
     assert _run_wasm_export(
         emit_legalized_wasm(wasm_nested_struct_array), "nested_struct_array_probe"
     ) == "19528\n"
@@ -937,7 +937,7 @@ def run_mir_legalization_suite() -> bool:
     assert not collect_legalization_issues(wasm_struct, "wasm", require_emitter=True)
     assert MIRInterpreter(wasm_struct).run("struct_probe").value == 495
     wasm_struct_wat = emit_legalized_wat(wasm_struct)
-    assert "call $__nyx_mir_clone_bytes" in wasm_struct_wat
+    assert "call $__rove_mir_clone_bytes" in wasm_struct_wat
     assert "memory.copy" in wasm_struct_wat
     assert _run_wasm_export(emit_legalized_wasm(wasm_struct), "struct_probe") == "495\n"
 
@@ -956,7 +956,7 @@ def run_mir_legalization_suite() -> bool:
     assert not collect_legalization_issues(wasm_enum, "wasm", require_emitter=True)
     assert MIRInterpreter(wasm_enum).run("enum_probe", (41,)).value == 42
     wasm_enum_wat = emit_legalized_wat(wasm_enum)
-    assert "call $__nyx_mir_clone_bytes" in wasm_enum_wat
+    assert "call $__rove_mir_clone_bytes" in wasm_enum_wat
     assert "i32.load" in wasm_enum_wat and "i64.load" in wasm_enum_wat
     assert _run_wasm_export(emit_legalized_wasm(wasm_enum), "enum_probe", 41) == "42\n"
 
@@ -1069,7 +1069,7 @@ def run_mir_legalization_suite() -> bool:
     assert not wasm_float_array_issues, wasm_float_array_issues
     wasm_float_array_wat = emit_legalized_wat(wasm_float_array)
     assert "f64.load" in wasm_float_array_wat and "f64.store" in wasm_float_array_wat
-    assert "call $__nyx_mir_array_clone_nested_blob" in wasm_float_array_wat
+    assert "call $__rove_mir_array_clone_nested_blob" in wasm_float_array_wat
     wasm_float_array_bytes = emit_legalized_wasm(wasm_float_array)
     for function in ("array_probe", "nested_probe", "detached_inner", "empty_length", "signed_zero"):
         expected = MIRInterpreter(wasm_float_array).run(function).value
@@ -1324,8 +1324,8 @@ def run_mir_legalization_suite() -> bool:
     assert not collect_legalization_issues(wasm_string_array, "wasm", require_emitter=True)
     assert MIRInterpreter(wasm_string_array).run("string_array_probe").value == 152
     wasm_string_array_wat = emit_legalized_wat(wasm_string_array)
-    assert "call $__nyx_mir_array_clone_string" in wasm_string_array_wat
-    assert "call $__nyx_mir_array_set_string" in wasm_string_array_wat
+    assert "call $__rove_mir_array_clone_string" in wasm_string_array_wat
+    assert "call $__rove_mir_array_set_string" in wasm_string_array_wat
     assert _run_wasm_export(
         emit_legalized_wasm(wasm_string_array), "string_array_probe"
     ) == "152\n"
@@ -1350,9 +1350,9 @@ def run_mir_legalization_suite() -> bool:
     assert not collect_legalization_issues(wasm_struct_array, "wasm", require_emitter=True)
     assert MIRInterpreter(wasm_struct_array).run("struct_array_probe").value == 19528
     wasm_struct_array_wat = emit_legalized_wat(wasm_struct_array)
-    assert "call $__nyx_mir_array_clone_blob" in wasm_struct_array_wat
-    assert "call $__nyx_mir_array_get_blob" in wasm_struct_array_wat
-    assert "call $__nyx_mir_array_set_blob" in wasm_struct_array_wat
+    assert "call $__rove_mir_array_clone_blob" in wasm_struct_array_wat
+    assert "call $__rove_mir_array_get_blob" in wasm_struct_array_wat
+    assert "call $__rove_mir_array_set_blob" in wasm_struct_array_wat
     assert _run_wasm_export(
         emit_legalized_wasm(wasm_struct_array), "struct_array_probe"
     ) == "19528\n"

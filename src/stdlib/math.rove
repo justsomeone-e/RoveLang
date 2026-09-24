@@ -1,6 +1,6 @@
 // std/math.rove
-// Complete mathematical utilities for Nyx standard library
-// All functions are pure, use guard-based validation, and follow strict Nyx syntax
+// Complete mathematical utilities for Rove standard library
+// All functions are pure, use guard-based validation, and follow strict Rove syntax
 
 const SQRT_TOLERANCE: float = 0.000001;
 const SQRT_MAX_ITERATIONS: int = 100;
@@ -9,15 +9,15 @@ const PI: float = 3.141592653589793;
 const E: float = 2.718281828459045;
 
 fn sin(x: float) -> float {
-    return _nyx_math_sin(x);
+    return _rove_math_sin(x);
 }
 
 fn cos(x: float) -> float {
-    return _nyx_math_cos(x);
+    return _rove_math_cos(x);
 }
 
 fn tan(x: float) -> float {
-    return _nyx_math_tan(x);
+    return _rove_math_tan(x);
 }
 
 // Absolute value of a float

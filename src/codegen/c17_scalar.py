@@ -74,24 +74,24 @@ _C17_PRELUDE = """/* Rove C17 Experimental Scalar Pilot Runtime */
 #endif
 
 #if defined(__GNUC__) || defined(__clang__)
-#define NYX_UNUSED __attribute__((unused))
+#define ROVE_UNUSED __attribute__((unused))
 #else
-#define NYX_UNUSED
+#define ROVE_UNUSED
 #endif
 
-static inline NYX_UNUSED int64_t nyx_i64_add(int64_t a, int64_t b) {
+static inline ROVE_UNUSED int64_t rove_i64_add(int64_t a, int64_t b) {
     return (int64_t)((uint64_t)a + (uint64_t)b);
 }
 
-static inline NYX_UNUSED int64_t nyx_i64_sub(int64_t a, int64_t b) {
+static inline ROVE_UNUSED int64_t rove_i64_sub(int64_t a, int64_t b) {
     return (int64_t)((uint64_t)a - (uint64_t)b);
 }
 
-static inline NYX_UNUSED int64_t nyx_i64_mul(int64_t a, int64_t b) {
+static inline ROVE_UNUSED int64_t rove_i64_mul(int64_t a, int64_t b) {
     return (int64_t)((uint64_t)a * (uint64_t)b);
 }
 
-static inline NYX_UNUSED int64_t nyx_i64_div(int64_t a, int64_t b) {
+static inline ROVE_UNUSED int64_t rove_i64_div(int64_t a, int64_t b) {
     if (b == 0) {
         fprintf(stderr, "integer division by zero\\n");
         exit(1);
@@ -100,7 +100,7 @@ static inline NYX_UNUSED int64_t nyx_i64_div(int64_t a, int64_t b) {
     return a / b;
 }
 
-static inline NYX_UNUSED int64_t nyx_i64_mod(int64_t a, int64_t b) {
+static inline ROVE_UNUSED int64_t rove_i64_mod(int64_t a, int64_t b) {
     if (b == 0) {
         fprintf(stderr, "integer division by zero\\n");
         exit(1);
@@ -109,25 +109,25 @@ static inline NYX_UNUSED int64_t nyx_i64_mod(int64_t a, int64_t b) {
     return a % b;
 }
 
-static inline NYX_UNUSED int64_t nyx_i64_shl(int64_t a, int64_t b) {
+static inline ROVE_UNUSED int64_t rove_i64_shl(int64_t a, int64_t b) {
     uint64_t shift = ((uint64_t)b) & 63U;
     return (int64_t)((uint64_t)a << shift);
 }
 
-static inline NYX_UNUSED int64_t nyx_i64_shr(int64_t a, int64_t b) {
+static inline ROVE_UNUSED int64_t rove_i64_shr(int64_t a, int64_t b) {
     uint64_t shift = ((uint64_t)b) & 63U;
     return a >> shift;
 }
 
-static inline NYX_UNUSED int64_t nyx_i64_neg(int64_t a) {
+static inline ROVE_UNUSED int64_t rove_i64_neg(int64_t a) {
     return (int64_t)(-(uint64_t)a);
 }
 
-static inline NYX_UNUSED void nyx_print_i64(int64_t v) {
+static inline ROVE_UNUSED void rove_print_i64(int64_t v) {
     printf("%" PRId64 "\\n", v);
 }
 
-static inline NYX_UNUSED void nyx_print_f64(double v) {
+static inline ROVE_UNUSED void rove_print_f64(double v) {
     if (v == (double)(int64_t)v) {
         printf("%.1f\\n", v);
     } else {
@@ -135,11 +135,11 @@ static inline NYX_UNUSED void nyx_print_f64(double v) {
     }
 }
 
-static inline NYX_UNUSED void nyx_print_bool(bool v) {
+static inline ROVE_UNUSED void rove_print_bool(bool v) {
     printf("%s\\n", v ? "true" : "false");
 }
 
-static inline NYX_UNUSED void nyx_print_str(const char* v) {
+static inline ROVE_UNUSED void rove_print_str(const char* v) {
     printf("%s\\n", v);
 }
 """
@@ -171,7 +171,7 @@ class C17ScalarEmitter:
 
         # Register functions
         for fn in functions:
-            preferred = "_nyx_user_main" if fn.name == "main" else fn.name
+            preferred = "_rove_user_main" if fn.name == "main" else fn.name
             emitted = self._identifier(preferred)
             self.symbol_names[fn.symbol] = emitted
             self.function_map[fn.name] = fn
@@ -464,7 +464,7 @@ class C17ScalarEmitter:
             if expr.op in ("-", "+"):
                 if expr.expr.type.name in ("int", "int64"):
                     if expr.op == "-":
-                        return f"nyx_i64_neg({inner})"
+                        return f"rove_i64_neg({inner})"
                     return inner
                 return f"{expr.op}({inner})"
             if expr.op in ("!", "not"):
@@ -479,19 +479,19 @@ class C17ScalarEmitter:
             is_int = expr.left.type.name in ("int", "int64")
 
             if expr.op == "+":
-                return f"nyx_i64_add({left}, {right})" if is_int else f"({left} + {right})"
+                return f"rove_i64_add({left}, {right})" if is_int else f"({left} + {right})"
             if expr.op == "-":
-                return f"nyx_i64_sub({left}, {right})" if is_int else f"({left} - {right})"
+                return f"rove_i64_sub({left}, {right})" if is_int else f"({left} - {right})"
             if expr.op == "*":
-                return f"nyx_i64_mul({left}, {right})" if is_int else f"({left} * {right})"
+                return f"rove_i64_mul({left}, {right})" if is_int else f"({left} * {right})"
             if expr.op == "/":
-                return f"nyx_i64_div({left}, {right})" if is_int else f"({left} / {right})"
+                return f"rove_i64_div({left}, {right})" if is_int else f"({left} / {right})"
             if expr.op == "%":
-                return f"nyx_i64_mod({left}, {right})" if is_int else f"fmod({left}, {right})"
+                return f"rove_i64_mod({left}, {right})" if is_int else f"fmod({left}, {right})"
             if expr.op == "<<":
-                return f"nyx_i64_shl({left}, {right})"
+                return f"rove_i64_shl({left}, {right})"
             if expr.op == ">>":
-                return f"nyx_i64_shr({left}, {right})"
+                return f"rove_i64_shr({left}, {right})"
             if expr.op in ("&", "|", "^"):
                 return f"({left} {expr.op} {right})"
             if expr.op in ("==", "!=", "<", "<=", ">", ">="):
@@ -513,14 +513,14 @@ class C17ScalarEmitter:
                 arg = expr.args[0]
                 arg_expr = self._emit_expr(arg)
                 if arg.type.name in ("int", "int64"):
-                    return f"nyx_print_i64({arg_expr})"
+                    return f"rove_print_i64({arg_expr})"
                 if arg.type.name in ("float", "float64"):
-                    return f"nyx_print_f64({arg_expr})"
+                    return f"rove_print_f64({arg_expr})"
                 if arg.type.name == "bool":
-                    return f"nyx_print_bool({arg_expr})"
+                    return f"rove_print_bool({arg_expr})"
                 if arg.type.name == "string":
-                    return f"nyx_print_str({arg_expr})"
-                return f"nyx_print_i64({arg_expr})"
+                    return f"rove_print_str({arg_expr})"
+                return f"rove_print_i64({arg_expr})"
 
             fn_name = self.symbol_names.get(expr.callee_symbol, self._identifier(expr.callee))
             arg_strs = [self._emit_expr(a) for a in expr.args]
@@ -543,7 +543,7 @@ class C17ScalarEmitter:
             name = base
         else:
             digest = hashlib.sha256(symbol.encode("utf-8")).hexdigest()[:8]
-            name = f"{base}__nyx_{digest}"
+            name = f"{base}__rove_{digest}"
         self.symbol_names[symbol] = name
         return name
 
@@ -551,7 +551,7 @@ class C17ScalarEmitter:
     def _identifier(name: str) -> str:
         clean = _IDENTIFIER_CHARS.sub("_", name)
         if not clean:
-            clean = "_nyx_var"
+            clean = "_rove_var"
         if clean[0].isdigit():
             clean = "_" + clean
         if clean in _C17_RESERVED:

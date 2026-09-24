@@ -1,4 +1,4 @@
-"""Executable WebAssembly emitter for the legalized integer/control MIR pilot."""
+"""Executable WebAssembly emitter for the legalized MIR pilot."""
 
 from __future__ import annotations
 
@@ -102,7 +102,7 @@ class _WasmEmitter:
             Instruction("i32.and"),
         ]
         divide = FunctionIR(
-            "__nyx_mir_div", [("left", I64), ("right", I64)], I64,
+            "__rove_mir_div", [("left", I64), ("right", I64)], I64,
             body=common + [
                 Instruction("if_result", I64), Instruction("i64.const", minimum), Instruction("else"),
                 Instruction("local.get", "left"), Instruction("local.get", "right"),
@@ -110,7 +110,7 @@ class _WasmEmitter:
             ], export=False,
         )
         remainder = FunctionIR(
-            "__nyx_mir_rem", [("left", I64), ("right", I64)], I64,
+            "__rove_mir_rem", [("left", I64), ("right", I64)], I64,
             body=common + [
                 Instruction("if_result", I64), Instruction("i64.const", 0), Instruction("else"),
                 Instruction("local.get", "left"), Instruction("local.get", "right"),
@@ -179,9 +179,9 @@ class _WasmEmitter:
                 Instruction("i32.add"), Instruction("local.tee", "total"),
                 Instruction("i32.const", 0), Instruction("i32.lt_s"),
                 Instruction("if"), Instruction("unreachable"), Instruction("end"),
-                Instruction("i32.const", 12), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("i32.const", 12), Instruction("call", "__rove_mir_alloc"),
                 Instruction("local.set", "descriptor"),
-                Instruction("local.get", "total"), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.get", "total"), Instruction("call", "__rove_mir_alloc"),
                 Instruction("local.set", "data"),
                 Instruction("local.get", "descriptor"), Instruction("local.get", "data"),
                 Instruction("i32.store"),
@@ -207,7 +207,7 @@ class _WasmEmitter:
     @staticmethod
     def _array_runtime() -> list[FunctionIR]:
         alloc = FunctionIR(
-            "__nyx_mir_alloc", [("size", I32)], I32,
+            "__rove_mir_alloc", [("size", I32)], I32,
             locals=[("old_ptr", I32), ("new_ptr", I32), ("current_bytes", I32), ("pages", I32)],
             body=[
                 Instruction("local.get", "size"), Instruction("i32.const", 0), Instruction("i32.le_s"),
@@ -231,7 +231,7 @@ class _WasmEmitter:
             export=False,
         )
         clone = FunctionIR(
-            "__nyx_mir_array_clone_i64", [("desc", I32)], I32,
+            "__rove_mir_array_clone_i64", [("desc", I32)], I32,
             locals=[("new_desc", I32), ("new_data", I32), ("len", I32), ("bytes", I32)],
             body=[
                 Instruction("local.get", "desc"), Instruction("i32.eqz"), Instruction("if"),
@@ -239,9 +239,9 @@ class _WasmEmitter:
                 Instruction("local.get", "desc"), Instruction("i32.const", 4), Instruction("i32.add"),
                 Instruction("i32.load"), Instruction("local.tee", "len"), Instruction("i32.const", 8),
                 Instruction("i32.mul"), Instruction("local.set", "bytes"),
-                Instruction("i32.const", 12), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("i32.const", 12), Instruction("call", "__rove_mir_alloc"),
                 Instruction("local.set", "new_desc"),
-                Instruction("local.get", "bytes"), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.get", "bytes"), Instruction("call", "__rove_mir_alloc"),
                 Instruction("local.set", "new_data"),
                 Instruction("local.get", "new_data"), Instruction("local.get", "desc"),
                 Instruction("i32.load"), Instruction("local.get", "bytes"), Instruction("memory.copy"),
@@ -256,7 +256,7 @@ class _WasmEmitter:
             export=False,
         )
         clone_i32 = FunctionIR(
-            "__nyx_mir_array_clone_i32", [("desc", I32)], I32,
+            "__rove_mir_array_clone_i32", [("desc", I32)], I32,
             locals=[("new_desc", I32), ("new_data", I32), ("len", I32), ("bytes", I32)],
             body=[
                 Instruction("local.get", "desc"), Instruction("i32.eqz"), Instruction("if"),
@@ -264,9 +264,9 @@ class _WasmEmitter:
                 Instruction("local.get", "desc"), Instruction("i32.const", 4), Instruction("i32.add"),
                 Instruction("i32.load"), Instruction("local.tee", "len"), Instruction("i32.const", 4),
                 Instruction("i32.mul"), Instruction("local.set", "bytes"),
-                Instruction("i32.const", 12), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("i32.const", 12), Instruction("call", "__rove_mir_alloc"),
                 Instruction("local.set", "new_desc"),
-                Instruction("local.get", "bytes"), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.get", "bytes"), Instruction("call", "__rove_mir_alloc"),
                 Instruction("local.set", "new_data"),
                 Instruction("local.get", "new_data"), Instruction("local.get", "desc"),
                 Instruction("i32.load"), Instruction("local.get", "bytes"), Instruction("memory.copy"),
@@ -281,7 +281,7 @@ class _WasmEmitter:
             export=False,
         )
         clone_string = FunctionIR(
-            "__nyx_mir_array_clone_string", [("desc", I32)], I32,
+            "__rove_mir_array_clone_string", [("desc", I32)], I32,
             locals=[("new_desc", I32), ("new_data", I32), ("len", I32), ("bytes", I32)],
             body=[
                 Instruction("local.get", "desc"), Instruction("i32.eqz"), Instruction("if"),
@@ -289,9 +289,9 @@ class _WasmEmitter:
                 Instruction("local.get", "desc"), Instruction("i32.const", 4), Instruction("i32.add"),
                 Instruction("i32.load"), Instruction("local.tee", "len"), Instruction("i32.const", 12),
                 Instruction("i32.mul"), Instruction("local.set", "bytes"),
-                Instruction("i32.const", 12), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("i32.const", 12), Instruction("call", "__rove_mir_alloc"),
                 Instruction("local.set", "new_desc"),
-                Instruction("local.get", "bytes"), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.get", "bytes"), Instruction("call", "__rove_mir_alloc"),
                 Instruction("local.set", "new_data"),
                 Instruction("local.get", "new_data"), Instruction("local.get", "desc"),
                 Instruction("i32.load"), Instruction("local.get", "bytes"), Instruction("memory.copy"),
@@ -306,7 +306,7 @@ class _WasmEmitter:
             export=False,
         )
         clone_blob = FunctionIR(
-            "__nyx_mir_array_clone_blob", [("desc", I32), ("element_size", I32)], I32,
+            "__rove_mir_array_clone_blob", [("desc", I32), ("element_size", I32)], I32,
             locals=[("new_desc", I32), ("new_data", I32), ("len", I32), ("bytes", I32)],
             body=[
                 Instruction("local.get", "desc"), Instruction("i32.eqz"), Instruction("if"),
@@ -315,9 +315,9 @@ class _WasmEmitter:
                 Instruction("i32.load"), Instruction("local.tee", "len"),
                 Instruction("local.get", "element_size"), Instruction("i32.mul"),
                 Instruction("local.set", "bytes"),
-                Instruction("i32.const", 12), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("i32.const", 12), Instruction("call", "__rove_mir_alloc"),
                 Instruction("local.set", "new_desc"),
-                Instruction("local.get", "bytes"), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.get", "bytes"), Instruction("call", "__rove_mir_alloc"),
                 Instruction("local.set", "new_data"),
                 Instruction("local.get", "new_data"), Instruction("local.get", "desc"),
                 Instruction("i32.load"), Instruction("local.get", "bytes"), Instruction("memory.copy"),
@@ -332,7 +332,7 @@ class _WasmEmitter:
             export=False,
         )
         clone_nested_i64 = FunctionIR(
-            "__nyx_mir_array_clone_nested_i64", [("desc", I32)], I32,
+            "__rove_mir_array_clone_nested_i64", [("desc", I32)], I32,
             locals=[
                 ("new_desc", I32), ("new_data", I32), ("len", I32),
                 ("bytes", I32), ("i", I32), ("source_element", I32),
@@ -344,9 +344,9 @@ class _WasmEmitter:
                 Instruction("local.get", "desc"), Instruction("i32.const", 4), Instruction("i32.add"),
                 Instruction("i32.load"), Instruction("local.tee", "len"), Instruction("i32.const", 12),
                 Instruction("i32.mul"), Instruction("local.set", "bytes"),
-                Instruction("i32.const", 12), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("i32.const", 12), Instruction("call", "__rove_mir_alloc"),
                 Instruction("local.set", "new_desc"),
-                Instruction("local.get", "bytes"), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.get", "bytes"), Instruction("call", "__rove_mir_alloc"),
                 Instruction("local.set", "new_data"),
                 Instruction("local.get", "new_desc"), Instruction("local.get", "new_data"),
                 Instruction("i32.store"),
@@ -363,7 +363,7 @@ class _WasmEmitter:
                 Instruction("local.get", "i"), Instruction("i32.const", 12),
                 Instruction("i32.mul"), Instruction("i32.add"),
                 Instruction("local.tee", "source_element"),
-                Instruction("call", "__nyx_mir_array_clone_i64"),
+                Instruction("call", "__rove_mir_array_clone_i64"),
                 Instruction("local.set", "cloned_element"),
                 Instruction("local.get", "new_data"), Instruction("local.get", "i"),
                 Instruction("i32.const", 12), Instruction("i32.mul"), Instruction("i32.add"),
@@ -377,7 +377,7 @@ class _WasmEmitter:
             export=False,
         )
         clone_nested_i32 = FunctionIR(
-            "__nyx_mir_array_clone_nested_i32", [("desc", I32)], I32,
+            "__rove_mir_array_clone_nested_i32", [("desc", I32)], I32,
             locals=[
                 ("new_desc", I32), ("new_data", I32), ("len", I32),
                 ("bytes", I32), ("i", I32), ("source_element", I32),
@@ -389,9 +389,9 @@ class _WasmEmitter:
                 Instruction("local.get", "desc"), Instruction("i32.const", 4), Instruction("i32.add"),
                 Instruction("i32.load"), Instruction("local.tee", "len"), Instruction("i32.const", 12),
                 Instruction("i32.mul"), Instruction("local.set", "bytes"),
-                Instruction("i32.const", 12), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("i32.const", 12), Instruction("call", "__rove_mir_alloc"),
                 Instruction("local.set", "new_desc"),
-                Instruction("local.get", "bytes"), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.get", "bytes"), Instruction("call", "__rove_mir_alloc"),
                 Instruction("local.set", "new_data"),
                 Instruction("local.get", "new_desc"), Instruction("local.get", "new_data"),
                 Instruction("i32.store"),
@@ -408,7 +408,7 @@ class _WasmEmitter:
                 Instruction("local.get", "i"), Instruction("i32.const", 12),
                 Instruction("i32.mul"), Instruction("i32.add"),
                 Instruction("local.tee", "source_element"),
-                Instruction("call", "__nyx_mir_array_clone_i32"),
+                Instruction("call", "__rove_mir_array_clone_i32"),
                 Instruction("local.set", "cloned_element"),
                 Instruction("local.get", "new_data"), Instruction("local.get", "i"),
                 Instruction("i32.const", 12), Instruction("i32.mul"), Instruction("i32.add"),
@@ -422,7 +422,7 @@ class _WasmEmitter:
             export=False,
         )
         clone_nested_string = FunctionIR(
-            "__nyx_mir_array_clone_nested_string", [("desc", I32)], I32,
+            "__rove_mir_array_clone_nested_string", [("desc", I32)], I32,
             locals=[
                 ("new_desc", I32), ("new_data", I32), ("len", I32),
                 ("bytes", I32), ("i", I32), ("source_element", I32),
@@ -434,9 +434,9 @@ class _WasmEmitter:
                 Instruction("local.get", "desc"), Instruction("i32.const", 4), Instruction("i32.add"),
                 Instruction("i32.load"), Instruction("local.tee", "len"), Instruction("i32.const", 12),
                 Instruction("i32.mul"), Instruction("local.set", "bytes"),
-                Instruction("i32.const", 12), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("i32.const", 12), Instruction("call", "__rove_mir_alloc"),
                 Instruction("local.set", "new_desc"),
-                Instruction("local.get", "bytes"), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.get", "bytes"), Instruction("call", "__rove_mir_alloc"),
                 Instruction("local.set", "new_data"),
                 Instruction("local.get", "new_desc"), Instruction("local.get", "new_data"),
                 Instruction("i32.store"),
@@ -453,7 +453,7 @@ class _WasmEmitter:
                 Instruction("local.get", "i"), Instruction("i32.const", 12),
                 Instruction("i32.mul"), Instruction("i32.add"),
                 Instruction("local.tee", "source_element"),
-                Instruction("call", "__nyx_mir_array_clone_string"),
+                Instruction("call", "__rove_mir_array_clone_string"),
                 Instruction("local.set", "cloned_element"),
                 Instruction("local.get", "new_data"), Instruction("local.get", "i"),
                 Instruction("i32.const", 12), Instruction("i32.mul"), Instruction("i32.add"),
@@ -467,7 +467,7 @@ class _WasmEmitter:
             export=False,
         )
         clone_nested_blob = FunctionIR(
-            "__nyx_mir_array_clone_nested_blob", [("desc", I32), ("element_size", I32)], I32,
+            "__rove_mir_array_clone_nested_blob", [("desc", I32), ("element_size", I32)], I32,
             locals=[
                 ("new_desc", I32), ("new_data", I32), ("len", I32),
                 ("bytes", I32), ("i", I32), ("source_element", I32),
@@ -479,9 +479,9 @@ class _WasmEmitter:
                 Instruction("local.get", "desc"), Instruction("i32.const", 4), Instruction("i32.add"),
                 Instruction("i32.load"), Instruction("local.tee", "len"), Instruction("i32.const", 12),
                 Instruction("i32.mul"), Instruction("local.set", "bytes"),
-                Instruction("i32.const", 12), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("i32.const", 12), Instruction("call", "__rove_mir_alloc"),
                 Instruction("local.set", "new_desc"),
-                Instruction("local.get", "bytes"), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.get", "bytes"), Instruction("call", "__rove_mir_alloc"),
                 Instruction("local.set", "new_data"),
                 Instruction("local.get", "new_desc"), Instruction("local.get", "new_data"),
                 Instruction("i32.store"),
@@ -499,7 +499,7 @@ class _WasmEmitter:
                 Instruction("i32.mul"), Instruction("i32.add"),
                 Instruction("local.tee", "source_element"),
                 Instruction("local.get", "element_size"),
-                Instruction("call", "__nyx_mir_array_clone_blob"),
+                Instruction("call", "__rove_mir_array_clone_blob"),
                 Instruction("local.set", "cloned_element"),
                 Instruction("local.get", "new_data"), Instruction("local.get", "i"),
                 Instruction("i32.const", 12), Instruction("i32.mul"), Instruction("i32.add"),
@@ -513,7 +513,7 @@ class _WasmEmitter:
             export=False,
         )
         get = FunctionIR(
-            "__nyx_mir_array_get_i64", [("desc", I32), ("index", I64)], I64,
+            "__rove_mir_array_get_i64", [("desc", I32), ("index", I64)], I64,
             body=[
                 Instruction("local.get", "desc"), Instruction("i32.eqz"),
                 Instruction("if"), Instruction("unreachable"), Instruction("end"),
@@ -530,7 +530,7 @@ class _WasmEmitter:
             export=False,
         )
         set_value = FunctionIR(
-            "__nyx_mir_array_set_i64", [("desc", I32), ("index", I64), ("value", I64)], VOID,
+            "__rove_mir_array_set_i64", [("desc", I32), ("index", I64), ("value", I64)], VOID,
             body=[
                 Instruction("local.get", "desc"), Instruction("i32.eqz"),
                 Instruction("if"), Instruction("unreachable"), Instruction("end"),
@@ -547,7 +547,7 @@ class _WasmEmitter:
             export=False,
         )
         get_i32 = FunctionIR(
-            "__nyx_mir_array_get_i32", [("desc", I32), ("index", I64)], I32,
+            "__rove_mir_array_get_i32", [("desc", I32), ("index", I64)], I32,
             body=[
                 Instruction("local.get", "desc"), Instruction("i32.eqz"),
                 Instruction("if"), Instruction("unreachable"), Instruction("end"),
@@ -564,16 +564,16 @@ class _WasmEmitter:
             export=False,
         )
         set_i32 = FunctionIR(
-            "__nyx_mir_array_set_i32", [("desc", I32), ("index", I64), ("value", I32)], VOID,
+            "__rove_mir_array_set_i32", [("desc", I32), ("index", I64), ("value", I32)], VOID,
             body=[
                 Instruction("local.get", "desc"), Instruction("local.get", "index"),
-                Instruction("i32.const", 4), Instruction("call", "__nyx_mir_array_get_blob"),
+                Instruction("i32.const", 4), Instruction("call", "__rove_mir_array_get_blob"),
                 Instruction("local.get", "value"), Instruction("i32.store"), Instruction("return"),
             ],
             export=False,
         )
         get_string = FunctionIR(
-            "__nyx_mir_array_get_string", [("desc", I32), ("index", I64)], I32,
+            "__rove_mir_array_get_string", [("desc", I32), ("index", I64)], I32,
             body=[
                 Instruction("local.get", "desc"), Instruction("i32.eqz"),
                 Instruction("if"), Instruction("unreachable"), Instruction("end"),
@@ -590,17 +590,17 @@ class _WasmEmitter:
             export=False,
         )
         set_string = FunctionIR(
-            "__nyx_mir_array_set_string", [("desc", I32), ("index", I64), ("value", I32)], VOID,
+            "__rove_mir_array_set_string", [("desc", I32), ("index", I64), ("value", I32)], VOID,
             body=[
                 Instruction("local.get", "desc"), Instruction("local.get", "index"),
-                Instruction("call", "__nyx_mir_array_get_string"),
+                Instruction("call", "__rove_mir_array_get_string"),
                 Instruction("local.get", "value"), Instruction("i32.const", 12),
                 Instruction("memory.copy"), Instruction("return"),
             ],
             export=False,
         )
         get_blob = FunctionIR(
-            "__nyx_mir_array_get_blob", [("desc", I32), ("index", I64), ("element_size", I32)], I32,
+            "__rove_mir_array_get_blob", [("desc", I32), ("index", I64), ("element_size", I32)], I32,
             body=[
                 Instruction("local.get", "desc"), Instruction("i32.eqz"),
                 Instruction("if"), Instruction("unreachable"), Instruction("end"),
@@ -617,23 +617,23 @@ class _WasmEmitter:
             export=False,
         )
         set_blob = FunctionIR(
-            "__nyx_mir_array_set_blob",
+            "__rove_mir_array_set_blob",
             [("desc", I32), ("index", I64), ("value", I32), ("element_size", I32)], VOID,
             body=[
                 Instruction("local.get", "desc"), Instruction("local.get", "index"),
-                Instruction("local.get", "element_size"), Instruction("call", "__nyx_mir_array_get_blob"),
+                Instruction("local.get", "element_size"), Instruction("call", "__rove_mir_array_get_blob"),
                 Instruction("local.get", "value"), Instruction("local.get", "element_size"),
                 Instruction("memory.copy"), Instruction("return"),
             ],
             export=False,
         )
         clone_bytes = FunctionIR(
-            "__nyx_mir_clone_bytes", [("ptr", I32), ("size", I32)], I32,
+            "__rove_mir_clone_bytes", [("ptr", I32), ("size", I32)], I32,
             locals=[("new_ptr", I32)],
             body=[
                 Instruction("local.get", "ptr"), Instruction("i32.eqz"), Instruction("if"),
                 Instruction("i32.const", 0), Instruction("return"), Instruction("end"),
-                Instruction("local.get", "size"), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.get", "size"), Instruction("call", "__rove_mir_alloc"),
                 Instruction("local.tee", "new_ptr"), Instruction("local.get", "ptr"),
                 Instruction("local.get", "size"), Instruction("memory.copy"),
                 Instruction("local.get", "new_ptr"), Instruction("return"),
@@ -664,11 +664,11 @@ class _WasmEmitter:
         ]
         locals_.append(("pc", I32))
         if any(local.type.name == "Array" for local in function.locals):
-            locals_.extend((("__nyx_array_desc", I32), ("__nyx_array_data", I32)))
+            locals_.extend((("__rove_array_desc", I32), ("__rove_array_data", I32)))
         if any(self._is_memory_aggregate(local.type) for local in function.locals):
-            locals_.append(("__nyx_struct_ptr", I32))
+            locals_.append(("__rove_struct_ptr", I32))
         if any(self._is_result_compatible(local.type) for local in function.locals):
-            locals_.append(("__nyx_cast_source", I32))
+            locals_.append(("__rove_cast_source", I32))
         body = [Instruction("i32.const", function.blocks[0].id), Instruction("local.set", "pc")]
         body.extend((Instruction("block", "function_exit"), Instruction("loop", "dispatch")))
         for block in function.blocks:
@@ -708,7 +708,7 @@ class _WasmEmitter:
                     if element_type.name in ("float", "f64"):
                         body.extend((
                             Instruction("i32.const", 8),
-                            Instruction("call", "__nyx_mir_array_get_blob"),
+                            Instruction("call", "__rove_mir_array_get_blob"),
                         ))
                         body.extend(self._rvalue(statement.value))
                         body.append(Instruction("f64.store"))
@@ -716,17 +716,17 @@ class _WasmEmitter:
                     body.extend(self._rvalue(statement.value))
                     if element_type.name in self.structs:
                         body.append(Instruction("i32.const", self.layouts.layout_of(element_type).size))
-                        helper = "__nyx_mir_array_set_blob"
+                        helper = "__rove_mir_array_set_blob"
                     elif element_type.name == "Array":
                         body.append(Instruction("i32.const", 12))
-                        helper = "__nyx_mir_array_set_blob"
+                        helper = "__rove_mir_array_set_blob"
                     else:
                         if element_type == MIRType("string"):
-                            helper = "__nyx_mir_array_set_string"
+                            helper = "__rove_mir_array_set_string"
                         elif element_type == MIRType("bool"):
-                            helper = "__nyx_mir_array_set_i32"
+                            helper = "__rove_mir_array_set_i32"
                         else:
-                            helper = "__nyx_mir_array_set_i64"
+                            helper = "__rove_mir_array_set_i64"
                     body.append(Instruction("call", helper))
                     return
                 body.extend(self._field_address(statement.place))
@@ -855,7 +855,7 @@ class _WasmEmitter:
                 body.extend(self._array_place(place))
                 if element_type == MIRType("string"):
                     body.extend((
-                        Instruction("call", "__nyx_mir_array_get_string"),
+                        Instruction("call", "__rove_mir_array_get_string"),
                         Instruction("i32.const", 0),
                         Instruction("i32.const", 12),
                         Instruction("memory.fill"),
@@ -865,7 +865,7 @@ class _WasmEmitter:
                     size = self.layouts.layout_of(element_type).size
                     body.extend((
                         Instruction("i32.const", size),
-                        Instruction("call", "__nyx_mir_array_get_blob"),
+                        Instruction("call", "__rove_mir_array_get_blob"),
                         Instruction("i32.const", 0),
                         Instruction("i32.const", size),
                         Instruction("memory.fill"),
@@ -874,7 +874,7 @@ class _WasmEmitter:
                 if element_type.name == "Array":
                     body.extend((
                         Instruction("i32.const", 12),
-                        Instruction("call", "__nyx_mir_array_get_blob"),
+                        Instruction("call", "__rove_mir_array_get_blob"),
                         Instruction("i32.const", 0),
                         Instruction("i32.const", 12),
                         Instruction("memory.fill"),
@@ -883,19 +883,19 @@ class _WasmEmitter:
                 if element_type == MIRType("bool"):
                     body.extend((
                         Instruction("i32.const", 0),
-                        Instruction("call", "__nyx_mir_array_set_i32"),
+                        Instruction("call", "__rove_mir_array_set_i32"),
                     ))
                     return
                 if element_type == MIRType("int"):
                     body.extend((
                         Instruction("i64.const", 0),
-                        Instruction("call", "__nyx_mir_array_set_i64"),
+                        Instruction("call", "__rove_mir_array_set_i64"),
                     ))
                     return
                 if element_type.name in ("float", "f64"):
                     body.extend((
                         Instruction("i32.const", 8),
-                        Instruction("call", "__nyx_mir_array_get_blob"),
+                        Instruction("call", "__rove_mir_array_get_blob"),
                         Instruction("f64.const", 0.0), Instruction("f64.store"),
                     ))
                     return
@@ -982,18 +982,18 @@ class _WasmEmitter:
                     target_layout.size - target_layout.payload_offset,
                 )
                 return self._operand(value.operand) + [
-                    Instruction("local.set", "__nyx_cast_source"),
-                    Instruction("i32.const", target_layout.size), Instruction("call", "__nyx_mir_alloc"),
-                    Instruction("local.set", "__nyx_struct_ptr"),
-                    Instruction("local.get", "__nyx_struct_ptr"),
-                    Instruction("local.get", "__nyx_cast_source"), Instruction("i32.load"),
+                    Instruction("local.set", "__rove_cast_source"),
+                    Instruction("i32.const", target_layout.size), Instruction("call", "__rove_mir_alloc"),
+                    Instruction("local.set", "__rove_struct_ptr"),
+                    Instruction("local.get", "__rove_struct_ptr"),
+                    Instruction("local.get", "__rove_cast_source"), Instruction("i32.load"),
                     Instruction("i32.store"),
-                    Instruction("local.get", "__nyx_struct_ptr"),
+                    Instruction("local.get", "__rove_struct_ptr"),
                     Instruction("i32.const", target_layout.payload_offset), Instruction("i32.add"),
-                    Instruction("local.get", "__nyx_cast_source"),
+                    Instruction("local.get", "__rove_cast_source"),
                     Instruction("i32.const", source_layout.payload_offset), Instruction("i32.add"),
                     Instruction("i32.const", copy_bytes), Instruction("memory.copy"),
-                    Instruction("local.get", "__nyx_struct_ptr"),
+                    Instruction("local.get", "__rove_struct_ptr"),
                 ]
             raise MIRCodegenError(f"Wasm MIR cast '{source_type}' -> '{value.type}' is not legalized")
         if isinstance(value, AggregateRValue):
@@ -1020,9 +1020,9 @@ class _WasmEmitter:
                     raise MIRCodegenError(f"Wasm MIR enum payload arity mismatch for '{value.name}'")
                 layout = self.layouts.layout_of(value.type)
                 output = [
-                    Instruction("i32.const", layout.size), Instruction("call", "__nyx_mir_alloc"),
-                    Instruction("local.set", "__nyx_struct_ptr"),
-                    Instruction("local.get", "__nyx_struct_ptr"),
+                    Instruction("i32.const", layout.size), Instruction("call", "__rove_mir_alloc"),
+                    Instruction("local.set", "__rove_struct_ptr"),
+                    Instruction("local.get", "__rove_struct_ptr"),
                     Instruction("i32.const", variant_index), Instruction("i32.store"),
                 ]
                 for index, (payload_type, operand) in enumerate(zip(payload_types, value.operands)):
@@ -1052,7 +1052,7 @@ class _WasmEmitter:
                         )
                     payload_offset = layout.payload_offset + (index * 8 if value.kind == "enum" else 0)
                     output.extend((
-                        Instruction("local.get", "__nyx_struct_ptr"),
+                        Instruction("local.get", "__rove_struct_ptr"),
                         Instruction("i32.const", payload_offset),
                         Instruction("i32.add"),
                     ))
@@ -1064,7 +1064,7 @@ class _WasmEmitter:
                         ))
                     else:
                         output.append(Instruction(self._store_instruction(payload_type)))
-                output.append(Instruction("local.get", "__nyx_struct_ptr"))
+                output.append(Instruction("local.get", "__rove_struct_ptr"))
                 return output
             if value.kind == "struct":
                 definition = self.structs.get(value.type.name)
@@ -1073,8 +1073,8 @@ class _WasmEmitter:
                 layout = self.layouts.layout_of(value.type)
                 fields = value.fields or tuple(field.name for field in definition.fields)
                 output = [
-                    Instruction("i32.const", layout.size), Instruction("call", "__nyx_mir_alloc"),
-                    Instruction("local.set", "__nyx_struct_ptr"),
+                    Instruction("i32.const", layout.size), Instruction("call", "__rove_mir_alloc"),
+                    Instruction("local.set", "__rove_struct_ptr"),
                 ]
                 for name, operand in zip(fields, value.operands):
                     field = next((item for item in layout.fields if item.name == name), None)
@@ -1089,7 +1089,7 @@ class _WasmEmitter:
                             f"Wasm MIR struct field '{value.type.name}.{name}' is not int, bool, float, string, or struct"
                         )
                     output.extend((
-                        Instruction("local.get", "__nyx_struct_ptr"),
+                        Instruction("local.get", "__rove_struct_ptr"),
                         Instruction("i32.const", field.offset), Instruction("i32.add"),
                     ))
                     output.extend(self._operand(operand))
@@ -1100,7 +1100,7 @@ class _WasmEmitter:
                         ))
                     else:
                         output.append(Instruction(self._store_instruction(field.type)))
-                output.append(Instruction("local.get", "__nyx_struct_ptr"))
+                output.append(Instruction("local.get", "__rove_struct_ptr"))
                 return output
             if value.kind != "array" or value.type.name != "Array" or len(value.type.arguments) != 1:
                 raise MIRCodegenError("Wasm MIR aggregate pilot requires Array<T>")
@@ -1130,22 +1130,22 @@ class _WasmEmitter:
                     "Wasm MIR aggregate pilot supports primitive, struct, and Array<Array<int>> values"
                 )
             output = [
-                Instruction("i32.const", 12), Instruction("call", "__nyx_mir_alloc"),
-                Instruction("local.set", "__nyx_array_desc"),
+                Instruction("i32.const", 12), Instruction("call", "__rove_mir_alloc"),
+                Instruction("local.set", "__rove_array_desc"),
                 Instruction("i32.const", len(value.operands) * element_size),
-                Instruction("call", "__nyx_mir_alloc"), Instruction("local.set", "__nyx_array_data"),
-                Instruction("local.get", "__nyx_array_desc"),
-                Instruction("local.get", "__nyx_array_data"), Instruction("i32.store"),
+                Instruction("call", "__rove_mir_alloc"), Instruction("local.set", "__rove_array_data"),
+                Instruction("local.get", "__rove_array_desc"),
+                Instruction("local.get", "__rove_array_data"), Instruction("i32.store"),
             ]
             for offset in (4, 8):
                 output.extend((
-                    Instruction("local.get", "__nyx_array_desc"), Instruction("i32.const", offset),
+                    Instruction("local.get", "__rove_array_desc"), Instruction("i32.const", offset),
                     Instruction("i32.add"), Instruction("i32.const", len(value.operands)),
                     Instruction("i32.store"),
                 ))
             for index, operand in enumerate(value.operands):
                 output.extend((
-                    Instruction("local.get", "__nyx_array_data"),
+                    Instruction("local.get", "__rove_array_data"),
                     Instruction("i32.const", index * element_size), Instruction("i32.add"),
                 ))
                 output.extend(self._operand(operand))
@@ -1161,7 +1161,7 @@ class _WasmEmitter:
                     output.append(Instruction("f64.store"))
                 else:
                     output.append(Instruction("i64.store"))
-            output.append(Instruction("local.get", "__nyx_array_desc"))
+            output.append(Instruction("local.get", "__rove_array_desc"))
             return output
         if isinstance(value, DiscriminantRValue):
             return self._aggregate_subject(value.operand) + [Instruction("i32.load")]
@@ -1202,7 +1202,7 @@ class _WasmEmitter:
             if value.type.name in self.structs:
                 return address + [
                     Instruction("i32.const", self.layouts.layout_of(value.type).size),
-                    Instruction("call", "__nyx_mir_clone_bytes"),
+                    Instruction("call", "__rove_mir_clone_bytes"),
                 ]
             return address + [Instruction(self._load_instruction(value.type))]
         if isinstance(value, BinaryRValue):
@@ -1243,7 +1243,7 @@ class _WasmEmitter:
             }
             operation = operations.get(value.op)
             if value.op in ("/", "%"):
-                helper = "__nyx_mir_div" if value.op == "/" else "__nyx_mir_rem"
+                helper = "__rove_mir_div" if value.op == "/" else "__rove_mir_rem"
                 return self._operand(value.left) + self._operand(value.right) + [Instruction("call", helper)]
             if operation is None:
                 raise MIRCodegenError(f"unsupported WebAssembly binary operation '{value.op}'")
@@ -1287,49 +1287,49 @@ class _WasmEmitter:
                     if element_type.name in self.structs:
                         output.extend((
                             Instruction("i32.const", self.layouts.layout_of(element_type).size),
-                            Instruction("call", "__nyx_mir_array_get_blob"),
+                            Instruction("call", "__rove_mir_array_get_blob"),
                         ))
                         if isinstance(value, CopyOperand):
                             output.extend((
                                 Instruction("i32.const", self.layouts.layout_of(element_type).size),
-                                Instruction("call", "__nyx_mir_clone_bytes"),
+                                Instruction("call", "__rove_mir_clone_bytes"),
                             ))
                         return output
                     if element_type.name == "Array":
                         output.extend((
                             Instruction("i32.const", 12),
-                            Instruction("call", "__nyx_mir_array_get_blob"),
+                            Instruction("call", "__rove_mir_array_get_blob"),
                         ))
                         if isinstance(value, CopyOperand):
                             inner_type = element_type.arguments[0]
                             if inner_type == MIRType("string"):
-                                helper = "__nyx_mir_array_clone_string"
+                                helper = "__rove_mir_array_clone_string"
                             elif inner_type == MIRType("bool"):
-                                helper = "__nyx_mir_array_clone_i32"
+                                helper = "__rove_mir_array_clone_i32"
                             elif inner_type.name in self.structs:
                                 output.append(Instruction(
                                     "i32.const", self.layouts.layout_of(inner_type).size
                                 ))
-                                helper = "__nyx_mir_array_clone_blob"
+                                helper = "__rove_mir_array_clone_blob"
                             elif inner_type.name in ("float", "f64"):
                                 output.append(Instruction("i32.const", 8))
-                                helper = "__nyx_mir_array_clone_blob"
+                                helper = "__rove_mir_array_clone_blob"
                             else:
-                                helper = "__nyx_mir_array_clone_i64"
+                                helper = "__rove_mir_array_clone_i64"
                             output.append(Instruction("call", helper))
                         return output
                     if element_type == MIRType("string"):
-                        helper = "__nyx_mir_array_get_string"
+                        helper = "__rove_mir_array_get_string"
                     elif element_type == MIRType("bool"):
-                        helper = "__nyx_mir_array_get_i32"
+                        helper = "__rove_mir_array_get_i32"
                     elif element_type.name in ("float", "f64"):
                         return output + [
                             Instruction("i32.const", 8),
-                            Instruction("call", "__nyx_mir_array_get_blob"),
+                            Instruction("call", "__rove_mir_array_get_blob"),
                             Instruction("f64.load"),
                         ]
                     else:
-                        helper = "__nyx_mir_array_get_i64"
+                        helper = "__rove_mir_array_get_i64"
                     return output + [Instruction("call", helper)]
                 field_type = self._place_type(value.place)
                 address = self._field_address(value.place)
@@ -1342,33 +1342,33 @@ class _WasmEmitter:
                 element_type = local_type.arguments[0]
                 if element_type.name in self.structs:
                     output.append(Instruction("i32.const", self.layouts.layout_of(element_type).size))
-                    helper = "__nyx_mir_array_clone_blob"
+                    helper = "__rove_mir_array_clone_blob"
                 elif element_type.name in ("float", "f64"):
                     output.append(Instruction("i32.const", 8))
-                    helper = "__nyx_mir_array_clone_blob"
+                    helper = "__rove_mir_array_clone_blob"
                 elif element_type.name == "Array":
                     inner_type = element_type.arguments[0]
                     if inner_type == MIRType("string"):
-                        helper = "__nyx_mir_array_clone_nested_string"
+                        helper = "__rove_mir_array_clone_nested_string"
                     elif inner_type == MIRType("bool"):
-                        helper = "__nyx_mir_array_clone_nested_i32"
+                        helper = "__rove_mir_array_clone_nested_i32"
                     elif inner_type.name in self.structs:
                         output.append(Instruction(
                             "i32.const", self.layouts.layout_of(inner_type).size
                         ))
-                        helper = "__nyx_mir_array_clone_nested_blob"
+                        helper = "__rove_mir_array_clone_nested_blob"
                     elif inner_type.name in ("float", "f64"):
                         output.append(Instruction("i32.const", 8))
-                        helper = "__nyx_mir_array_clone_nested_blob"
+                        helper = "__rove_mir_array_clone_nested_blob"
                     else:
-                        helper = "__nyx_mir_array_clone_nested_i64"
+                        helper = "__rove_mir_array_clone_nested_i64"
                 else:
                     if element_type == MIRType("string"):
-                        helper = "__nyx_mir_array_clone_string"
+                        helper = "__rove_mir_array_clone_string"
                     elif element_type == MIRType("bool"):
-                        helper = "__nyx_mir_array_clone_i32"
+                        helper = "__rove_mir_array_clone_i32"
                     else:
-                        helper = "__nyx_mir_array_clone_i64"
+                        helper = "__rove_mir_array_clone_i64"
                 output.append(Instruction("call", helper))
             elif local_type.name == "Array" and isinstance(value, MoveOperand):
                 output.extend((
@@ -1379,7 +1379,7 @@ class _WasmEmitter:
                 if isinstance(value, CopyOperand):
                     output.extend((
                         Instruction("i32.const", self.layouts.layout_of(local_type).size),
-                        Instruction("call", "__nyx_mir_clone_bytes"),
+                        Instruction("call", "__rove_mir_clone_bytes"),
                     ))
                 else:
                     output.extend((
@@ -1489,7 +1489,7 @@ class _WasmEmitter:
             if index + 1 < len(place.projections):
                 if value_type.name != "Array":
                     raise MIRCodegenError("Wasm MIR nested index requires an inner Array<T>")
-                output.extend((Instruction("i32.const", 12), Instruction("call", "__nyx_mir_array_get_blob")))
+                output.extend((Instruction("i32.const", 12), Instruction("call", "__rove_mir_array_get_blob")))
         return output
 
     def _field_address(self, place: Place) -> list[Instruction]:

@@ -1,4 +1,4 @@
-// nyx Standard Library: std/terminal
+// Rove Standard Library: std/terminal
 // Terminal, cursor control, screen clearing, and non-blocking keyboard input.
 #target cpp
 
@@ -17,7 +17,7 @@
 #include <cstdio>
 #endif
 
-inline void _nyx_term_clear_screen() {
+inline void _rove_term_clear_screen() {
 #if defined(_WIN32)
     system("cls");
 #else
@@ -25,7 +25,7 @@ inline void _nyx_term_clear_screen() {
 #endif
 }
 
-inline void _nyx_term_cursor_reset() {
+inline void _rove_term_cursor_reset() {
 #if defined(_WIN32)
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
     COORD coord = {0, 0};
@@ -35,7 +35,7 @@ inline void _nyx_term_cursor_reset() {
 #endif
 }
 
-inline void _nyx_term_cursor_move(int64_t col, int64_t row) {
+inline void _rove_term_cursor_move(int64_t col, int64_t row) {
 #if defined(_WIN32)
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
     COORD coord = {static_cast<SHORT>(col), static_cast<SHORT>(row)};
@@ -45,7 +45,7 @@ inline void _nyx_term_cursor_move(int64_t col, int64_t row) {
 #endif
 }
 
-inline void _nyx_term_set_cursor_visible(bool visible) {
+inline void _rove_term_set_cursor_visible(bool visible) {
 #if defined(_WIN32)
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
     CONSOLE_CURSOR_INFO cursorInfo;
@@ -62,7 +62,7 @@ inline void _nyx_term_set_cursor_visible(bool visible) {
 #endif
 }
 
-inline bool _nyx_term_key_available() {
+inline bool _rove_term_key_available() {
 #if defined(_WIN32)
     return _kbhit() != 0;
 #else
@@ -74,7 +74,7 @@ inline bool _nyx_term_key_available() {
 #endif
 }
 
-inline int64_t _nyx_term_read_key() {
+inline int64_t _rove_term_read_key() {
 #if defined(_WIN32)
     return static_cast<int64_t>(_getch());
 #else
@@ -90,34 +90,34 @@ inline int64_t _nyx_term_read_key() {
 }
 }
 
-extern "C++" fn _nyx_term_clear_screen() -> void
-extern "C++" fn _nyx_term_cursor_reset() -> void
-extern "C++" fn _nyx_term_cursor_move(col: int, row: int) -> void
-extern "C++" fn _nyx_term_set_cursor_visible(visible: bool) -> void
-extern "C++" fn _nyx_term_key_available() -> bool
-extern "C++" fn _nyx_term_read_key() -> int
+extern "C++" fn _rove_term_clear_screen() -> void
+extern "C++" fn _rove_term_cursor_reset() -> void
+extern "C++" fn _rove_term_cursor_move(col: int, row: int) -> void
+extern "C++" fn _rove_term_set_cursor_visible(visible: bool) -> void
+extern "C++" fn _rove_term_key_available() -> bool
+extern "C++" fn _rove_term_read_key() -> int
 
 // Public standard library API:
 fn clear_screen() {
-    _nyx_term_clear_screen()
+    _rove_term_clear_screen()
 }
 
 fn cursor_reset() {
-    _nyx_term_cursor_reset()
+    _rove_term_cursor_reset()
 }
 
 fn cursor_move(col: int, row: int) {
-    _nyx_term_cursor_move(col, row)
+    _rove_term_cursor_move(col, row)
 }
 
 fn set_cursor_visible(visible: bool) {
-    _nyx_term_set_cursor_visible(visible)
+    _rove_term_set_cursor_visible(visible)
 }
 
 fn key_available() -> bool {
-    return _nyx_term_key_available()
+    return _rove_term_key_available()
 }
 
 fn read_key() -> int {
-    return _nyx_term_read_key()
+    return _rove_term_read_key()
 }

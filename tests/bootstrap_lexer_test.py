@@ -114,14 +114,14 @@ def run_bootstrap_lexer_test() -> bool:
     print("NYX SELF-HOST LEXER EXACT TYPE+VALUE PARITY")
     print("=" * 70)
 
-    lexer_nyx_path = os.path.join(_root_dir, "compiler", "lexer.rove")
-    with open(lexer_nyx_path, "r", encoding="utf-8") as handle:
-        lexer_nyx_code = handle.read()
+    lexer_rove_path = os.path.join(_root_dir, "compiler", "lexer.rove")
+    with open(lexer_rove_path, "r", encoding="utf-8") as handle:
+        lexer_rove_code = handle.read()
 
-    if "fn main()" in lexer_nyx_code:
-        base_lexer_code = lexer_nyx_code[: lexer_nyx_code.index("fn main()")].strip()
+    if "fn main()" in lexer_rove_code:
+        base_lexer_code = lexer_rove_code[: lexer_rove_code.index("fn main()")].strip()
     else:
-        base_lexer_code = lexer_nyx_code.strip()
+        base_lexer_code = lexer_rove_code.strip()
 
     test_sources = [
         ("basic_math", 'var x: int = 100 + 20; print("Result:", x)'),

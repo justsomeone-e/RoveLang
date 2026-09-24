@@ -37,7 +37,7 @@ impl HIRCodeGen {
 
     fn temporary(self, purpose: string) -> string {
         self.temp_counter = self.temp_counter + 1
-        return "_nyx_" + purpose + "_" + to_string(self.temp_counter)
+        return "_rove_" + purpose + "_" + to_string(self.temp_counter)
     }
 
     fn identifier(self, name: string) -> string {
@@ -48,7 +48,7 @@ impl HIRCodeGen {
             if contains(allowed, ch) { clean = clean + ch }
             else { clean = clean + "_" }
         }
-        if clean == "" { clean = "_nyx_value" }
+        if clean == "" { clean = "_rove_value" }
         if clean[0] >= "0" and clean[0] <= "9" { clean = "_" + clean }
         var reserved = "|alignas|alignof|and|and_eq|asm|auto|bitand|bitor|bool|break|case|catch|char|class|compl|concept|const|continue|default|delete|do|double|else|enum|explicit|export|extern|false|float|for|friend|goto|if|inline|int|long|mutable|namespace|new|noexcept|not|not_eq|nullptr|operator|or|or_eq|private|protected|public|register|reinterpret_cast|requires|return|short|signed|sizeof|static|struct|switch|template|this|thread_local|throw|true|try|typedef|typeid|typename|union|unsigned|using|virtual|void|volatile|while|xor|xor_eq|"
         if contains(reserved, "|" + clean + "|") { clean = clean + "_nyx" }
@@ -101,21 +101,21 @@ impl HIRCodeGen {
         if value_type.name == "size_t" { return "size_t" }
         if value_type.name == "null" { return "std::nullptr_t" }
         if value_type.name == "Exception" { return "std::exception" }
-        if value_type.name == "Channel" { return "_NyxChannel" }
+        if value_type.name == "Channel" { return "_RoveChannel" }
         if value_type.name == "Array" {
             if len(value_type.arguments) == 0 or value_type.arguments[0].name == "any" { return "auto" }
             return "std::vector<" + self.map_type(value_type.arguments[0]) + ">"
         }
         if value_type.name == "Result" {
             if len(value_type.arguments) >= 2 {
-                return "NyxResult<" + self.map_type(value_type.arguments[0]) + ", " +
+                return "RoveResult<" + self.map_type(value_type.arguments[0]) + ", " +
                     self.map_type(value_type.arguments[1]) + ">"
             }
             return "auto"
         }
         if value_type.name == "Task" {
             if len(value_type.arguments) == 1 {
-                return "NyxTask<" + self.map_type(value_type.arguments[0]) + ">"
+                return "RoveTask<" + self.map_type(value_type.arguments[0]) + ">"
             }
             return "auto"
         }
@@ -159,25 +159,25 @@ impl HIRCodeGen {
     }
 
     fn builtin_name(self, name: string) -> string {
-        if name == "print" or name == "println" { return "_nyx_print" }
-        if name == "input" { return "_nyx_input" }
-        if name == "len" { return "_nyx_len" }
-        if name == "args" { return "_nyx_args" }
-        if name == "contains" { return "_nyx_contains" }
-        if name == "to_string" or name == "to_str" { return "_nyx_to_string" }
-        if name == "to_int" { return "_nyx_to_int" }
-        if name == "is_number" { return "_nyx_is_number" }
-        if name == "channel" { return "_nyx_channel" }
-        if name == "addr" { return "_nyx_addr" }
-        if name == "peek" { return "_nyx_peek" }
-        if name == "memdump" { return "_nyx_memdump" }
-        if name == "delay_ms" { return "_nyx_delay_ms" }
-        if name == "Ok" { return "_nyx_ok" }
-        if name == "Err" { return "_nyx_err" }
-        if name == "map" { return "_nyx_map" }
-        if name == "filter" { return "_nyx_filter" }
-        if name == "fold" { return "_nyx_fold" }
-        if name == "main" { return "_nyx_user_main" }
+        if name == "print" or name == "println" { return "_rove_print" }
+        if name == "input" { return "_rove_input" }
+        if name == "len" { return "_rove_len" }
+        if name == "args" { return "_rove_args" }
+        if name == "contains" { return "_rove_contains" }
+        if name == "to_string" or name == "to_str" { return "_rove_to_string" }
+        if name == "to_int" { return "_rove_to_int" }
+        if name == "is_number" { return "_rove_is_number" }
+        if name == "channel" { return "_rove_channel" }
+        if name == "addr" { return "_rove_addr" }
+        if name == "peek" { return "_rove_peek" }
+        if name == "memdump" { return "_rove_memdump" }
+        if name == "delay_ms" { return "_rove_delay_ms" }
+        if name == "Ok" { return "_rove_ok" }
+        if name == "Err" { return "_rove_err" }
+        if name == "map" { return "_rove_map" }
+        if name == "filter" { return "_rove_filter" }
+        if name == "fold" { return "_rove_fold" }
+        if name == "main" { return "_rove_user_main" }
         return self.identifier(name)
     }
 
@@ -209,20 +209,20 @@ impl HIRCodeGen {
         }
         if node.kind == "IRBinary" {
             if node.has_type and node.type_info.name == "int" {
-                if node.op == "+" { return "_nyx_i64_add(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
-                if node.op == "-" { return "_nyx_i64_sub(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
-                if node.op == "*" { return "_nyx_i64_mul(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
-                if node.op == "/" { return "_nyx_i64_div(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
-                if node.op == "%" { return "_nyx_i64_mod(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
-                if node.op == "&" { return "_nyx_i64_and(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
-                if node.op == "^" { return "_nyx_i64_xor(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
-                if node.op == "|" { return "_nyx_i64_or(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
-                if node.op == "<<" { return "_nyx_i64_shl(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
-                if node.op == ">>" { return "_nyx_i64_shr(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
+                if node.op == "+" { return "_rove_i64_add(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
+                if node.op == "-" { return "_rove_i64_sub(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
+                if node.op == "*" { return "_rove_i64_mul(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
+                if node.op == "/" { return "_rove_i64_div(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
+                if node.op == "%" { return "_rove_i64_mod(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
+                if node.op == "&" { return "_rove_i64_and(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
+                if node.op == "^" { return "_rove_i64_xor(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
+                if node.op == "|" { return "_rove_i64_or(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
+                if node.op == "<<" { return "_rove_i64_shl(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
+                if node.op == ">>" { return "_rove_i64_shr(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
             }
             if node.has_type and node.type_info.name == "float" {
-                if node.op == "/" { return "_nyx_f64_div(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
-                if node.op == "%" { return "_nyx_f64_mod(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
+                if node.op == "/" { return "_rove_f64_div(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
+                if node.op == "%" { return "_rove_f64_mod(" + self.gen_expr(node.first[0]) + ", " + self.gen_expr(node.second[0]) + ")" }
             }
             var cpp_op = node.op
             if cpp_op == "and" { cpp_op = "&&" }
@@ -243,8 +243,8 @@ impl HIRCodeGen {
         }
         if node.kind == "IRUnary" {
             if node.has_type and node.type_info.name == "int" {
-                if node.op == "-" { return "_nyx_i64_neg(" + self.gen_expr(node.first[0]) + ")" }
-                if node.op == "~" { return "_nyx_i64_not(" + self.gen_expr(node.first[0]) + ")" }
+                if node.op == "-" { return "_rove_i64_neg(" + self.gen_expr(node.first[0]) + ")" }
+                if node.op == "~" { return "_rove_i64_not(" + self.gen_expr(node.first[0]) + ")" }
                 if node.op == "+" { return self.gen_expr(node.first[0]) }
             }
             var cpp_op = node.op
@@ -255,7 +255,7 @@ impl HIRCodeGen {
             return "(" + self.gen_expr(node.first[0]) + ").get()"
         }
         if node.kind == "IRResultPropagate" {
-            return "_nyx_propagate(" + self.gen_expr(node.first[0]) + ")"
+            return "_rove_propagate(" + self.gen_expr(node.first[0]) + ")"
         }
         if node.kind == "IRCall" {
             var args_text = self.gen_args(node.first)
@@ -268,7 +268,7 @@ impl HIRCodeGen {
                 var method = self.identifier(node.name)
                 if node.name == "push" { method = "push_back" }
                 if node.name == "len" or node.name == "length" or node.name == "size" {
-                    return "_nyx_len(" + receiver + ")"
+                    return "_rove_len(" + receiver + ")"
                 }
                 if node.name == "pop" { method = "pop_back" }
                 return receiver + separator + method + "(" + args_text + ")"
@@ -283,13 +283,13 @@ impl HIRCodeGen {
                 return receiver + "::" + member
             }
             if node.flag_a {
-                return "_nyx_safe_member(" + receiver + ", [](const auto& _nyx_value) { return _nyx_value." + member + "; })"
+                return "_rove_safe_member(" + receiver + ", [](const auto& _rove_value) { return _rove_value." + member + "; })"
             }
             if receiver == "this" { return "this->" + member }
             return receiver + "." + member
         }
         if node.kind == "IRIndexAccess" {
-            return "_nyx_index(" + self.gen_expr(node.first[0]) + ", " +
+            return "_rove_index(" + self.gen_expr(node.first[0]) + ", " +
                 self.gen_expr(node.second[0]) + ")"
         }
         if node.kind == "IRArray" {
@@ -304,7 +304,7 @@ impl HIRCodeGen {
             if node.first[0].kind == "IRLiteral" and node.first[0].value_kind == "null" {
                 return self.gen_expr(node.second[0])
             }
-            return "_nyx_coalesce(" + self.gen_expr(node.first[0]) +
+            return "_rove_coalesce(" + self.gen_expr(node.first[0]) +
                 ", [&]() { return " + self.gen_expr(node.second[0]) + "; })"
         }
         if node.kind == "IRConditional" {
@@ -324,7 +324,7 @@ impl HIRCodeGen {
         if node.kind == "IRMatchExpression" {
             if len(node.items) == 0 {
                 self.fail("Match expression has no arms")
-                return "/* NYX_EMPTY_MATCH */"
+                return "/* ROVE_EMPTY_MATCH */"
             }
             var value_name = self.temporary("match_expr")
             var fallback = node.items[len(node.items)-1]
@@ -352,7 +352,7 @@ impl HIRCodeGen {
             return "[=](" + params + ") { return " + self.gen_expr(node.second[0]) + "; }"
         }
         self.fail("Unsupported HIR expression '" + node.kind + "'")
-        return "/* NYX_HIR_EXPRESSION_ERROR */"
+        return "/* ROVE_HIR_EXPRESSION_ERROR */"
     }
 
     fn gen_expr_as(self, node: HIRNode, expected: HIRType) -> string {
@@ -376,7 +376,7 @@ impl HIRCodeGen {
     fn gen_condition(self, node: HIRNode) -> string {
         var rendered = self.gen_expr(node)
         if node.has_type and node.type_info.name == "any" {
-            return "_nyx_require_bool(" + rendered + ")"
+            return "_rove_require_bool(" + rendered + ")"
         }
         return rendered
     }
@@ -471,7 +471,7 @@ impl HIRCodeGen {
             return
         }
         if node.kind == "IRThrow" {
-            self.emit_line("throw std::runtime_error(_nyx_to_string(" + self.gen_expr(node.first[0]) + "));")
+            self.emit_line("throw std::runtime_error(_rove_to_string(" + self.gen_expr(node.first[0]) + "));")
             return
         }
         if node.kind == "IRIf" {
@@ -537,7 +537,7 @@ impl HIRCodeGen {
         if node.kind == "IRContinue" { self.emit_line("continue;"); return }
         if node.kind == "IRDefer" {
             var guard_name = self.temporary("defer")
-            self.emit_line("auto " + guard_name + " = _nyx_make_scope_exit([&]() { " +
+            self.emit_line("auto " + guard_name + " = _rove_make_scope_exit([&]() { " +
                 self.gen_expr(node.first[0]) + "; });")
             return
         }
@@ -603,7 +603,7 @@ impl HIRCodeGen {
     }
 
     fn function_name(self, node: HIRNode, is_method: bool) -> string {
-        if not is_method and node.name == "main" { return "_nyx_user_main" }
+        if not is_method and node.name == "main" { return "_rove_user_main" }
         return self.identifier(node.name)
     }
 
@@ -612,7 +612,7 @@ impl HIRCodeGen {
         if template_line != "" { self.emit_line(template_line) }
         var return_name = "auto"
         if node.has_return_type { return_name = self.map_type(node.return_type) }
-        if node.flag_a and return_name != "auto" { return_name = "NyxTask<" + return_name + ">" }
+        if node.flag_a and return_name != "auto" { return_name = "RoveTask<" + return_name + ">" }
         self.emit_line(return_name + " " + self.function_name(node, false) + "(" +
             self.gen_params(node.first, false) + ");")
     }
@@ -624,7 +624,7 @@ impl HIRCodeGen {
         if node.has_return_type { return_name = self.map_type(node.return_type) }
         var public_return_name = return_name
         if node.flag_a and return_name != "auto" {
-            public_return_name = "NyxTask<" + return_name + ">"
+            public_return_name = "RoveTask<" + return_name + ">"
         }
         var prefix = ""
         if is_method and (len(node.first) == 0 or
@@ -650,14 +650,14 @@ impl HIRCodeGen {
             }
             var return_suffix = ""
             if return_name != "auto" { return_suffix = " -> " + return_name }
-            self.emit_line("return _nyx_async(" + capture + "() mutable" + return_suffix + " {")
+            self.emit_line("return _rove_async(" + capture + "() mutable" + return_suffix + " {")
             self.indent_level = self.indent_level + 1
             if node.has_return_type and node.return_type.name == "Result" and len(node.return_type.arguments) == 2 {
                 self.emit_line("try {")
                 self.indent_level = self.indent_level + 1
                 self.gen_block(node.second)
                 self.indent_level = self.indent_level - 1
-                self.emit_line("} catch (const _NyxResultPropagation& propagated) {")
+                self.emit_line("} catch (const _RoveResultPropagation& propagated) {")
                 self.indent_level = self.indent_level + 1
                 self.emit_line("return {false, " + self.map_type(node.return_type.arguments[0]) +
                     "{}, std::any_cast<" + self.map_type(node.return_type.arguments[1]) +
@@ -675,7 +675,7 @@ impl HIRCodeGen {
                 self.indent_level = self.indent_level + 1
                 self.gen_block(node.second)
                 self.indent_level = self.indent_level - 1
-                self.emit_line("} catch (const _NyxResultPropagation& propagated) {")
+                self.emit_line("} catch (const _RoveResultPropagation& propagated) {")
                 self.indent_level = self.indent_level + 1
                 self.emit_line("return {false, " + self.map_type(node.return_type.arguments[0]) +
                     "{}, std::any_cast<" + self.map_type(node.return_type.arguments[1]) +
@@ -736,7 +736,7 @@ impl HIRCodeGen {
             var return_name = "auto"
             if method.has_return_type { return_name = self.map_type(method.return_type) }
             if method.flag_a and return_name != "auto" {
-                return_name = "NyxTask<" + return_name + ">"
+                return_name = "RoveTask<" + return_name + ">"
             }
             self.emit_line("virtual " + return_name + " " + self.identifier(method.name) + "(" +
                 self.gen_params(method.first, true) + ") = 0;")
@@ -783,8 +783,8 @@ impl HIRCodeGen {
                 var field = node.first[i]
                 var field_name = self.identifier(field.name)
                 if i > 0 { params = params + ", "; initializers = initializers + ", " }
-                params = params + self.map_type(field.type_info) + " _nyx_" + field_name
-                initializers = initializers + field_name + "(std::move(_nyx_" + field_name + "))"
+                params = params + self.map_type(field.type_info) + " _rove_" + field_name
+                initializers = initializers + field_name + "(std::move(_rove_" + field_name + "))"
             }
             self.emit_line(struct_name + "(" + params + ");")
             self.struct_out_of_line = self.struct_out_of_line +
@@ -858,20 +858,20 @@ impl HIRCodeGen {
         self.emit_line("#endif")
         self.emit_line("")
         self.emit_line("template <typename T, typename E = std::string>")
-        self.emit_line("struct NyxResult {")
+        self.emit_line("struct RoveResult {")
         self.emit_line("    bool is_ok;")
         self.emit_line("    T value;")
         self.emit_line("    E error;")
         self.emit_line("    T unwrap() const { if (!is_ok) throw std::runtime_error(\"Called unwrap on an Err\"); return value; }")
         self.emit_line("};")
-        self.emit_line("struct _NyxResultPropagation { std::any error; };")
-        self.emit_line("template <typename T, typename E> T _nyx_propagate(NyxResult<T, E> result) { if (!result.is_ok) throw _NyxResultPropagation{std::any(std::move(result.error))}; return std::move(result.value); }")
-        self.emit_line("template <typename T> using NyxTask = std::shared_future<T>;")
-        self.emit_line("template <typename F> auto _nyx_async(F&& function) -> NyxTask<std::invoke_result_t<std::decay_t<F>>> { return std::async(std::launch::async, std::forward<F>(function)).share(); }")
-        self.emit_line("template <typename T> NyxResult<std::decay_t<T>, std::string> _nyx_ok(T&& value) { return {true, std::forward<T>(value), {}}; }")
-        self.emit_line("template <typename E> NyxResult<int64_t, std::decay_t<E>> _nyx_err(E&& error) { return {false, 0, std::forward<E>(error)}; }")
+        self.emit_line("struct _RoveResultPropagation { std::any error; };")
+        self.emit_line("template <typename T, typename E> T _rove_propagate(RoveResult<T, E> result) { if (!result.is_ok) throw _RoveResultPropagation{std::any(std::move(result.error))}; return std::move(result.value); }")
+        self.emit_line("template <typename T> using RoveTask = std::shared_future<T>;")
+        self.emit_line("template <typename F> auto _rove_async(F&& function) -> RoveTask<std::invoke_result_t<std::decay_t<F>>> { return std::async(std::launch::async, std::forward<F>(function)).share(); }")
+        self.emit_line("template <typename T> RoveResult<std::decay_t<T>, std::string> _rove_ok(T&& value) { return {true, std::forward<T>(value), {}}; }")
+        self.emit_line("template <typename E> RoveResult<int64_t, std::decay_t<E>> _rove_err(E&& error) { return {false, 0, std::forward<E>(error)}; }")
         self.emit_line("")
-        self.emit_line("inline std::string _nyx_normalize_decimal(std::string text) {")
+        self.emit_line("inline std::string _rove_normalize_decimal(std::string text) {")
         self.emit_line("    bool negative = !text.empty() && text.front() == '-';")
         self.emit_line("    if (!text.empty() && (text.front() == '+' || text.front() == '-')) text.erase(text.begin());")
         self.emit_line("    const size_t marker = text.find_first_of(\"eE\");")
@@ -900,48 +900,48 @@ impl HIRCodeGen {
         self.emit_line("    }")
         self.emit_line("    return (negative ? \"-\" : \"\") + result;")
         self.emit_line("}")
-        self.emit_line("inline std::string _nyx_f64_to_string(double value) {")
+        self.emit_line("inline std::string _rove_f64_to_string(double value) {")
         self.emit_line("    if (std::isnan(value)) return \"nan\";")
         self.emit_line("    if (std::isinf(value)) return std::signbit(value) ? \"-inf\" : \"inf\";")
         self.emit_line("    char buffer[128]{};")
         self.emit_line("    const auto converted = std::to_chars(buffer, buffer + sizeof(buffer), value, std::chars_format::general);")
-        self.emit_line("    if (converted.ec != std::errc{}) { std::ostringstream fallback; fallback << std::setprecision(17) << value; return _nyx_normalize_decimal(fallback.str()); }")
-        self.emit_line("    return _nyx_normalize_decimal(std::string(buffer, converted.ptr));")
+        self.emit_line("    if (converted.ec != std::errc{}) { std::ostringstream fallback; fallback << std::setprecision(17) << value; return _rove_normalize_decimal(fallback.str()); }")
+        self.emit_line("    return _rove_normalize_decimal(std::string(buffer, converted.ptr));")
         self.emit_line("}")
-        self.emit_line("inline void _nyx_print_value(double value) { std::cout << _nyx_f64_to_string(value); }")
-        self.emit_line("template <typename T> void _nyx_print_value(T&& value) { std::cout << std::boolalpha << std::forward<T>(value); }")
-        self.emit_line("inline void _nyx_print() { std::cout << '\\n'; }")
+        self.emit_line("inline void _rove_print_value(double value) { std::cout << _rove_f64_to_string(value); }")
+        self.emit_line("template <typename T> void _rove_print_value(T&& value) { std::cout << std::boolalpha << std::forward<T>(value); }")
+        self.emit_line("inline void _rove_print() { std::cout << '\\n'; }")
         self.emit_line("template <typename First, typename... Rest>")
-        self.emit_line("void _nyx_print(First&& first, Rest&&... rest) {")
-        self.emit_line("    _nyx_print_value(std::forward<First>(first));")
-        self.emit_line("    ((std::cout << ' ', _nyx_print_value(std::forward<Rest>(rest))), ...);")
+        self.emit_line("void _rove_print(First&& first, Rest&&... rest) {")
+        self.emit_line("    _rove_print_value(std::forward<First>(first));")
+        self.emit_line("    ((std::cout << ' ', _rove_print_value(std::forward<Rest>(rest))), ...);")
         self.emit_line("    std::cout << '\\n';")
         self.emit_line("}")
-        self.emit_line("inline std::string _nyx_input(const std::string& prompt = \"\") { if (!prompt.empty()) std::cout << prompt; std::string value; std::getline(std::cin, value); return value; }")
-        self.emit_line("inline std::string _nyx_to_string(const std::string& value) { return value; }")
-        self.emit_line("inline std::string _nyx_to_string(const char* value) { return value ? std::string(value) : std::string(); }")
-        self.emit_line("inline std::string _nyx_to_string(bool value) { return value ? \"true\" : \"false\"; }")
-        self.emit_line("inline std::string _nyx_to_string(double value) { return _nyx_f64_to_string(value); }")
-        self.emit_line("template <typename T> std::string _nyx_to_string(const T& value) { std::ostringstream stream; stream << value; return stream.str(); }")
-        self.emit_line("inline uint64_t _nyx_i64_bits(int64_t value) noexcept { uint64_t bits = 0; std::memcpy(&bits, &value, sizeof(bits)); return bits; }")
-        self.emit_line("inline int64_t _nyx_i64_from_bits(uint64_t bits) noexcept { int64_t value = 0; std::memcpy(&value, &bits, sizeof(value)); return value; }")
-        self.emit_line("inline int64_t _nyx_i64_add(int64_t left, int64_t right) noexcept { return _nyx_i64_from_bits(_nyx_i64_bits(left) + _nyx_i64_bits(right)); }")
-        self.emit_line("inline int64_t _nyx_i64_sub(int64_t left, int64_t right) noexcept { return _nyx_i64_from_bits(_nyx_i64_bits(left) - _nyx_i64_bits(right)); }")
-        self.emit_line("inline int64_t _nyx_i64_mul(int64_t left, int64_t right) noexcept { return _nyx_i64_from_bits(_nyx_i64_bits(left) * _nyx_i64_bits(right)); }")
-        self.emit_line("inline int64_t _nyx_i64_neg(int64_t value) noexcept { return _nyx_i64_from_bits(uint64_t{0} - _nyx_i64_bits(value)); }")
-        self.emit_line("inline int64_t _nyx_i64_not(int64_t value) noexcept { return _nyx_i64_from_bits(~_nyx_i64_bits(value)); }")
-        self.emit_line("inline int64_t _nyx_i64_and(int64_t left, int64_t right) noexcept { return _nyx_i64_from_bits(_nyx_i64_bits(left) & _nyx_i64_bits(right)); }")
-        self.emit_line("inline int64_t _nyx_i64_xor(int64_t left, int64_t right) noexcept { return _nyx_i64_from_bits(_nyx_i64_bits(left) ^ _nyx_i64_bits(right)); }")
-        self.emit_line("inline int64_t _nyx_i64_or(int64_t left, int64_t right) noexcept { return _nyx_i64_from_bits(_nyx_i64_bits(left) | _nyx_i64_bits(right)); }")
-        self.emit_line("inline int64_t _nyx_i64_shl(int64_t value, int64_t amount) noexcept { const uint64_t count = _nyx_i64_bits(amount) & UINT64_C(63); return _nyx_i64_from_bits(_nyx_i64_bits(value) << count); }")
-        self.emit_line("inline int64_t _nyx_i64_shr(int64_t value, int64_t amount) noexcept { const uint64_t count = _nyx_i64_bits(amount) & UINT64_C(63); if (count == 0) return value; const uint64_t bits = _nyx_i64_bits(value); uint64_t shifted = bits >> count; if ((bits & (UINT64_C(1) << 63)) != 0) shifted |= (~uint64_t{0}) << (64 - count); return _nyx_i64_from_bits(shifted); }")
-        self.emit_line("inline int64_t _nyx_i64_div(int64_t left, int64_t right) { if (right == 0) throw std::runtime_error(\"integer division by zero\"); const int64_t minimum = _nyx_i64_from_bits(UINT64_C(1) << 63); if (left == minimum && right == -1) return minimum; return left / right; }")
-        self.emit_line("inline int64_t _nyx_i64_mod(int64_t left, int64_t right) { if (right == 0) throw std::runtime_error(\"integer division by zero\"); const int64_t minimum = _nyx_i64_from_bits(UINT64_C(1) << 63); if (left == minimum && right == -1) return 0; return left % right; }")
-        self.emit_line("inline double _nyx_f64_div(double left, double right) noexcept { return left / right; }")
-        self.emit_line("inline double _nyx_f64_mod(double left, double right) noexcept { return std::fmod(left, right); }")
-        self.emit_line("inline int64_t _nyx_to_int(const std::string& value) { size_t cursor = 0; while (cursor < value.size() && std::isspace(static_cast<unsigned char>(value[cursor]))) ++cursor; bool negative = false; if (cursor < value.size() && (value[cursor] == '+' || value[cursor] == '-')) { negative = value[cursor] == '-'; ++cursor; } uint64_t result = 0; const size_t digits_begin = cursor; while (cursor < value.size() && value[cursor] >= '0' && value[cursor] <= '9') { result = result * UINT64_C(10) + static_cast<uint64_t>(value[cursor] - '0'); ++cursor; } if (cursor == digits_begin) return 0; while (cursor < value.size() && std::isspace(static_cast<unsigned char>(value[cursor]))) ++cursor; if (cursor != value.size()) return 0; if (negative) result = uint64_t{0} - result; return _nyx_i64_from_bits(result); }")
-        self.emit_line("inline bool _nyx_is_number(const std::string& value) { if (value.empty()) return false; char* end = nullptr; std::strtod(value.c_str(), &end); return end != value.c_str() && end && *end == '\\0'; }")
-        self.emit_line("inline std::string _nyx_utf8_from_codepoint(int64_t raw_codepoint) {")
+        self.emit_line("inline std::string _rove_input(const std::string& prompt = \"\") { if (!prompt.empty()) std::cout << prompt; std::string value; std::getline(std::cin, value); return value; }")
+        self.emit_line("inline std::string _rove_to_string(const std::string& value) { return value; }")
+        self.emit_line("inline std::string _rove_to_string(const char* value) { return value ? std::string(value) : std::string(); }")
+        self.emit_line("inline std::string _rove_to_string(bool value) { return value ? \"true\" : \"false\"; }")
+        self.emit_line("inline std::string _rove_to_string(double value) { return _rove_f64_to_string(value); }")
+        self.emit_line("template <typename T> std::string _rove_to_string(const T& value) { std::ostringstream stream; stream << value; return stream.str(); }")
+        self.emit_line("inline uint64_t _rove_i64_bits(int64_t value) noexcept { uint64_t bits = 0; std::memcpy(&bits, &value, sizeof(bits)); return bits; }")
+        self.emit_line("inline int64_t _rove_i64_from_bits(uint64_t bits) noexcept { int64_t value = 0; std::memcpy(&value, &bits, sizeof(value)); return value; }")
+        self.emit_line("inline int64_t _rove_i64_add(int64_t left, int64_t right) noexcept { return _rove_i64_from_bits(_rove_i64_bits(left) + _rove_i64_bits(right)); }")
+        self.emit_line("inline int64_t _rove_i64_sub(int64_t left, int64_t right) noexcept { return _rove_i64_from_bits(_rove_i64_bits(left) - _rove_i64_bits(right)); }")
+        self.emit_line("inline int64_t _rove_i64_mul(int64_t left, int64_t right) noexcept { return _rove_i64_from_bits(_rove_i64_bits(left) * _rove_i64_bits(right)); }")
+        self.emit_line("inline int64_t _rove_i64_neg(int64_t value) noexcept { return _rove_i64_from_bits(uint64_t{0} - _rove_i64_bits(value)); }")
+        self.emit_line("inline int64_t _rove_i64_not(int64_t value) noexcept { return _rove_i64_from_bits(~_rove_i64_bits(value)); }")
+        self.emit_line("inline int64_t _rove_i64_and(int64_t left, int64_t right) noexcept { return _rove_i64_from_bits(_rove_i64_bits(left) & _rove_i64_bits(right)); }")
+        self.emit_line("inline int64_t _rove_i64_xor(int64_t left, int64_t right) noexcept { return _rove_i64_from_bits(_rove_i64_bits(left) ^ _rove_i64_bits(right)); }")
+        self.emit_line("inline int64_t _rove_i64_or(int64_t left, int64_t right) noexcept { return _rove_i64_from_bits(_rove_i64_bits(left) | _rove_i64_bits(right)); }")
+        self.emit_line("inline int64_t _rove_i64_shl(int64_t value, int64_t amount) noexcept { const uint64_t count = _rove_i64_bits(amount) & UINT64_C(63); return _rove_i64_from_bits(_rove_i64_bits(value) << count); }")
+        self.emit_line("inline int64_t _rove_i64_shr(int64_t value, int64_t amount) noexcept { const uint64_t count = _rove_i64_bits(amount) & UINT64_C(63); if (count == 0) return value; const uint64_t bits = _rove_i64_bits(value); uint64_t shifted = bits >> count; if ((bits & (UINT64_C(1) << 63)) != 0) shifted |= (~uint64_t{0}) << (64 - count); return _rove_i64_from_bits(shifted); }")
+        self.emit_line("inline int64_t _rove_i64_div(int64_t left, int64_t right) { if (right == 0) throw std::runtime_error(\"integer division by zero\"); const int64_t minimum = _rove_i64_from_bits(UINT64_C(1) << 63); if (left == minimum && right == -1) return minimum; return left / right; }")
+        self.emit_line("inline int64_t _rove_i64_mod(int64_t left, int64_t right) { if (right == 0) throw std::runtime_error(\"integer division by zero\"); const int64_t minimum = _rove_i64_from_bits(UINT64_C(1) << 63); if (left == minimum && right == -1) return 0; return left % right; }")
+        self.emit_line("inline double _rove_f64_div(double left, double right) noexcept { return left / right; }")
+        self.emit_line("inline double _rove_f64_mod(double left, double right) noexcept { return std::fmod(left, right); }")
+        self.emit_line("inline int64_t _rove_to_int(const std::string& value) { size_t cursor = 0; while (cursor < value.size() && std::isspace(static_cast<unsigned char>(value[cursor]))) ++cursor; bool negative = false; if (cursor < value.size() && (value[cursor] == '+' || value[cursor] == '-')) { negative = value[cursor] == '-'; ++cursor; } uint64_t result = 0; const size_t digits_begin = cursor; while (cursor < value.size() && value[cursor] >= '0' && value[cursor] <= '9') { result = result * UINT64_C(10) + static_cast<uint64_t>(value[cursor] - '0'); ++cursor; } if (cursor == digits_begin) return 0; while (cursor < value.size() && std::isspace(static_cast<unsigned char>(value[cursor]))) ++cursor; if (cursor != value.size()) return 0; if (negative) result = uint64_t{0} - result; return _rove_i64_from_bits(result); }")
+        self.emit_line("inline bool _rove_is_number(const std::string& value) { if (value.empty()) return false; char* end = nullptr; std::strtod(value.c_str(), &end); return end != value.c_str() && end && *end == '\\0'; }")
+        self.emit_line("inline std::string _rove_utf8_from_codepoint(int64_t raw_codepoint) {")
         self.emit_line("    uint32_t codepoint = static_cast<uint32_t>(raw_codepoint);")
         self.emit_line("    if (raw_codepoint < 0 || codepoint > 0x10FFFF || (codepoint >= 0xD800 && codepoint <= 0xDFFF)) codepoint = 0xFFFD;")
         self.emit_line("    std::string result;")
@@ -951,23 +951,23 @@ impl HIRCodeGen {
         self.emit_line("    else { result.push_back(static_cast<char>(0xF0 | (codepoint >> 18))); result.push_back(static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F))); result.push_back(static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F))); result.push_back(static_cast<char>(0x80 | (codepoint & 0x3F))); }")
         self.emit_line("    return result;")
         self.emit_line("}")
-        self.emit_line("inline bool _nyx_contains(const std::string& value, const std::string& part) { return value.find(part) != std::string::npos; }")
-        self.emit_line("inline int64_t _nyx_len(const std::string& value) { int64_t result = 0; for (const unsigned char byte : value) if ((byte & 0xC0) != 0x80) ++result; return result; }")
-        self.emit_line("template <typename T> int64_t _nyx_len(const T& value) { return static_cast<int64_t>(value.size()); }")
-        self.emit_line("template <typename T> std::vector<T> _nyx_destructure_check(std::vector<T> value, int64_t minimum, const std::string& message) { if (static_cast<int64_t>(value.size()) < minimum) throw std::runtime_error(message); return value; }")
-        self.emit_line("inline std::string _nyx_index(const std::string& value, int64_t index) { if (index < 0) return {}; int64_t current = 0; for (size_t offset = 0; offset < value.size();) { const size_t start = offset++; while (offset < value.size() && (static_cast<unsigned char>(value[offset]) & 0xC0) == 0x80) ++offset; if (current++ == index) return value.substr(start, offset - start); } return {}; }")
-        self.emit_line("template <typename T> T& _nyx_index(std::vector<T>& value, int64_t index) { return value.at(static_cast<size_t>(index)); }")
-        self.emit_line("template <typename T> const T& _nyx_index(const std::vector<T>& value, int64_t index) { return value.at(static_cast<size_t>(index)); }")
-        self.emit_line("inline std::vector<std::string> _nyx_cli_arguments;")
-        self.emit_line("inline std::vector<std::string> _nyx_args() { return _nyx_cli_arguments; }")
+        self.emit_line("inline bool _rove_contains(const std::string& value, const std::string& part) { return value.find(part) != std::string::npos; }")
+        self.emit_line("inline int64_t _rove_len(const std::string& value) { int64_t result = 0; for (const unsigned char byte : value) if ((byte & 0xC0) != 0x80) ++result; return result; }")
+        self.emit_line("template <typename T> int64_t _rove_len(const T& value) { return static_cast<int64_t>(value.size()); }")
+        self.emit_line("template <typename T> std::vector<T> _rove_destructure_check(std::vector<T> value, int64_t minimum, const std::string& message) { if (static_cast<int64_t>(value.size()) < minimum) throw std::runtime_error(message); return value; }")
+        self.emit_line("inline std::string _rove_index(const std::string& value, int64_t index) { if (index < 0) return {}; int64_t current = 0; for (size_t offset = 0; offset < value.size();) { const size_t start = offset++; while (offset < value.size() && (static_cast<unsigned char>(value[offset]) & 0xC0) == 0x80) ++offset; if (current++ == index) return value.substr(start, offset - start); } return {}; }")
+        self.emit_line("template <typename T> T& _rove_index(std::vector<T>& value, int64_t index) { return value.at(static_cast<size_t>(index)); }")
+        self.emit_line("template <typename T> const T& _rove_index(const std::vector<T>& value, int64_t index) { return value.at(static_cast<size_t>(index)); }")
+        self.emit_line("inline std::vector<std::string> _rove_cli_arguments;")
+        self.emit_line("inline std::vector<std::string> _rove_args() { return _rove_cli_arguments; }")
         self.emit_line("")
-        self.emit_line("inline std::string _nyx_bootstrap_read_file(const std::string& path) { std::ifstream file(path, std::ios::binary); if (!file.is_open()) return {}; std::ostringstream buffer; buffer << file.rdbuf(); return buffer.str(); }")
-        self.emit_line("inline bool _nyx_bootstrap_write_file(const std::string& path, const std::string& content) { std::ofstream file(path, std::ios::binary); if (!file.is_open()) return false; file.write(content.data(), static_cast<std::streamsize>(content.size())); return file.good(); }")
-        self.emit_line("inline bool _nyx_bootstrap_file_exists(const std::string& path) { std::ifstream file(path, std::ios::binary); return file.good(); }")
-        self.emit_line("inline bool _nyx_bootstrap_remove_file(const std::string& path) { return std::remove(path.c_str()) == 0; }")
-        self.emit_line("[[noreturn]] inline void _nyx_process_exit(int64_t code) { std::exit(static_cast<int>(code)); }")
-        self.emit_line("inline std::string _nyx_toolchain_error;")
-        self.emit_line("inline int _nyx_spawn_wait(const std::vector<std::string>& command) {")
+        self.emit_line("inline std::string _rove_bootstrap_read_file(const std::string& path) { std::ifstream file(path, std::ios::binary); if (!file.is_open()) return {}; std::ostringstream buffer; buffer << file.rdbuf(); return buffer.str(); }")
+        self.emit_line("inline bool _rove_bootstrap_write_file(const std::string& path, const std::string& content) { std::ofstream file(path, std::ios::binary); if (!file.is_open()) return false; file.write(content.data(), static_cast<std::streamsize>(content.size())); return file.good(); }")
+        self.emit_line("inline bool _rove_bootstrap_file_exists(const std::string& path) { std::ifstream file(path, std::ios::binary); return file.good(); }")
+        self.emit_line("inline bool _rove_bootstrap_remove_file(const std::string& path) { return std::remove(path.c_str()) == 0; }")
+        self.emit_line("[[noreturn]] inline void _rove_process_exit(int64_t code) { std::exit(static_cast<int>(code)); }")
+        self.emit_line("inline std::string _rove_toolchain_error;")
+        self.emit_line("inline int _rove_spawn_wait(const std::vector<std::string>& command) {")
         self.emit_line("    if (command.empty()) return -1;")
         self.emit_line("    std::vector<char*> arguments;")
         self.emit_line("    arguments.reserve(command.size() + 1);")
@@ -987,7 +987,7 @@ impl HIRCodeGen {
         self.emit_line("    return -1;")
         self.emit_line("#endif")
         self.emit_line("}")
-        self.emit_line("inline int _nyx_toolchain_compile_cpp(const std::string& source, const std::string& output) {")
+        self.emit_line("inline int _rove_toolchain_compile_cpp(const std::string& source, const std::string& output) {")
         self.emit_line("    std::vector<std::string> compilers;")
         self.emit_line("    if (const char* configured = std::getenv(\"ROVE_CXX\"); configured && *configured) compilers.emplace_back(configured);")
         self.emit_line("    else if (const char* legacy = std::getenv(\"NYX_CXX\"); legacy && *legacy) compilers.emplace_back(legacy);")
@@ -995,24 +995,24 @@ impl HIRCodeGen {
         self.emit_line("    compilers.emplace_back(\"g++\");")
         self.emit_line("    compilers.emplace_back(\"c++\");")
         self.emit_line("    for (const auto& compiler : compilers) {")
-        self.emit_line("        const int result = _nyx_spawn_wait({compiler, \"-std=c++20\", \"-O2\", source, \"-o\", output});")
-        self.emit_line("        if (result == 0) { _nyx_toolchain_error.clear(); return 0; }")
+        self.emit_line("        const int result = _rove_spawn_wait({compiler, \"-std=c++20\", \"-O2\", source, \"-o\", output});")
+        self.emit_line("        if (result == 0) { _rove_toolchain_error.clear(); return 0; }")
         self.emit_line("        if (result == -1 || result == 127) continue;")
-        self.emit_line("        _nyx_toolchain_error = compiler + \" exited with code \" + std::to_string(result);")
+        self.emit_line("        _rove_toolchain_error = compiler + \" exited with code \" + std::to_string(result);")
         self.emit_line("        return result;")
         self.emit_line("    }")
-        self.emit_line("    _nyx_toolchain_error = \"No C++20 compiler found (set ROVE_CXX or install clang++/g++; NYX_CXX remains a legacy alias)\";")
+        self.emit_line("    _rove_toolchain_error = \"No C++20 compiler found (set ROVE_CXX or install clang++/g++; NYX_CXX remains a legacy alias)\";")
         self.emit_line("    return 127;")
         self.emit_line("}")
-        self.emit_line("inline std::string _nyx_toolchain_last_error() { return _nyx_toolchain_error; }")
+        self.emit_line("inline std::string _rove_toolchain_last_error() { return _rove_toolchain_error; }")
         self.emit_line("")
-        self.emit_line("inline bool _nyx_require_bool(bool value) { return value; }")
-        self.emit_line("template <typename T> bool _nyx_require_bool(const T&) { throw std::runtime_error(\"Rove condition must have type bool\"); }")
+        self.emit_line("inline bool _rove_require_bool(bool value) { return value; }")
+        self.emit_line("template <typename T> bool _rove_require_bool(const T&) { throw std::runtime_error(\"Rove condition must have type bool\"); }")
         self.emit_line("")
-        self.emit_line("template <typename T, typename F> auto _nyx_map(const std::vector<T>& items, F transform) -> std::vector<std::decay_t<std::invoke_result_t<F, T>>> { using U = std::decay_t<std::invoke_result_t<F, T>>; std::vector<U> result; result.reserve(items.size()); for (const auto& item : items) result.push_back(transform(item)); return result; }")
-        self.emit_line("template <typename T, typename F> std::vector<T> _nyx_filter(const std::vector<T>& items, F predicate) { std::vector<T> result; result.reserve(items.size()); for (const auto& item : items) if (predicate(item)) result.push_back(item); return result; }")
-        self.emit_line("template <typename T, typename A, typename F> A _nyx_fold(const std::vector<T>& items, A accumulator, F reducer) { for (const auto& item : items) accumulator = reducer(accumulator, item); return accumulator; }")
-        self.emit_line("inline void _nyx_pause_if_standalone_console() {")
+        self.emit_line("template <typename T, typename F> auto _rove_map(const std::vector<T>& items, F transform) -> std::vector<std::decay_t<std::invoke_result_t<F, T>>> { using U = std::decay_t<std::invoke_result_t<F, T>>; std::vector<U> result; result.reserve(items.size()); for (const auto& item : items) result.push_back(transform(item)); return result; }")
+        self.emit_line("template <typename T, typename F> std::vector<T> _rove_filter(const std::vector<T>& items, F predicate) { std::vector<T> result; result.reserve(items.size()); for (const auto& item : items) if (predicate(item)) result.push_back(item); return result; }")
+        self.emit_line("template <typename T, typename A, typename F> A _rove_fold(const std::vector<T>& items, A accumulator, F reducer) { for (const auto& item : items) accumulator = reducer(accumulator, item); return accumulator; }")
+        self.emit_line("inline void _rove_pause_if_standalone_console() {")
         self.emit_line("#ifdef _WIN32")
         self.emit_line("    if (std::getenv(\"CI\") || std::getenv(\"GITHUB_ACTIONS\") || std::getenv(\"ROVE_NO_PAUSE\") || std::getenv(\"NYX_NO_PAUSE\")) return;")
         self.emit_line("    if (!_isatty(_fileno(stdin)) || !_isatty(_fileno(stdout))) return;")
@@ -1020,13 +1020,13 @@ impl HIRCodeGen {
         self.emit_line("#endif")
         self.emit_line("}")
         self.emit_line("")
-        self.emit_line("template <typename T> uintptr_t _nyx_addr(T& value) { return reinterpret_cast<uintptr_t>(&value); }")
-        self.emit_line("inline uintptr_t _nyx_addr(void* value) { return reinterpret_cast<uintptr_t>(value); }")
-        self.emit_line("inline int64_t _nyx_peek(uintptr_t address) { return *reinterpret_cast<int64_t*>(address); }")
-        self.emit_line("inline void _nyx_memdump(uintptr_t address, int64_t length = 16) { auto* bytes = reinterpret_cast<const uint8_t*>(address); for (int64_t i = 0; i < length; ++i) { std::cout << std::hex << static_cast<int>(bytes[i]) << ' '; } std::cout << std::dec << '\\n'; }")
-        self.emit_line("inline void _nyx_delay_ms(int64_t milliseconds) { std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds)); }")
+        self.emit_line("template <typename T> uintptr_t _rove_addr(T& value) { return reinterpret_cast<uintptr_t>(&value); }")
+        self.emit_line("inline uintptr_t _rove_addr(void* value) { return reinterpret_cast<uintptr_t>(value); }")
+        self.emit_line("inline int64_t _rove_peek(uintptr_t address) { return *reinterpret_cast<int64_t*>(address); }")
+        self.emit_line("inline void _rove_memdump(uintptr_t address, int64_t length = 16) { auto* bytes = reinterpret_cast<const uint8_t*>(address); for (int64_t i = 0; i < length; ++i) { std::cout << std::hex << static_cast<int>(bytes[i]) << ' '; } std::cout << std::dec << '\\n'; }")
+        self.emit_line("inline void _rove_delay_ms(int64_t milliseconds) { std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds)); }")
         self.emit_line("")
-        self.emit_line("class _NyxChannel {")
+        self.emit_line("class _RoveChannel {")
         self.emit_line("public:")
         self.emit_line("    template <typename T> void send(T value) { std::lock_guard<std::mutex> lock(mutex_); values_.emplace_back(std::move(value)); }")
         self.emit_line("    std::any receive() { std::lock_guard<std::mutex> lock(mutex_); if (values_.empty()) throw std::runtime_error(\"receive from empty Rove channel\"); std::any value = std::move(values_.front()); values_.pop_front(); return value; }")
@@ -1034,14 +1034,14 @@ impl HIRCodeGen {
         self.emit_line("    std::mutex mutex_;")
         self.emit_line("    std::deque<std::any> values_;")
         self.emit_line("};")
-        self.emit_line("inline _NyxChannel _nyx_channel() { return {}; }")
-        self.emit_line("template <typename F> class _NyxScopeExit { public: explicit _NyxScopeExit(F callback) : callback_(std::move(callback)) {} _NyxScopeExit(const _NyxScopeExit&) = delete; _NyxScopeExit(_NyxScopeExit&& other) noexcept : callback_(std::move(other.callback_)), active_(other.active_) { other.active_ = false; } ~_NyxScopeExit() { if (active_) callback_(); } private: F callback_; bool active_ = true; };")
-        self.emit_line("template <typename F> _NyxScopeExit<F> _nyx_make_scope_exit(F callback) { return _NyxScopeExit<F>(std::move(callback)); }")
-        self.emit_line("template <typename T> struct _NyxIsOptional : std::false_type {};")
-        self.emit_line("template <typename T> struct _NyxIsOptional<std::optional<T>> : std::true_type {};")
-        self.emit_line("template <typename T, typename Accessor> auto _nyx_safe_member(const std::optional<T>& value, Accessor&& accessor) { using Raw = std::decay_t<decltype(accessor(*value))>; if constexpr (_NyxIsOptional<Raw>::value) { if (!value) return Raw{}; return accessor(*value); } else { if (!value) return std::optional<Raw>{}; return std::optional<Raw>{accessor(*value)}; } }")
-        self.emit_line("template <typename T, typename Accessor> auto _nyx_safe_member(const T& value, Accessor&& accessor) { using Raw = std::decay_t<decltype(accessor(value))>; if constexpr (_NyxIsOptional<Raw>::value) return accessor(value); else return std::optional<Raw>{accessor(value)}; }")
-        self.emit_line("template <typename T, typename Fallback> T _nyx_coalesce(const std::optional<T>& value, Fallback&& fallback) { return value ? *value : static_cast<T>(fallback()); }")
+        self.emit_line("inline _RoveChannel _rove_channel() { return {}; }")
+        self.emit_line("template <typename F> class _RoveScopeExit { public: explicit _RoveScopeExit(F callback) : callback_(std::move(callback)) {} _RoveScopeExit(const _RoveScopeExit&) = delete; _RoveScopeExit(_RoveScopeExit&& other) noexcept : callback_(std::move(other.callback_)), active_(other.active_) { other.active_ = false; } ~_RoveScopeExit() { if (active_) callback_(); } private: F callback_; bool active_ = true; };")
+        self.emit_line("template <typename F> _RoveScopeExit<F> _rove_make_scope_exit(F callback) { return _RoveScopeExit<F>(std::move(callback)); }")
+        self.emit_line("template <typename T> struct _RoveIsOptional : std::false_type {};")
+        self.emit_line("template <typename T> struct _RoveIsOptional<std::optional<T>> : std::true_type {};")
+        self.emit_line("template <typename T, typename Accessor> auto _rove_safe_member(const std::optional<T>& value, Accessor&& accessor) { using Raw = std::decay_t<decltype(accessor(*value))>; if constexpr (_RoveIsOptional<Raw>::value) { if (!value) return Raw{}; return accessor(*value); } else { if (!value) return std::optional<Raw>{}; return std::optional<Raw>{accessor(*value)}; } }")
+        self.emit_line("template <typename T, typename Accessor> auto _rove_safe_member(const T& value, Accessor&& accessor) { using Raw = std::decay_t<decltype(accessor(value))>; if constexpr (_RoveIsOptional<Raw>::value) return accessor(value); else return std::optional<Raw>{accessor(value)}; }")
+        self.emit_line("template <typename T, typename Fallback> T _rove_coalesce(const std::optional<T>& value, Fallback&& fallback) { return value ? *value : static_cast<T>(fallback()); }")
         self.emit_line("")
     }
 
@@ -1166,15 +1166,15 @@ impl HIRCodeGen {
 
         self.emit_line("int main(int argc, char** argv) {")
         self.indent_level = self.indent_level + 1
-        self.emit_line("for (int i = 0; i < argc; ++i) { _nyx_cli_arguments.emplace_back(argv[i] ? argv[i] : \"\"); }")
+        self.emit_line("for (int i = 0; i < argc; ++i) { _rove_cli_arguments.emplace_back(argv[i] ? argv[i] : \"\"); }")
         for i in 0..len(hir_module.items)-1 {
             if not self.is_declaration(hir_module.items[i]) { self.gen_stmt(hir_module.items[i]) }
         }
         if has_user_main and not has_explicit_main {
-            if has_async_main { self.emit_line("_nyx_user_main().get();") }
-            else { self.emit_line("_nyx_user_main();") }
+            if has_async_main { self.emit_line("_rove_user_main().get();") }
+            else { self.emit_line("_rove_user_main();") }
         }
-        self.emit_line("_nyx_pause_if_standalone_console();")
+        self.emit_line("_rove_pause_if_standalone_console();")
         self.emit_line("return 0;")
         self.indent_level = self.indent_level - 1
         self.emit_line("}")

@@ -5,7 +5,7 @@ fn main() {
     print("=== [NYX REAL FILESYSTEM & JSON TEST] ===");
     
     // 1. Write Real File to disk
-    var test_file = "temp_nyx_data.txt";
+    var test_file = "temp_rove_data.txt";
     var payload = "{\"name\":\"nyx_language\",\"version\":3,\"status\":\"active\"}";
     
     var write_ok = write_string(test_file, payload).unwrap();

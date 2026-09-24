@@ -1,4 +1,4 @@
-// nyx Standard Library: std/os (Native OS Subsystem)
+// Rove Standard Library: std/os (Native OS Subsystem)
 #target cpp
 #native include <stdlib.h>
 #native include <stdio.h>
@@ -15,5 +15,5 @@ fn get_env(name: string) -> string {
 }
 
 test "std/os basic functionality" {
-    assert(run_cmd("echo nyx OS subsystem initialized") == 0, "Command execution must return 0")
+    assert(run_cmd("echo Rove OS subsystem initialized") == 0, "Command execution must return 0")
 }

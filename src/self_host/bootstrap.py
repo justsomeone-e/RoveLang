@@ -86,7 +86,7 @@ def _combined_source() -> str:
 """ + "\n\n".join(components)
 
 
-def _nyx_string_literal(value: str) -> str:
+def _rove_string_literal(value: str) -> str:
     escaped = (
         value.replace("\\", "\\\\")
         .replace('"', '\\"')
@@ -99,7 +99,7 @@ def _nyx_string_literal(value: str) -> str:
 
 def _driver_source(source: str) -> str:
     return _combined_source() + "\n\n" + f"""fn main() {{
-    var source = {_nyx_string_literal(source)}
+    var source = {_rove_string_literal(source)}
     var lex = Lexer(lexer_characters(source), 0, 1, 1)
     var tokens = lex.tokenize()
     var parser = Parser(tokens, 0, false, "", "")
@@ -151,16 +151,16 @@ fn rovec_usage() {
 
 fn rovec_fail(kind: string, message: string, code: int) {
     print("ROVE_" + kind + "_ERROR:", message)
-    _nyx_process_exit(code)
+    _rove_process_exit(code)
 }
 
 fn rovec_frontend(source_path: string, output_path: string, check_only: bool, report_emit: bool) {
-    if not _nyx_bootstrap_file_exists(source_path) {
+    if not _rove_bootstrap_file_exists(source_path) {
         rovec_fail("IO", "Source file not found: " + source_path, 1)
         return
     }
 
-    var source = _nyx_bootstrap_read_file(source_path)
+    var source = _rove_bootstrap_read_file(source_path)
     var lex = Lexer(lexer_characters(source), 0, 1, 1)
     var tokens = lex.tokenize()
     var parser = Parser(tokens, 0, false, "", "")
@@ -199,7 +199,7 @@ fn rovec_frontend(source_path: string, output_path: string, check_only: bool, re
         rovec_fail("CODEGEN", generator.error_msg, 1)
         return
     }
-    if not _nyx_bootstrap_write_file(output_path, generated) {
+    if not _rove_bootstrap_write_file(output_path, generated) {
         rovec_fail("WRITE", "Could not write C++ output: " + output_path, 1)
         return
     }
@@ -210,12 +210,12 @@ fn rovec_frontend(source_path: string, output_path: string, check_only: bool, re
 fn rovec_build(source_path: string, output_path: string) {
     var cpp_path = output_path + ".rove.cpp"
     rovec_frontend(source_path, cpp_path, false, false)
-    var result = _nyx_toolchain_compile_cpp(cpp_path, output_path)
+    var result = _rove_toolchain_compile_cpp(cpp_path, output_path)
     if result != 0 {
-        rovec_fail("TOOLCHAIN", _nyx_toolchain_last_error() + "; generated C++ retained at " + cpp_path, 1)
+        rovec_fail("TOOLCHAIN", _rove_toolchain_last_error() + "; generated C++ retained at " + cpp_path, 1)
         return
     }
-    _nyx_bootstrap_remove_file(cpp_path)
+    _rove_bootstrap_remove_file(cpp_path)
     print("ROVE_BUILD_OK", output_path)
 }
 
@@ -223,13 +223,13 @@ fn main() {
     var cli_args: Array<string> = args()
     if len(cli_args) < 2 {
         rovec_usage()
-        _nyx_process_exit(2)
+        _rove_process_exit(2)
         return
     }
 
     var command = cli_args[1]
     if command == "--version" or command == "version" {
-        print("rovec __NYX_VERSION__ (native self-host)")
+        print("rovec __ROVE_VERSION__ (native self-host)")
         return
     }
     if command == "--help" or command == "-h" or command == "help" {
@@ -239,7 +239,7 @@ fn main() {
     if command == "check" {
         if len(cli_args) != 3 {
             rovec_usage()
-            _nyx_process_exit(2)
+            _rove_process_exit(2)
             return
         }
         rovec_frontend(cli_args[2], "", true, false)
@@ -248,14 +248,14 @@ fn main() {
     if command == "emit-cpp" or command == "compile" {
         if len(cli_args) < 4 {
             rovec_usage()
-            _nyx_process_exit(2)
+            _rove_process_exit(2)
             return
         }
         var output_path = cli_args[3]
         if output_path == "-o" or output_path == "--output" {
             if len(cli_args) < 5 {
                 rovec_usage()
-                _nyx_process_exit(2)
+                _rove_process_exit(2)
                 return
             }
             output_path = cli_args[4]
@@ -271,11 +271,11 @@ fn main() {
         return
     }
     rovec_usage()
-    _nyx_process_exit(2)
+    _rove_process_exit(2)
 }
 
 main()
-""").replace("__NYX_VERSION__", VERSION)
+""").replace("__ROVE_VERSION__", VERSION)
 
 
 def _compile_driver(source: str) -> Tuple[int, str]:
@@ -356,7 +356,7 @@ def build_native_compiler(output_path: str) -> bool:
 
     target = Path(output_path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="nyx_native_compiler_") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="rove_native_compiler_") as temp_dir:
         cpp_path = os.path.join(temp_dir, "rovec_stage2.cpp")
         with open(cpp_path, "w", encoding="utf-8") as handle:
             handle.write(stage2_cpp)
@@ -411,9 +411,9 @@ def verify_stage2() -> bool:
     if "FunctionParam::FunctionParam() :" not in stage2_cpp:
         raise SelfHostError("Stage-2 omitted the out-of-line recursive struct constructor")
 
-    with tempfile.TemporaryDirectory(prefix="nyx_stage2_verify_") as temp_dir:
-        stage2_cpp_path = os.path.join(temp_dir, "nyx_stage2.cpp")
-        stage2_exe_path = os.path.join(temp_dir, "nyx_stage2.exe")
+    with tempfile.TemporaryDirectory(prefix="rove_stage2_verify_") as temp_dir:
+        stage2_cpp_path = os.path.join(temp_dir, "rove_stage2.cpp")
+        stage2_exe_path = os.path.join(temp_dir, "rove_stage2.exe")
         with open(stage2_cpp_path, "w", encoding="utf-8") as handle:
             handle.write(stage2_cpp)
 

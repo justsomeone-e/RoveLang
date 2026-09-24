@@ -1,14 +1,14 @@
-// Nyx Standard Library: std/process
+// Rove Standard Library: std/process
 // Host Process Execution and Environment
 
 fn exec_cmd(command: string) -> Result<int, string> {
-    return _nyx_process_exec_cmd_result(command);
+    return _rove_process_exec_cmd_result(command);
 }
 
 fn get_env(name: string) -> Result<string, string> {
-    return _nyx_process_get_env_result(name);
+    return _rove_process_get_env_result(name);
 }
 
 fn exit_process(code: int) -> void {
-    _nyx_process_exit(code);
+    _rove_process_exit(code);
 }

@@ -1116,11 +1116,11 @@ class BundleLowerer:
         return self._type(node.type)
 
     def _type(self, type_node: object) -> str:
-        value_type = _nyx_type(type_node)
+        value_type = _rove_type(type_node)
         seen = set()
         while value_type in self.type_aliases and value_type not in seen:
             seen.add(value_type)
-            value_type = _nyx_type(self.type_aliases[value_type])
+            value_type = _rove_type(self.type_aliases[value_type])
         if value_type in self.structs:
             return STRUCT_PREFIX + value_type
         return value_type
@@ -1475,7 +1475,7 @@ def _wasi_runtime_functions() -> List[FunctionIR]:
     ]
 
 
-def _nyx_type(type_node: object) -> str:
+def _rove_type(type_node: object) -> str:
     if type_node is None:
         return VOID
     name = getattr(type_node, "name", str(type_node))
@@ -1487,7 +1487,7 @@ def _nyx_type(type_node: object) -> str:
         return STRING
     if name == "Array":
         arguments = getattr(type_node, "arguments", ())
-        element = _nyx_type(arguments[0]) if arguments else "any"
+        element = _rove_type(arguments[0]) if arguments else "any"
         if element in (I32,):
             return ARRAY_I32
         if element == F64:

@@ -114,16 +114,16 @@ impl CodeGen {
         if node.kind == "FunctionCall" {
             var args_str = self.gen_args(node.children)
             if node.name == "print" or node.name == "println" {
-                return "_nyx_print(" + args_str + ")"
+                return "_rove_print(" + args_str + ")"
             }
-            if node.name == "len" { return "_nyx_len(" + args_str + ")" }
-            if node.name == "args" { return "_nyx_args()" }
-            if node.name == "contains" { return "_nyx_contains(" + args_str + ")" }
+            if node.name == "len" { return "_rove_len(" + args_str + ")" }
+            if node.name == "args" { return "_rove_args()" }
+            if node.name == "contains" { return "_rove_contains(" + args_str + ")" }
             if node.name == "to_string" or node.name == "to_str" {
-                return "_nyx_to_string(" + args_str + ")"
+                return "_rove_to_string(" + args_str + ")"
             }
-            if node.name == "to_int" { return "_nyx_to_int(" + args_str + ")" }
-            if node.name == "main" { return "_nyx_user_main(" + args_str + ")" }
+            if node.name == "to_int" { return "_rove_to_int(" + args_str + ")" }
+            if node.name == "main" { return "_rove_user_main(" + args_str + ")" }
             return node.name + "(" + args_str + ")"
         }
         if node.kind == "Array" {
@@ -133,7 +133,7 @@ impl CodeGen {
             if len(node.children) >= 2 {
                 var arr = self.gen_expr(node.children[0])
                 var idx = self.gen_expr(node.children[1])
-                return "_nyx_index(" + arr + ", " + idx + ")"
+                return "_rove_index(" + arr + ", " + idx + ")"
             }
         }
         if node.kind == "MemberAccess" {
@@ -171,7 +171,7 @@ impl CodeGen {
     fn gen_function(self, node: ASTNode, is_method: bool) {
         var ret_type = self.map_type(node.type_name)
         var fn_name = node.name
-        if fn_name == "main" { fn_name = "_nyx_user_main" }
+        if fn_name == "main" { fn_name = "_rove_user_main" }
         var prefix = ""
         if is_method and (len(node.params) == 0 or node.params[0].name != "self") {
             prefix = "static "
@@ -204,8 +204,8 @@ impl CodeGen {
                     params_str = params_str + ", "
                     init_str = init_str + ", "
                 }
-                params_str = params_str + self.map_type(field.type_annot) + " _nyx_" + field.name
-                init_str = init_str + field.name + "(std::move(_nyx_" + field.name + "))"
+                params_str = params_str + self.map_type(field.type_annot) + " _rove_" + field.name
+                init_str = init_str + field.name + "(std::move(_rove_" + field.name + "))"
             }
             self.emit_line(node.name + "(" + params_str + ") : " + init_str + " {}")
         }
@@ -406,20 +406,20 @@ impl CodeGen {
         self.emit_line("#endif")
         self.emit_line("")
 
-        self.emit_line("inline void _nyx_print() { std::cout << '\\n'; }")
+        self.emit_line("inline void _rove_print() { std::cout << '\\n'; }")
         self.emit_line("template <typename First, typename... Rest>")
-        self.emit_line("void _nyx_print(First&& first, Rest&&... rest) {")
+        self.emit_line("void _rove_print(First&& first, Rest&&... rest) {")
         self.indent_level = self.indent_level + 1
         self.emit_line("std::cout << std::boolalpha << std::forward<First>(first);")
         self.emit_line("((std::cout << ' ' << std::forward<Rest>(rest)), ...);")
         self.emit_line("std::cout << '\\n';")
         self.indent_level = self.indent_level - 1
         self.emit_line("}")
-        self.emit_line("inline std::string _nyx_to_string(const std::string& value) { return value; }")
-        self.emit_line("inline std::string _nyx_to_string(bool value) { return value ? \"true\" : \"false\"; }")
-        self.emit_line("template <typename T> std::string _nyx_to_string(const T& value) { std::ostringstream stream; stream << value; return stream.str(); }")
-        self.emit_line("inline int64_t _nyx_to_int(const std::string& value) { try { return std::stoll(value); } catch (...) { return 0; } }")
-        self.emit_line("inline std::string _nyx_utf8_from_codepoint(int64_t raw_codepoint) {")
+        self.emit_line("inline std::string _rove_to_string(const std::string& value) { return value; }")
+        self.emit_line("inline std::string _rove_to_string(bool value) { return value ? \"true\" : \"false\"; }")
+        self.emit_line("template <typename T> std::string _rove_to_string(const T& value) { std::ostringstream stream; stream << value; return stream.str(); }")
+        self.emit_line("inline int64_t _rove_to_int(const std::string& value) { try { return std::stoll(value); } catch (...) { return 0; } }")
+        self.emit_line("inline std::string _rove_utf8_from_codepoint(int64_t raw_codepoint) {")
         self.indent_level = self.indent_level + 1
         self.emit_line("uint32_t codepoint = static_cast<uint32_t>(raw_codepoint);")
         self.emit_line("if (raw_codepoint < 0 || codepoint > 0x10FFFF || (codepoint >= 0xD800 && codepoint <= 0xDFFF)) codepoint = 0xFFFD;")
@@ -431,20 +431,20 @@ impl CodeGen {
         self.emit_line("return result;")
         self.indent_level = self.indent_level - 1
         self.emit_line("}")
-        self.emit_line("inline bool _nyx_contains(const std::string& value, const std::string& part) { return value.find(part) != std::string::npos; }")
-        self.emit_line("template <typename T> int64_t _nyx_len(const T& value) { return static_cast<int64_t>(value.size()); }")
-        self.emit_line("inline std::string _nyx_index(const std::string& value, int64_t index) { if (index < 0 || static_cast<size_t>(index) >= value.size()) return {}; return std::string(1, value[static_cast<size_t>(index)]); }")
-        self.emit_line("template <typename T> T& _nyx_index(std::vector<T>& value, int64_t index) { return value[static_cast<size_t>(index)]; }")
-        self.emit_line("template <typename T> const T& _nyx_index(const std::vector<T>& value, int64_t index) { return value[static_cast<size_t>(index)]; }")
-        self.emit_line("inline std::vector<std::string> _nyx_cli_arguments;")
-        self.emit_line("inline std::vector<std::string> _nyx_args() { return _nyx_cli_arguments; }")
-        self.emit_line("inline std::string _nyx_bootstrap_read_file(const std::string& path) { std::ifstream file(path, std::ios::binary); if (!file.is_open()) return {}; std::ostringstream buffer; buffer << file.rdbuf(); return buffer.str(); }")
-        self.emit_line("inline bool _nyx_bootstrap_write_file(const std::string& path, const std::string& content) { std::ofstream file(path, std::ios::binary); if (!file.is_open()) return false; file.write(content.data(), static_cast<std::streamsize>(content.size())); return file.good(); }")
-        self.emit_line("inline bool _nyx_bootstrap_file_exists(const std::string& path) { std::ifstream file(path, std::ios::binary); return file.good(); }")
-        self.emit_line("inline bool _nyx_bootstrap_remove_file(const std::string& path) { return std::remove(path.c_str()) == 0; }")
-        self.emit_line("[[noreturn]] inline void _nyx_process_exit(int64_t code) { std::exit(static_cast<int>(code)); }")
-        self.emit_line("inline std::string _nyx_toolchain_error;")
-        self.emit_line("inline int _nyx_spawn_wait(const std::vector<std::string>& command) {")
+        self.emit_line("inline bool _rove_contains(const std::string& value, const std::string& part) { return value.find(part) != std::string::npos; }")
+        self.emit_line("template <typename T> int64_t _rove_len(const T& value) { return static_cast<int64_t>(value.size()); }")
+        self.emit_line("inline std::string _rove_index(const std::string& value, int64_t index) { if (index < 0 || static_cast<size_t>(index) >= value.size()) return {}; return std::string(1, value[static_cast<size_t>(index)]); }")
+        self.emit_line("template <typename T> T& _rove_index(std::vector<T>& value, int64_t index) { return value[static_cast<size_t>(index)]; }")
+        self.emit_line("template <typename T> const T& _rove_index(const std::vector<T>& value, int64_t index) { return value[static_cast<size_t>(index)]; }")
+        self.emit_line("inline std::vector<std::string> _rove_cli_arguments;")
+        self.emit_line("inline std::vector<std::string> _rove_args() { return _rove_cli_arguments; }")
+        self.emit_line("inline std::string _rove_bootstrap_read_file(const std::string& path) { std::ifstream file(path, std::ios::binary); if (!file.is_open()) return {}; std::ostringstream buffer; buffer << file.rdbuf(); return buffer.str(); }")
+        self.emit_line("inline bool _rove_bootstrap_write_file(const std::string& path, const std::string& content) { std::ofstream file(path, std::ios::binary); if (!file.is_open()) return false; file.write(content.data(), static_cast<std::streamsize>(content.size())); return file.good(); }")
+        self.emit_line("inline bool _rove_bootstrap_file_exists(const std::string& path) { std::ifstream file(path, std::ios::binary); return file.good(); }")
+        self.emit_line("inline bool _rove_bootstrap_remove_file(const std::string& path) { return std::remove(path.c_str()) == 0; }")
+        self.emit_line("[[noreturn]] inline void _rove_process_exit(int64_t code) { std::exit(static_cast<int>(code)); }")
+        self.emit_line("inline std::string _rove_toolchain_error;")
+        self.emit_line("inline int _rove_spawn_wait(const std::vector<std::string>& command) {")
         self.indent_level = self.indent_level + 1
         self.emit_line("if (command.empty()) return -1;")
         self.emit_line("std::vector<char*> arguments;")
@@ -466,7 +466,7 @@ impl CodeGen {
         self.emit_line("#endif")
         self.indent_level = self.indent_level - 1
         self.emit_line("}")
-        self.emit_line("inline int _nyx_toolchain_compile_cpp(const std::string& source, const std::string& output) {")
+        self.emit_line("inline int _rove_toolchain_compile_cpp(const std::string& source, const std::string& output) {")
         self.indent_level = self.indent_level + 1
         self.emit_line("std::vector<std::string> compilers;")
         self.emit_line("if (const char* configured = std::getenv(\"ROVE_CXX\"); configured && *configured) compilers.emplace_back(configured);")
@@ -476,18 +476,18 @@ impl CodeGen {
         self.emit_line("compilers.emplace_back(\"c++\");")
         self.emit_line("for (const auto& compiler : compilers) {")
         self.indent_level = self.indent_level + 1
-        self.emit_line("const int result = _nyx_spawn_wait({compiler, \"-std=c++20\", \"-O2\", source, \"-o\", output});")
-        self.emit_line("if (result == 0) { _nyx_toolchain_error.clear(); return 0; }")
+        self.emit_line("const int result = _rove_spawn_wait({compiler, \"-std=c++20\", \"-O2\", source, \"-o\", output});")
+        self.emit_line("if (result == 0) { _rove_toolchain_error.clear(); return 0; }")
         self.emit_line("if (result == -1 || result == 127) continue;")
-        self.emit_line("_nyx_toolchain_error = compiler + \" exited with code \" + std::to_string(result);")
+        self.emit_line("_rove_toolchain_error = compiler + \" exited with code \" + std::to_string(result);")
         self.emit_line("return result;")
         self.indent_level = self.indent_level - 1
         self.emit_line("}")
-        self.emit_line("_nyx_toolchain_error = \"No C++20 compiler found (set ROVE_CXX or install clang++/g++; NYX_CXX remains a legacy alias)\";")
+        self.emit_line("_rove_toolchain_error = \"No C++20 compiler found (set ROVE_CXX or install clang++/g++; NYX_CXX remains a legacy alias)\";")
         self.emit_line("return 127;")
         self.indent_level = self.indent_level - 1
         self.emit_line("}")
-        self.emit_line("inline std::string _nyx_toolchain_last_error() { return _nyx_toolchain_error; }")
+        self.emit_line("inline std::string _rove_toolchain_last_error() { return _rove_toolchain_error; }")
         self.emit_line("")
 
         for i in 0..len(stmts)-1 {
@@ -513,7 +513,7 @@ impl CodeGen {
         for i in 0..len(stmts)-1 {
             if stmts[i].kind == "FunctionDef" {
                 var fn_name = stmts[i].name
-                if fn_name == "main" { fn_name = "_nyx_user_main" }
+                if fn_name == "main" { fn_name = "_rove_user_main" }
                 self.emit_line(self.map_type(stmts[i].type_name) + " " + fn_name + "(" + self.gen_params(stmts[i], false) + ");")
             }
         }
@@ -540,14 +540,14 @@ impl CodeGen {
 
         self.emit_line("int main(int argc, char** argv) {")
         self.indent_level = self.indent_level + 1
-        self.emit_line("for (int i = 0; i < argc; ++i) { _nyx_cli_arguments.emplace_back(argv[i] ? argv[i] : \"\"); }")
+        self.emit_line("for (int i = 0; i < argc; ++i) { _rove_cli_arguments.emplace_back(argv[i] ? argv[i] : \"\"); }")
         for i in 0..len(stmts)-1 {
             var kind = stmts[i].kind
             if kind != "Directive" and kind != "StructDef" and kind != "ImplBlock" and kind != "TraitDef" and kind != "ExternFn" and kind != "FunctionDef" {
                 self.gen_stmt(stmts[i])
             }
         }
-        if has_user_main and not has_explicit_main { self.emit_line("_nyx_user_main();") }
+        if has_user_main and not has_explicit_main { self.emit_line("_rove_user_main();") }
         self.emit_line("return 0;")
         self.indent_level = self.indent_level - 1
         self.emit_line("}")

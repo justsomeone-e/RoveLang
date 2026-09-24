@@ -1,11 +1,11 @@
-// nyx Standard Library - std/json_lite
+// Rove Standard Library - std/json_lite
 // Flat top-level string/integer field extractor. This is intentionally not a
 // general JSON parser and does not implement nesting or escape decoding.
 
 #native include "string"
 
 #native raw {
-inline std::string _nyx_json_get_string(const std::string& json_str, const std::string& key) {
+inline std::string _rove_json_get_string(const std::string& json_str, const std::string& key) {
     std::string pattern = "\"" + key + "\":";
     size_t pos = json_str.find(pattern);
     if (pos == std::string::npos) return "";
@@ -21,7 +21,7 @@ inline std::string _nyx_json_get_string(const std::string& json_str, const std::
     return "";
 }
 
-inline int64_t _nyx_json_get_int(const std::string& json_str, const std::string& key) {
+inline int64_t _rove_json_get_int(const std::string& json_str, const std::string& key) {
     std::string pattern = "\"" + key + "\":";
     size_t pos = json_str.find(pattern);
     if (pos == std::string::npos) return 0;
@@ -36,7 +36,7 @@ inline int64_t _nyx_json_get_int(const std::string& json_str, const std::string&
     return 0;
 }
 
-inline NyxResult<std::string, std::string> _nyx_json_get_string_result(const std::string& json_str, const std::string& key) {
+inline RoveResult<std::string, std::string> _rove_json_get_string_result(const std::string& json_str, const std::string& key) {
     std::string pattern = "\"" + key + "\":";
     size_t pos = json_str.find(pattern);
     if (pos == std::string::npos) return {false, {}, "JSON field not found: " + key};
@@ -48,7 +48,7 @@ inline NyxResult<std::string, std::string> _nyx_json_get_string_result(const std
     return {true, json_str.substr(pos + 1, end - pos - 1), {}};
 }
 
-inline NyxResult<int64_t, std::string> _nyx_json_get_int_result(const std::string& json_str, const std::string& key) {
+inline RoveResult<int64_t, std::string> _rove_json_get_int_result(const std::string& json_str, const std::string& key) {
     std::string pattern = "\"" + key + "\":";
     size_t pos = json_str.find(pattern);
     if (pos == std::string::npos) return {false, 0, "JSON field not found: " + key};
@@ -63,9 +63,9 @@ inline NyxResult<int64_t, std::string> _nyx_json_get_int_result(const std::strin
 }
 
 fn get_string(json_str: string, key: string) -> Result<string, string> {
-    return _nyx_json_get_string_result(json_str, key);
+    return _rove_json_get_string_result(json_str, key);
 }
 
 fn get_int(json_str: string, key: string) -> Result<int, string> {
-    return _nyx_json_get_int_result(json_str, key);
+    return _rove_json_get_int_result(json_str, key);
 }

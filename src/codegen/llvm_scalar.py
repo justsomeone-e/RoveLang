@@ -277,7 +277,7 @@ class LLVMScalarEmitter:
 
         # Register functions
         for fn in functions:
-            preferred = "_nyx_user_main" if fn.name == "main" else fn.name
+            preferred = "_rove_user_main" if fn.name == "main" else fn.name
             emitted = self._identifier(preferred)
             self.symbol_names[fn.symbol] = emitted
             self.function_map[fn.name] = fn
@@ -634,18 +634,18 @@ class LLVMScalarEmitter:
         user_main = self.function_map.get("main")
         if user_main is not None:
             if self._is_void_return(user_main):
-                current.emit("  call void @_nyx_user_main()")
+                current.emit("  call void @_rove_user_main()")
                 current.terminate("  ret i32 0")
             else:
                 user_ret_type = self._llvm_type(user_main.return_type)
                 if user_ret_type == "i64":
                     r64 = self._temp("user_main_ret")
-                    current.emit(f"  {r64} = call i64 @_nyx_user_main()")
+                    current.emit(f"  {r64} = call i64 @_rove_user_main()")
                     r32 = self._temp("ret32")
                     current.emit(f"  {r32} = trunc i64 {r64} to i32")
                     current.terminate(f"  ret i32 {r32}")
                 else:
-                    current.emit(f"  call {user_ret_type} @_nyx_user_main()")
+                    current.emit(f"  call {user_ret_type} @_rove_user_main()")
                     current.terminate("  ret i32 0")
         else:
             if not current.terminated:
@@ -1362,7 +1362,7 @@ class LLVMScalarEmitter:
     def _identifier(name: str) -> str:
         clean = _IDENTIFIER_CHARS.sub("_", name)
         if not clean:
-            clean = "_nyx_var"
+            clean = "_rove_var"
         if clean[0].isdigit():
             clean = "_" + clean
         return clean

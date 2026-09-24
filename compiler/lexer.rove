@@ -440,7 +440,7 @@ impl Lexer {
                                 else { codepoint = codepoint * 16 + digit }
                             }
                             if valid_escape {
-                                str_val = str_val + _nyx_utf8_from_codepoint(codepoint)
+                                str_val = str_val + _rove_utf8_from_codepoint(codepoint)
                                 self.pos = self.pos + 6
                                 self.col = self.col + 6
                                 continue

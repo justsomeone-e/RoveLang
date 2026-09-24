@@ -1,4 +1,4 @@
-// nyx Standard Library - std/crypto
+// Rove Standard Library - std/crypto
 // Cryptographic Hash Functions - SHA-256 (FIPS 180-4) Exact Polyglot Specification
 
 #native include "string"
@@ -8,7 +8,7 @@
 #native include "cstdint"
 
 #native raw {
-namespace _nyx_sha256 {
+namespace _rove_sha256 {
     inline uint32_t ror(uint32_t val, uint32_t shift) {
         return (val >> shift) | (val << (32 - shift));
     }
@@ -86,11 +86,11 @@ namespace _nyx_sha256 {
     }
 }
 
-inline std::string _nyx_crypto_sha256_hex(const std::string& data) {
-    return _nyx_sha256::hash_sha256(data);
+inline std::string _rove_crypto_sha256_hex(const std::string& data) {
+    return _rove_sha256::hash_sha256(data);
 }
 }
 
 fn sha256_hex(data: string) -> string {
-    return _nyx_crypto_sha256_hex(data);
+    return _rove_crypto_sha256_hex(data);
 }
