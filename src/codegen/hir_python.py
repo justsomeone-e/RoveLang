@@ -1390,7 +1390,7 @@ class HIRPythonEmitter:
         if clean[0].isdigit():
             clean = "_" + clean
         if keyword.iskeyword(clean):
-            clean += "_nyx"
+            clean += "_rove"
         return clean
 
     def _type_name(self, value_type: IRType) -> str:
