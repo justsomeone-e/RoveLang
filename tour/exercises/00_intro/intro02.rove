@@ -1,0 +1,9 @@
+// I AM NOT DONE
+// TODO: Fix the syntax error in the print statement below.
+// In Rove, strings must be closed with matching quotes.
+
+fn main() {
+    print("Welcome to modern systems programming with Rove!")
+}
+
+main()

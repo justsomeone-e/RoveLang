@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Curriculum Builder for Tour of Nyx
+Curriculum Builder for Tour of Rove
 Generates 81 progressive exercises across 21 language modules.
 """
 
@@ -15,29 +15,29 @@ EXERCISES_DATA = [
         "id": "intro01",
         "name": "intro01",
         "topic": "00_intro",
-        "title": "Welcome to Nyx",
-        "path": "exercises/00_intro/intro01.nyx",
-        "solution": "solutions/00_intro/intro01.nyx",
+        "title": "Welcome to Rove",
+        "path": "exercises/00_intro/intro01.rove",
+        "solution": "solutions/00_intro/intro01.rove",
         "mode": "run",
-        "description": "Run your very first Nyx program to verify your environment.",
+        "description": "Run your very first Rove program to verify your environment.",
         "hints": [
             "This exercise is already solved! Just check that it compiles and runs.",
             "Press 'n' in the terminal to advance to the next exercise."
         ],
-        "exercise_code": '''// Welcome to Tour of Nyx!
+        "exercise_code": '''// Welcome to Tour of Rove!
 // This exercise is already solved to get you started.
 // In future exercises, you will fix errors and write code.
 //
 // Press 'n' in the Tour terminal or modify this file to experiment!
 
 fn main() {
-    print("Hello, Nyx Explorer! Welcome to the Tour of Nyx.")
+    print("Hello, Rove Explorer! Welcome to the Tour of Rove.")
 }
 
 main()
 ''',
         "solution_code": '''fn main() {
-    print("Hello, Nyx Explorer! Welcome to the Tour of Nyx.")
+    print("Hello, Rove Explorer! Welcome to the Tour of Rove.")
 }
 
 main()
@@ -48,26 +48,26 @@ main()
         "name": "intro02",
         "topic": "00_intro",
         "title": "Fixing Syntax Errors",
-        "path": "exercises/00_intro/intro02.nyx",
-        "solution": "solutions/00_intro/intro02.nyx",
+        "path": "exercises/00_intro/intro02.rove",
+        "solution": "solutions/00_intro/intro02.rove",
         "mode": "run",
         "description": "Fix a missing closing quote in a print statement.",
         "hints": [
             "Look at line 6: the string is missing a closing quote character '\"'.",
-            "Strings in Nyx must start and end with matching quotation marks."
+            "Strings in Rove must start and end with matching quotation marks."
         ],
         "exercise_code": '''// I AM NOT DONE
 // TODO: Fix the syntax error in the print statement below.
-// In Nyx, strings must be closed with matching quotes.
+// In Rove, strings must be closed with matching quotes.
 
 fn main() {
-    print("Welcome to modern systems programming with Nyx!
+    print("Welcome to modern systems programming with Rove!
 }
 
 main()
 ''',
         "solution_code": '''fn main() {
-    print("Welcome to modern systems programming with Nyx!")
+    print("Welcome to modern systems programming with Rove!")
 }
 
 main()
@@ -77,31 +77,31 @@ main()
         "id": "intro03",
         "name": "intro03",
         "topic": "00_intro",
-        "title": "Comments in Nyx",
-        "path": "exercises/00_intro/intro03.nyx",
-        "solution": "solutions/00_intro/intro03.nyx",
+        "title": "Comments in Rove",
+        "path": "exercises/00_intro/intro03.rove",
+        "solution": "solutions/00_intro/intro03.rove",
         "mode": "run",
         "description": "Uncomment code using double slash // line comments.",
         "hints": [
             "Lines starting with '//' are ignored by the compiler.",
-            "Remove '//' before `let message = \"Nyx is fast!\"` and the print call."
+            "Remove '//' before `let message = \"Rove is fast!\"` and the print call."
         ],
         "exercise_code": '''// I AM NOT DONE
-// In Nyx, comments start with `//` and are ignored by the compiler.
+// In Rove, comments start with `//` and are ignored by the compiler.
 // TODO: Uncomment the declaration of `message` and the print call!
 
 fn main() {
-    // let message = "Nyx is fast!"
+    // let message = "Rove is fast!"
     let message = ""
-    assert(message == "Nyx is fast!", "message must equal 'Nyx is fast!'")
+    assert(message == "Rove is fast!", "message must equal 'Rove is fast!'")
     print(message)
 }
 
 main()
 ''',
         "solution_code": '''fn main() {
-    let message = "Nyx is fast!"
-    assert(message == "Nyx is fast!", "message must equal 'Nyx is fast!'")
+    let message = "Rove is fast!"
+    assert(message == "Rove is fast!", "message must equal 'Rove is fast!'")
     print(message)
 }
 
@@ -117,16 +117,16 @@ main()
         "name": "variables01",
         "topic": "01_variables",
         "title": "Immutable Bindings with let",
-        "path": "exercises/01_variables/variables01.nyx",
-        "solution": "solutions/01_variables/variables01.nyx",
+        "path": "exercises/01_variables/variables01.rove",
+        "solution": "solutions/01_variables/variables01.rove",
         "mode": "run",
         "description": "Declare an immutable variable using the let keyword.",
         "hints": [
-            "In Nyx, variables cannot be introduced without a keyword.",
+            "In Rove, variables cannot be introduced without a keyword.",
             "Use `let x = 42` to introduce an immutable binding."
         ],
         "exercise_code": '''// I AM NOT DONE
-// In Nyx, bindings are introduced with `let` (immutable) or `var` (mutable).
+// In Rove, bindings are introduced with `let` (immutable) or `var` (mutable).
 // TODO: Declare `x` with value 42 using the `let` keyword.
 
 fn main() {
@@ -150,8 +150,8 @@ main()
         "name": "variables02",
         "topic": "01_variables",
         "title": "Mutable Variables with var and set",
-        "path": "exercises/01_variables/variables02.nyx",
-        "solution": "solutions/01_variables/variables02.nyx",
+        "path": "exercises/01_variables/variables02.rove",
+        "solution": "solutions/01_variables/variables02.rove",
         "mode": "run",
         "description": "Allow variable mutation by changing let to var.",
         "hints": [
@@ -159,7 +159,7 @@ main()
             "Change `let count = 10` to `var count = 10`."
         ],
         "exercise_code": '''// I AM NOT DONE
-// In Nyx, immutable bindings created with `let` cannot be modified.
+// In Rove, immutable bindings created with `let` cannot be modified.
 // To allow mutation, declare the variable with `var`, and update it with `set`.
 // TODO: Change `let` to `var` so that `count` can be incremented.
 
@@ -185,8 +185,8 @@ main()
         "name": "variables03",
         "topic": "01_variables",
         "title": "Type Annotations",
-        "path": "exercises/01_variables/variables03.nyx",
-        "solution": "solutions/01_variables/variables03.nyx",
+        "path": "exercises/01_variables/variables03.rove",
+        "solution": "solutions/01_variables/variables03.rove",
         "mode": "check",
         "description": "Fix a type mismatch where a string was assigned to an int.",
         "hints": [
@@ -194,19 +194,19 @@ main()
             "Change \"twenty\" to an integer literal like `20`."
         ],
         "exercise_code": '''// I AM NOT DONE
-// Nyx is statically typed. You can annotate variables with `: type`.
+// Rove is statically typed. You can annotate variables with `: type`.
 // Types include `int`, `float`, `string`, `bool`.
 // TODO: Fix the type mismatch below so the compiler is satisfied.
 
 fn check_types() {
     let age: int = "twenty"
-    let name: string = "Nyx"
+    let name: string = "Rove"
     let active: bool = true
 }
 ''',
         "solution_code": '''fn check_types() {
     let age: int = 20
-    let name: string = "Nyx"
+    let name: string = "Rove"
     let active: bool = true
 }
 '''
@@ -216,8 +216,8 @@ fn check_types() {
         "name": "variables04",
         "topic": "01_variables",
         "title": "Constants with const",
-        "path": "exercises/01_variables/variables04.nyx",
-        "solution": "solutions/01_variables/variables04.nyx",
+        "path": "exercises/01_variables/variables04.rove",
+        "solution": "solutions/01_variables/variables04.rove",
         "mode": "run",
         "description": "Understand that const values cannot be reassigned.",
         "hints": [
@@ -253,8 +253,8 @@ main()
         "name": "variables05",
         "topic": "01_variables",
         "title": "Arithmetic & Scopes",
-        "path": "exercises/01_variables/variables05.nyx",
-        "solution": "solutions/01_variables/variables05.nyx",
+        "path": "exercises/01_variables/variables05.rove",
+        "solution": "solutions/01_variables/variables05.rove",
         "mode": "run",
         "description": "Compute and declare the area of a rectangle.",
         "hints": [
@@ -288,15 +288,15 @@ main()
         "name": "variables06",
         "topic": "01_variables",
         "title": "Array Destructuring",
-        "path": "exercises/01_variables/variables06.nyx",
-        "solution": "solutions/01_variables/variables06.nyx",
+        "path": "exercises/01_variables/variables06.rove",
+        "solution": "solutions/01_variables/variables06.rove",
         "mode": "run",
         "description": "Unpack coordinates using array destructuring.",
         "hints": [
             "Use `let [x, y] = coords` to unpack the two values at once."
         ],
         "exercise_code": '''// I AM NOT DONE
-// Nyx supports array destructuring: `let [first, second] = [val1, val2]`
+// Rove supports array destructuring: `let [first, second] = [val1, val2]`
 // TODO: Destructure `coords` into `x` and `y`.
 
 fn main() {
@@ -325,15 +325,15 @@ main()
         "name": "variables07",
         "topic": "01_variables",
         "title": "Struct Destructuring",
-        "path": "exercises/01_variables/variables07.nyx",
-        "solution": "solutions/01_variables/variables07.nyx",
+        "path": "exercises/01_variables/variables07.rove",
+        "solution": "solutions/01_variables/variables07.rove",
         "mode": "run",
         "description": "Unpack fields from a struct using positional destructuring.",
         "hints": [
             "Write `let Point(px, py) = p` to bind `px` and `py`."
         ],
         "exercise_code": '''// I AM NOT DONE
-// Nyx also supports positional struct destructuring:
+// Rove also supports positional struct destructuring:
 //   `let Point(x, y) = point_instance`
 // TODO: Destructure `p` into `px` and `py`.
 
@@ -374,8 +374,8 @@ main()
         "name": "variables08",
         "topic": "01_variables",
         "title": "Discarding Values with Underscore",
-        "path": "exercises/01_variables/variables08.nyx",
-        "solution": "solutions/01_variables/variables08.nyx",
+        "path": "exercises/01_variables/variables08.rove",
+        "solution": "solutions/01_variables/variables08.rove",
         "mode": "run",
         "description": "Discard unused values during destructuring with _.",
         "hints": [
@@ -416,8 +416,8 @@ main()
         "name": "types01",
         "topic": "02_types",
         "title": "Integers and Floats",
-        "path": "exercises/02_types/types01.nyx",
-        "solution": "solutions/02_types/types01.nyx",
+        "path": "exercises/02_types/types01.rove",
+        "solution": "solutions/02_types/types01.rove",
         "mode": "check",
         "description": "Specify the correct float type for decimal values.",
         "hints": [
@@ -425,7 +425,7 @@ main()
             "Change `let ratio: int` to `let ratio: float`."
         ],
         "exercise_code": '''// I AM NOT DONE
-// Nyx integers do not automatically narrow from float without explicit conversion.
+// Rove integers do not automatically narrow from float without explicit conversion.
 // Float literals have a decimal point (e.g. 3.14).
 // TODO: Fix the type declaration so `ratio` has the correct type `float`.
 
@@ -445,16 +445,16 @@ fn demo_numerics() {
         "name": "types02",
         "topic": "02_types",
         "title": "Booleans and Logic",
-        "path": "exercises/02_types/types02.nyx",
-        "solution": "solutions/02_types/types02.nyx",
+        "path": "exercises/02_types/types02.rove",
+        "solution": "solutions/02_types/types02.rove",
         "mode": "run",
         "description": "Combine boolean flags using the `or` keyword.",
         "hints": [
-            "In Nyx, boolean OR is expressed with `or` (or `||`).",
+            "In Rove, boolean OR is expressed with `or` (or `||`).",
             "Write `let is_allowed: bool = is_admin or has_token`."
         ],
         "exercise_code": '''// I AM NOT DONE
-// Nyx uses words `and`, `or`, and `not` for boolean logic.
+// Rove uses words `and`, `or`, and `not` for boolean logic.
 // TODO: Set `is_allowed` to true when `is_admin` is true OR `has_token` is true.
 
 fn main() {
@@ -483,32 +483,32 @@ main()
         "name": "types03",
         "topic": "02_types",
         "title": "Strings and Concatenation",
-        "path": "exercises/02_types/types03.nyx",
-        "solution": "solutions/02_types/types03.nyx",
+        "path": "exercises/02_types/types03.rove",
+        "solution": "solutions/02_types/types03.rove",
         "mode": "run",
         "description": "Concatenate string variables using the + operator.",
         "hints": [
             "Use `first + \" \" + last` to concatenate with a space."
         ],
         "exercise_code": '''// I AM NOT DONE
-// Strings in Nyx can be concatenated using the `+` operator.
-// TODO: Combine `first` and `last` with a space to form "Nyx Language".
+// Strings in Rove can be concatenated using the `+` operator.
+// TODO: Combine `first` and `last` with a space to form "Rove Language".
 
 fn main() {
-    let first = "Nyx"
+    let first = "Rove"
     let last = "Language"
     let full_name = first // Fix concatenation here
-    assert(full_name == "Nyx Language", "full_name must be 'Nyx Language'!")
+    assert(full_name == "Rove Language", "full_name must be 'Rove Language'!")
     print("Full name:", full_name)
 }
 
 main()
 ''',
         "solution_code": '''fn main() {
-    let first = "Nyx"
+    let first = "Rove"
     let last = "Language"
     let full_name = first + " " + last
-    assert(full_name == "Nyx Language", "full_name must be 'Nyx Language'!")
+    assert(full_name == "Rove Language", "full_name must be 'Rove Language'!")
     print("Full name:", full_name)
 }
 
@@ -520,8 +520,8 @@ main()
         "name": "types04",
         "topic": "02_types",
         "title": "String Length",
-        "path": "exercises/02_types/types04.nyx",
-        "solution": "solutions/02_types/types04.nyx",
+        "path": "exercises/02_types/types04.rove",
+        "solution": "solutions/02_types/types04.rove",
         "mode": "run",
         "description": "Determine the length of a string using len().",
         "hints": [
@@ -557,15 +557,15 @@ main()
         "name": "types05",
         "topic": "02_types",
         "title": "Escape Sequences",
-        "path": "exercises/02_types/types05.nyx",
-        "solution": "solutions/02_types/types05.nyx",
+        "path": "exercises/02_types/types05.rove",
+        "solution": "solutions/02_types/types05.rove",
         "mode": "run",
         "description": "Use newline \\n and tab \\t escapes in string literals.",
         "hints": [
             "Use `\"Line 1\\nLine 2\"` to insert a newline."
         ],
         "exercise_code": '''// I AM NOT DONE
-// Nyx string literals support standard escape sequences like `\\n` (newline) and `\\t` (tab).
+// Rove string literals support standard escape sequences like `\\n` (newline) and `\\t` (tab).
 // TODO: Create a two-line string with \"Hello\" on line 1 and \"World\" on line 2.
 
 fn main() {
@@ -590,12 +590,12 @@ main()
         "name": "types06",
         "topic": "02_types",
         "title": "Integer Widening",
-        "path": "exercises/02_types/types06.nyx",
-        "solution": "solutions/02_types/types06.nyx",
+        "path": "exercises/02_types/types06.rove",
+        "solution": "solutions/02_types/types06.rove",
         "mode": "run",
         "description": "Observe automatic int widening to float in mixed expressions.",
         "hints": [
-            "In Nyx, adding an int to a float widens the int to float automatically.",
+            "In Rove, adding an int to a float widens the int to float automatically.",
             "Write `let result: float = base + fraction`."
         ],
         "exercise_code": '''// I AM NOT DONE
@@ -634,15 +634,15 @@ main()
         "name": "functions01",
         "topic": "03_functions",
         "title": "Function Declaration",
-        "path": "exercises/03_functions/functions01.nyx",
-        "solution": "solutions/03_functions/functions01.nyx",
+        "path": "exercises/03_functions/functions01.rove",
+        "solution": "solutions/03_functions/functions01.rove",
         "mode": "run",
         "description": "Define a void function using the fn keyword.",
         "hints": [
             "Define `fn call_me() { print(\"Called successfully!\") }`."
         ],
         "exercise_code": '''// I AM NOT DONE
-// In Nyx, functions are declared with the `fn` keyword.
+// In Rove, functions are declared with the `fn` keyword.
 // TODO: Define a function named `call_me` that prints "Called successfully!".
 
 fn main() {
@@ -667,8 +667,8 @@ main()
         "name": "functions02",
         "topic": "03_functions",
         "title": "Parameters and Return Types",
-        "path": "exercises/03_functions/functions02.nyx",
-        "solution": "solutions/03_functions/functions02.nyx",
+        "path": "exercises/03_functions/functions02.rove",
+        "solution": "solutions/03_functions/functions02.rove",
         "mode": "run",
         "description": "Write a function returning the product of two integers.",
         "hints": [
@@ -708,15 +708,15 @@ main()
         "name": "functions03",
         "topic": "03_functions",
         "title": "Expression-Bodied Functions",
-        "path": "exercises/03_functions/functions03.nyx",
-        "solution": "solutions/03_functions/functions03.nyx",
+        "path": "exercises/03_functions/functions03.rove",
+        "solution": "solutions/03_functions/functions03.rove",
         "mode": "run",
         "description": "Define a concise expression-bodied function using =.",
         "hints": [
             "Write `fn cube(x: int) -> int = x * x * x`."
         ],
         "exercise_code": '''// I AM NOT DONE
-// In Nyx, concise functions can use expression bodies:
+// In Rove, concise functions can use expression bodies:
 //   fn square(x: int) -> int = x * x
 // TODO: Define an expression-bodied function `cube` that computes `x * x * x`.
 
@@ -746,8 +746,8 @@ main()
         "name": "functions04",
         "topic": "03_functions",
         "title": "Default Parameter Values",
-        "path": "exercises/03_functions/functions04.nyx",
-        "solution": "solutions/03_functions/functions04.nyx",
+        "path": "exercises/03_functions/functions04.rove",
+        "solution": "solutions/03_functions/functions04.rove",
         "mode": "run",
         "description": "Supply a default parameter value for omitted arguments.",
         "hints": [
@@ -764,7 +764,7 @@ fn greet(name: string, title: string) {
 
 fn main() {
     greet("Kurt", "Captain")
-    greet("Nyx") // Should use default title!
+    greet("Rove") // Should use default title!
 }
 
 main()
@@ -775,7 +775,7 @@ main()
 
 fn main() {
     greet("Kurt", "Captain")
-    greet("Nyx")
+    greet("Rove")
 }
 
 main()
@@ -786,15 +786,15 @@ main()
         "name": "functions05",
         "topic": "03_functions",
         "title": "Multiple Default Parameters",
-        "path": "exercises/03_functions/functions05.nyx",
-        "solution": "solutions/03_functions/functions05.nyx",
+        "path": "exercises/03_functions/functions05.rove",
+        "solution": "solutions/03_functions/functions05.rove",
         "mode": "run",
         "description": "Provide multiple trailing parameters with default values.",
         "hints": [
             "Declare `fn make_sandwich(bread: string, filling: string = \"Cheese\", toasted: bool = true)`."
         ],
         "exercise_code": '''// I AM NOT DONE
-// Multiple trailing parameters can declare defaults in Nyx.
+// Multiple trailing parameters can declare defaults in Rove.
 // TODO: Give `filling` the default \"Cheese\" and `toasted` the default `true`.
 
 fn make_sandwich(bread: string, filling: string, toasted: bool) -> string {
@@ -837,10 +837,10 @@ main()
         "name": "functions06",
         "topic": "03_functions",
         "title": "Recursive Functions",
-        "path": "exercises/03_functions/functions06.nyx",
-        "solution": "solutions/03_functions/functions06.nyx",
+        "path": "exercises/03_functions/functions06.rove",
+        "solution": "solutions/03_functions/functions06.rove",
         "mode": "run",
-        "description": "Implement the factorial function recursively in Nyx.",
+        "description": "Implement the factorial function recursively in Rove.",
         "hints": [
             "Base case: `if n <= 1 { return 1 }`.",
             "Recursive step: `return n * factorial(n - 1)`."
@@ -887,15 +887,15 @@ main()
         "name": "if01",
         "topic": "04_control_flow",
         "title": "Conditional Branching",
-        "path": "exercises/04_control_flow/if01.nyx",
-        "solution": "solutions/04_control_flow/if01.nyx",
+        "path": "exercises/04_control_flow/if01.rove",
+        "solution": "solutions/04_control_flow/if01.rove",
         "mode": "run",
         "description": "Structure multi-way branching using elif and else.",
         "hints": [
             "Add `elif temp > 15 { return \"Warm\" } else { return \"Cold\" }`."
         ],
         "exercise_code": '''// I AM NOT DONE
-// In Nyx, `if`, `elif` (or `else if`), and `else` control branch execution.
+// In Rove, `if`, `elif` (or `else if`), and `else` control branch execution.
 // TODO: Complete the temperature check:
 // If temp > 30 return "Hot", elif temp > 15 return "Warm", else return "Cold".
 
@@ -941,8 +941,8 @@ main()
         "name": "if02",
         "topic": "04_control_flow",
         "title": "If as an Expression",
-        "path": "exercises/04_control_flow/if02.nyx",
-        "solution": "solutions/04_control_flow/if02.nyx",
+        "path": "exercises/04_control_flow/if02.rove",
+        "solution": "solutions/04_control_flow/if02.rove",
         "mode": "check",
         "description": "Ensure all branches of an if expression return the same type.",
         "hints": [
@@ -950,7 +950,7 @@ main()
             "Change `0` to a string like `\"disconnected\"`."
         ],
         "exercise_code": '''// I AM NOT DONE
-// In Nyx, `if` can be an expression returning a value!
+// In Rove, `if` can be an expression returning a value!
 // All branches must return the same type.
 // TODO: Fix the branch return types so `status` is consistently a `string`.
 
@@ -978,8 +978,8 @@ fn get_status(is_online: bool) -> string {
         "name": "loops01",
         "topic": "04_control_flow",
         "title": "Range For Loops",
-        "path": "exercises/04_control_flow/loops01.nyx",
-        "solution": "solutions/04_control_flow/loops01.nyx",
+        "path": "exercises/04_control_flow/loops01.rove",
+        "solution": "solutions/04_control_flow/loops01.rove",
         "mode": "run",
         "description": "Sum numbers from 1 to 5 using an inclusive range loop.",
         "hints": [
@@ -987,7 +987,7 @@ fn get_status(is_online: bool) -> string {
             "Change the range to `1..5`."
         ],
         "exercise_code": '''// I AM NOT DONE
-// Nyx provides inclusive range loops: `for i in start..end`
+// Rove provides inclusive range loops: `for i in start..end`
 // For example, `1..5` iterates through 1, 2, 3, 4, 5.
 // TODO: Sum all numbers from 1 to 5 inclusive and verify the total is 15.
 
@@ -1019,8 +1019,8 @@ main()
         "name": "loops02",
         "topic": "04_control_flow",
         "title": "While Loops",
-        "path": "exercises/04_control_flow/loops02.nyx",
-        "solution": "solutions/04_control_flow/loops02.nyx",
+        "path": "exercises/04_control_flow/loops02.rove",
+        "solution": "solutions/04_control_flow/loops02.rove",
         "mode": "run",
         "description": "Count down to 0 in a while loop.",
         "hints": [
@@ -1061,8 +1061,8 @@ main()
         "name": "loops03",
         "topic": "04_control_flow",
         "title": "Loop, Break, and Continue",
-        "path": "exercises/04_control_flow/loops03.nyx",
-        "solution": "solutions/04_control_flow/loops03.nyx",
+        "path": "exercises/04_control_flow/loops03.rove",
+        "solution": "solutions/04_control_flow/loops03.rove",
         "mode": "run",
         "description": "Break out of an unconditional loop after 4 steps.",
         "hints": [
@@ -1114,8 +1114,8 @@ main()
         "name": "loops04",
         "topic": "04_control_flow",
         "title": "Nested Loops",
-        "path": "exercises/04_control_flow/loops04.nyx",
-        "solution": "solutions/04_control_flow/loops04.nyx",
+        "path": "exercises/04_control_flow/loops04.rove",
+        "solution": "solutions/04_control_flow/loops04.rove",
         "mode": "run",
         "description": "Traverse a 2D coordinate space using nested for loops.",
         "hints": [
@@ -1159,16 +1159,16 @@ main()
         "name": "match01",
         "topic": "04_control_flow",
         "title": "Pattern Matching",
-        "path": "exercises/04_control_flow/match01.nyx",
-        "solution": "solutions/04_control_flow/match01.nyx",
+        "path": "exercises/04_control_flow/match01.rove",
+        "solution": "solutions/04_control_flow/match01.rove",
         "mode": "check",
         "description": "Supply the mandatory wildcard _ fallback in a match expression.",
         "hints": [
-            "In Nyx, pattern matching must be exhaustive.",
+            "In Rove, pattern matching must be exhaustive.",
             "Add `_ => \"Unknown\"` as the final match arm."
         ],
         "exercise_code": '''// I AM NOT DONE
-// Nyx `match` requires an exhaustive pattern match, so the fallback `_` is mandatory.
+// Rove `match` requires an exhaustive pattern match, so the fallback `_` is mandatory.
 // TODO: Add the mandatory `_ => ...` wildcard fallback arm to satisfy the compiler.
 
 fn describe_status(code: int) -> string {
@@ -1196,8 +1196,8 @@ fn describe_status(code: int) -> string {
         "name": "match02",
         "topic": "04_control_flow",
         "title": "Match Value Expressions",
-        "path": "exercises/04_control_flow/match02.nyx",
-        "solution": "solutions/04_control_flow/match02.nyx",
+        "path": "exercises/04_control_flow/match02.rove",
+        "solution": "solutions/04_control_flow/match02.rove",
         "mode": "run",
         "description": "Convert numerical grades to letter ratings using match.",
         "hints": [
@@ -1249,8 +1249,8 @@ main()
         "name": "match03",
         "topic": "04_control_flow",
         "title": "Matching Booleans",
-        "path": "exercises/04_control_flow/match03.nyx",
-        "solution": "solutions/04_control_flow/match03.nyx",
+        "path": "exercises/04_control_flow/match03.rove",
+        "solution": "solutions/04_control_flow/match03.rove",
         "mode": "run",
         "description": "Match on boolean states to produce human-readable labels.",
         "hints": [
@@ -1301,8 +1301,8 @@ main()
         "name": "arrays01",
         "topic": "05_arrays",
         "title": "Arrays and Indexing",
-        "path": "exercises/05_arrays/arrays01.nyx",
-        "solution": "solutions/05_arrays/arrays01.nyx",
+        "path": "exercises/05_arrays/arrays01.rove",
+        "solution": "solutions/05_arrays/arrays01.rove",
         "mode": "run",
         "description": "Access array elements using 0-based indexing.",
         "hints": [
@@ -1337,8 +1337,8 @@ main()
         "name": "arrays02",
         "topic": "05_arrays",
         "title": "Modifying Array Elements",
-        "path": "exercises/05_arrays/arrays02.nyx",
-        "solution": "solutions/05_arrays/arrays02.nyx",
+        "path": "exercises/05_arrays/arrays02.rove",
+        "solution": "solutions/05_arrays/arrays02.rove",
         "mode": "run",
         "description": "Update an array element using set array[index] = value.",
         "hints": [
@@ -1372,8 +1372,8 @@ main()
         "name": "arrays03",
         "topic": "05_arrays",
         "title": "Array Aggregation",
-        "path": "exercises/05_arrays/arrays03.nyx",
-        "solution": "solutions/05_arrays/arrays03.nyx",
+        "path": "exercises/05_arrays/arrays03.rove",
+        "solution": "solutions/05_arrays/arrays03.rove",
         "mode": "run",
         "description": "Sum the elements of an array with a loop.",
         "hints": [
@@ -1413,8 +1413,8 @@ main()
         "name": "arrays04",
         "topic": "05_arrays",
         "title": "Array Length",
-        "path": "exercises/05_arrays/arrays04.nyx",
-        "solution": "solutions/05_arrays/arrays04.nyx",
+        "path": "exercises/05_arrays/arrays04.rove",
+        "solution": "solutions/05_arrays/arrays04.rove",
         "mode": "run",
         "description": "Inspect dynamic array capacity and item counts with len().",
         "hints": [
@@ -1425,7 +1425,7 @@ main()
 // TODO: Measure the number of elements in `languages`.
 
 fn main() {
-    let languages = ["Nyx", "C++", "Rust", "Python"]
+    let languages = ["Rove", "C++", "Rust", "Python"]
     let count = 0 // Compute len(languages)
 
     assert(count == 4, "languages array must have 4 items!")
@@ -1435,7 +1435,7 @@ fn main() {
 main()
 ''',
         "solution_code": '''fn main() {
-    let languages = ["Nyx", "C++", "Rust", "Python"]
+    let languages = ["Rove", "C++", "Rust", "Python"]
     let count = len(languages)
     assert(count == 4, "languages array must have 4 items!")
     print("Tracked languages count:", count)
@@ -1449,8 +1449,8 @@ main()
         "name": "arrays05",
         "topic": "05_arrays",
         "title": "Pushing Array Elements",
-        "path": "exercises/05_arrays/arrays05.nyx",
-        "solution": "solutions/05_arrays/arrays05.nyx",
+        "path": "exercises/05_arrays/arrays05.rove",
+        "solution": "solutions/05_arrays/arrays05.rove",
         "mode": "run",
         "description": "Append elements dynamically to a mutable array using push().",
         "hints": [
@@ -1487,8 +1487,8 @@ main()
         "name": "arrays06",
         "topic": "05_arrays",
         "title": "Finding Max Element",
-        "path": "exercises/05_arrays/arrays06.nyx",
-        "solution": "solutions/05_arrays/arrays06.nyx",
+        "path": "exercises/05_arrays/arrays06.rove",
+        "solution": "solutions/05_arrays/arrays06.rove",
         "mode": "run",
         "description": "Find the highest value in an integer array using a loop.",
         "hints": [
@@ -1537,8 +1537,8 @@ main()
         "name": "structs01",
         "topic": "06_structs",
         "title": "Defining and Instantiating Structs",
-        "path": "exercises/06_structs/structs01.nyx",
-        "solution": "solutions/06_structs/structs01.nyx",
+        "path": "exercises/06_structs/structs01.rove",
+        "solution": "solutions/06_structs/structs01.rove",
         "mode": "run",
         "description": "Define a struct Point with x and y fields.",
         "hints": [
@@ -1576,12 +1576,12 @@ main()
         "name": "structs02",
         "topic": "06_structs",
         "title": "Methods with Inherent impl",
-        "path": "exercises/06_structs/structs02.nyx",
-        "solution": "solutions/06_structs/structs02.nyx",
+        "path": "exercises/06_structs/structs02.rove",
+        "solution": "solutions/06_structs/structs02.rove",
         "mode": "run",
         "description": "Add the self parameter to a struct method.",
         "hints": [
-            "In Nyx, methods take `self` as their first parameter.",
+            "In Rove, methods take `self` as their first parameter.",
             "Change `fn area() -> int` to `fn area(self) -> int`."
         ],
         "exercise_code": '''// I AM NOT DONE
@@ -1631,8 +1631,8 @@ main()
         "name": "structs03",
         "topic": "06_structs",
         "title": "Nested Structs",
-        "path": "exercises/06_structs/structs03.nyx",
-        "solution": "solutions/06_structs/structs03.nyx",
+        "path": "exercises/06_structs/structs03.rove",
+        "solution": "solutions/06_structs/structs03.rove",
         "mode": "run",
         "description": "Compose structs containing other structs as fields.",
         "hints": [
@@ -1691,8 +1691,8 @@ main()
         "name": "structs04",
         "topic": "06_structs",
         "title": "Mutating Struct Fields",
-        "path": "exercises/06_structs/structs04.nyx",
-        "solution": "solutions/06_structs/structs04.nyx",
+        "path": "exercises/06_structs/structs04.rove",
+        "solution": "solutions/06_structs/structs04.rove",
         "mode": "run",
         "description": "Mutate internal struct fields using set instance.field = value.",
         "hints": [
@@ -1737,8 +1737,8 @@ main()
         "name": "structs05",
         "topic": "06_structs",
         "title": "Constructor Functions",
-        "path": "exercises/06_structs/structs05.nyx",
-        "solution": "solutions/06_structs/structs05.nyx",
+        "path": "exercises/06_structs/structs05.rove",
+        "solution": "solutions/06_structs/structs05.rove",
         "mode": "run",
         "description": "Write a factory function that constructs and validates a struct.",
         "hints": [
@@ -1792,8 +1792,8 @@ main()
         "name": "enums01",
         "topic": "07_enums",
         "title": "Enum Declarations",
-        "path": "exercises/07_enums/enums01.nyx",
-        "solution": "solutions/07_enums/enums01.nyx",
+        "path": "exercises/07_enums/enums01.rove",
+        "solution": "solutions/07_enums/enums01.rove",
         "mode": "run",
         "description": "Declare an enum and access its member variants.",
         "hints": [
@@ -1833,8 +1833,8 @@ main()
         "name": "enums02",
         "topic": "07_enums",
         "title": "Enum Variant Comparisons",
-        "path": "exercises/07_enums/enums02.nyx",
-        "solution": "solutions/07_enums/enums02.nyx",
+        "path": "exercises/07_enums/enums02.rove",
+        "solution": "solutions/07_enums/enums02.rove",
         "mode": "run",
         "description": "Compare enum values using the equality operator ==.",
         "hints": [
@@ -1884,8 +1884,8 @@ main()
         "name": "enums03",
         "topic": "07_enums",
         "title": "State Machines with Enums",
-        "path": "exercises/07_enums/enums03.nyx",
-        "solution": "solutions/07_enums/enums03.nyx",
+        "path": "exercises/07_enums/enums03.rove",
+        "solution": "solutions/07_enums/enums03.rove",
         "mode": "run",
         "description": "Model a traffic light state machine transition.",
         "hints": [
@@ -1956,8 +1956,8 @@ main()
         "name": "traits01",
         "topic": "08_traits",
         "title": "Traits and Interfaces",
-        "path": "exercises/08_traits/traits01.nyx",
-        "solution": "solutions/08_traits/traits01.nyx",
+        "path": "exercises/08_traits/traits01.rove",
+        "solution": "solutions/08_traits/traits01.rove",
         "mode": "run",
         "description": "Implement a trait method on a struct.",
         "hints": [
@@ -2021,8 +2021,8 @@ main()
         "name": "traits02",
         "topic": "08_traits",
         "title": "Multiple Trait Implementations",
-        "path": "exercises/08_traits/traits02.nyx",
-        "solution": "solutions/08_traits/traits02.nyx",
+        "path": "exercises/08_traits/traits02.rove",
+        "solution": "solutions/08_traits/traits02.rove",
         "mode": "run",
         "description": "Implement the same trait across multiple distinct structs.",
         "hints": [
@@ -2106,8 +2106,8 @@ main()
         "name": "traits03",
         "topic": "08_traits",
         "title": "Trait Methods with Parameters",
-        "path": "exercises/08_traits/traits03.nyx",
-        "solution": "solutions/08_traits/traits03.nyx",
+        "path": "exercises/08_traits/traits03.rove",
+        "solution": "solutions/08_traits/traits03.rove",
         "mode": "run",
         "description": "Define and implement trait methods that accept arguments.",
         "hints": [
@@ -2171,15 +2171,15 @@ main()
         "name": "errors01",
         "topic": "09_error_handling",
         "title": "Try, Catch, and Throw",
-        "path": "exercises/09_error_handling/errors01.nyx",
-        "solution": "solutions/09_error_handling/errors01.nyx",
+        "path": "exercises/09_error_handling/errors01.rove",
+        "solution": "solutions/09_error_handling/errors01.rove",
         "mode": "run",
         "description": "Catch an exception with try / catch.",
         "hints": [
             "Wrap the call `validate_pin(9999)` with `try { ... } catch err { print(\"Caught error!\") }`."
         ],
         "exercise_code": '''// I AM NOT DONE
-// Nyx supports structured exceptions with `try`, `catch`, and `throw`.
+// Rove supports structured exceptions with `try`, `catch`, and `throw`.
 // TODO: Catch the error thrown by `validate_pin` and print "Caught error!".
 
 fn validate_pin(pin: int) {
@@ -2219,8 +2219,8 @@ main()
         "name": "errors02",
         "topic": "09_error_handling",
         "title": "Input Validation Exceptions",
-        "path": "exercises/09_error_handling/errors02.nyx",
-        "solution": "solutions/09_error_handling/errors02.nyx",
+        "path": "exercises/09_error_handling/errors02.rove",
+        "solution": "solutions/09_error_handling/errors02.rove",
         "mode": "run",
         "description": "Throw an error when an input value fails domain constraints.",
         "hints": [
@@ -2278,8 +2278,8 @@ main()
         "name": "errors03",
         "topic": "09_error_handling",
         "title": "Recovery with Fallback",
-        "path": "exercises/09_error_handling/errors03.nyx",
-        "solution": "solutions/09_error_handling/errors03.nyx",
+        "path": "exercises/09_error_handling/errors03.rove",
+        "solution": "solutions/09_error_handling/errors03.rove",
         "mode": "run",
         "description": "Safely recover from an exception and provide a fallback value.",
         "hints": [
@@ -2341,8 +2341,8 @@ main()
         "name": "null01",
         "topic": "10_null_safety",
         "title": "Nullable Types and Coalescing",
-        "path": "exercises/10_null_safety/null01.nyx",
-        "solution": "solutions/10_null_safety/null01.nyx",
+        "path": "exercises/10_null_safety/null01.rove",
+        "solution": "solutions/10_null_safety/null01.rove",
         "mode": "run",
         "description": "Provide a default value using the null coalescing operator ??.",
         "hints": [
@@ -2377,8 +2377,8 @@ main()
         "name": "null02",
         "topic": "10_null_safety",
         "title": "Nullable Integers",
-        "path": "exercises/10_null_safety/null02.nyx",
-        "solution": "solutions/10_null_safety/null02.nyx",
+        "path": "exercises/10_null_safety/null02.rove",
+        "solution": "solutions/10_null_safety/null02.rove",
         "mode": "run",
         "description": "Handle optional integers int? with fallback defaults.",
         "hints": [
@@ -2426,8 +2426,8 @@ main()
         "name": "null03",
         "topic": "10_null_safety",
         "title": "Guard Preconditions",
-        "path": "exercises/10_null_safety/null03.nyx",
-        "solution": "solutions/10_null_safety/null03.nyx",
+        "path": "exercises/10_null_safety/null03.rove",
+        "solution": "solutions/10_null_safety/null03.rove",
         "mode": "run",
         "description": "Guard against invalid parameters with early return.",
         "hints": [
@@ -2481,8 +2481,8 @@ main()
         "name": "null04",
         "topic": "10_null_safety",
         "title": "Multi-Condition Guards",
-        "path": "exercises/10_null_safety/null04.nyx",
-        "solution": "solutions/10_null_safety/null04.nyx",
+        "path": "exercises/10_null_safety/null04.rove",
+        "solution": "solutions/10_null_safety/null04.rove",
         "mode": "run",
         "description": "Protect operations with multi-condition guard statements.",
         "hints": [
@@ -2534,8 +2534,8 @@ main()
         "name": "pipeline01",
         "topic": "11_pipelines",
         "title": "Pipeline Operator (|&gt;)",
-        "path": "exercises/11_pipelines/pipeline01.nyx",
-        "solution": "solutions/11_pipelines/pipeline01.nyx",
+        "path": "exercises/11_pipelines/pipeline01.rove",
+        "solution": "solutions/11_pipelines/pipeline01.rove",
         "mode": "run",
         "description": "Chain function calls using the pipeline operator.",
         "hints": [
@@ -2587,8 +2587,8 @@ main()
         "name": "pipeline02",
         "topic": "11_pipelines",
         "title": "Data Processing Pipelines",
-        "path": "exercises/11_pipelines/pipeline02.nyx",
-        "solution": "solutions/11_pipelines/pipeline02.nyx",
+        "path": "exercises/11_pipelines/pipeline02.rove",
+        "solution": "solutions/11_pipelines/pipeline02.rove",
         "mode": "run",
         "description": "Process data through a multi-stage math pipeline.",
         "hints": [
@@ -2646,8 +2646,8 @@ main()
         "name": "defer01",
         "topic": "12_defer",
         "title": "Scope Cleanup with defer",
-        "path": "exercises/12_defer/defer01.nyx",
-        "solution": "solutions/12_defer/defer01.nyx",
+        "path": "exercises/12_defer/defer01.rove",
+        "solution": "solutions/12_defer/defer01.rove",
         "mode": "run",
         "description": "Ensure cleanup actions run on scope exit with defer.",
         "hints": [
@@ -2703,8 +2703,8 @@ main()
         "name": "defer02",
         "topic": "12_defer",
         "title": "Multiple Defer Execution",
-        "path": "exercises/12_defer/defer02.nyx",
-        "solution": "solutions/12_defer/defer02.nyx",
+        "path": "exercises/12_defer/defer02.rove",
+        "solution": "solutions/12_defer/defer02.rove",
         "mode": "run",
         "description": "Observe that defer statements execute when exiting their scope.",
         "hints": [
@@ -2773,8 +2773,8 @@ main()
         "name": "math01",
         "topic": "13_math_and_logic",
         "title": "Modulo and Divisibility",
-        "path": "exercises/13_math_and_logic/math01.nyx",
-        "solution": "solutions/13_math_and_logic/math01.nyx",
+        "path": "exercises/13_math_and_logic/math01.rove",
+        "solution": "solutions/13_math_and_logic/math01.rove",
         "mode": "run",
         "description": "Check if numbers are even or odd using the modulo operator %.",
         "hints": [
@@ -2815,8 +2815,8 @@ main()
         "name": "math02",
         "topic": "13_math_and_logic",
         "title": "Bitwise Operations",
-        "path": "exercises/13_math_and_logic/math02.nyx",
-        "solution": "solutions/13_math_and_logic/math02.nyx",
+        "path": "exercises/13_math_and_logic/math02.rove",
+        "solution": "solutions/13_math_and_logic/math02.rove",
         "mode": "run",
         "description": "Perform bitwise AND &, OR |, and left-shift << operations.",
         "hints": [
@@ -2824,7 +2824,7 @@ main()
             "`flags | 1` sets the lowest bit."
         ],
         "exercise_code": '''// I AM NOT DONE
-// Nyx supports bitwise operators: `&` (AND), `|` (OR), `^` (XOR), and `<<` (shift).
+// Rove supports bitwise operators: `&` (AND), `|` (OR), `^` (XOR), and `<<` (shift).
 // TODO:
 // 1. Shift 1 left by 4 bits to get 16 (`1 << 4`).
 // 2. Bitwise OR `flags` with `1` to set the flag.
@@ -2863,8 +2863,8 @@ main()
         "name": "tests01",
         "topic": "14_testing",
         "title": "In-File Unit Testing",
-        "path": "exercises/14_testing/tests01.nyx",
-        "solution": "solutions/14_testing/tests01.nyx",
+        "path": "exercises/14_testing/tests01.rove",
+        "solution": "solutions/14_testing/tests01.rove",
         "mode": "test",
         "description": "Fix an assertion error in an in-file unit test.",
         "hints": [
@@ -2872,8 +2872,8 @@ main()
             "Change `5` to `4` in the assertion."
         ],
         "exercise_code": '''// I AM NOT DONE
-// Nyx has first-class unit tests using `test "name" { assert(...) }`.
-// When run with `nyx test`, all assertions are verified.
+// Rove has first-class unit tests using `test "name" { assert(...) }`.
+// When run with `rove test`, all assertions are verified.
 // TODO: Fix the broken assertion below so the test passes.
 
 fn add(a: int, b: int) -> int {
@@ -2902,8 +2902,8 @@ test "verify addition" {
         "name": "tests02",
         "topic": "14_testing",
         "title": "Multiple In-File Tests",
-        "path": "exercises/14_testing/tests02.nyx",
-        "solution": "solutions/14_testing/tests02.nyx",
+        "path": "exercises/14_testing/tests02.rove",
+        "solution": "solutions/14_testing/tests02.rove",
         "mode": "test",
         "description": "Add a second test block to verify subtraction.",
         "hints": [
@@ -2943,8 +2943,8 @@ test "subtraction test" {
         "name": "quiz01",
         "topic": "15_quizzes",
         "title": "Capstone Quiz: RPG Inventory Score",
-        "path": "exercises/15_quizzes/quiz01.nyx",
-        "solution": "solutions/15_quizzes/quiz01.nyx",
+        "path": "exercises/15_quizzes/quiz01.rove",
+        "solution": "solutions/15_quizzes/quiz01.rove",
         "mode": "run",
         "description": "Accumulate total gear score across an array of item structs.",
         "hints": [
@@ -3044,8 +3044,8 @@ main()
         "name": "quiz02",
         "topic": "15_quizzes",
         "title": "Capstone Quiz: Banking Ledger System",
-        "path": "exercises/15_quizzes/quiz02.nyx",
-        "solution": "solutions/15_quizzes/quiz02.nyx",
+        "path": "exercises/15_quizzes/quiz02.rove",
+        "solution": "solutions/15_quizzes/quiz02.rove",
         "mode": "run",
         "description": "Implement a banking ledger with deposits, withdrawals, and balance guards.",
         "hints": [
@@ -3140,8 +3140,8 @@ main()
         "name": "quiz03",
         "topic": "15_quizzes",
         "title": "Capstone Quiz: Character Level-Up System",
-        "path": "exercises/15_quizzes/quiz03.nyx",
-        "solution": "solutions/15_quizzes/quiz03.nyx",
+        "path": "exercises/15_quizzes/quiz03.rove",
+        "solution": "solutions/15_quizzes/quiz03.rove",
         "mode": "run",
         "description": "Calculate hero stat boosts and level-ups using pipelines and match.",
         "hints": [
@@ -3250,13 +3250,13 @@ main()
         "name": "strings01",
         "topic": "16_modern_expressions",
         "title": "Unicode-Safe String Interpolation",
-        "path": "exercises/16_modern_expressions/strings01.nyx",
-        "solution": "solutions/16_modern_expressions/strings01.nyx",
+        "path": "exercises/16_modern_expressions/strings01.rove",
+        "solution": "solutions/16_modern_expressions/strings01.rove",
         "mode": "run",
         "description": "Build readable Unicode text with typed interpolation instead of manual concatenation.",
         "hints": [
             "Interpolated strings begin with `$\"` and evaluate expressions inside `{...}`.",
-            "Use `$\"{city}: {signals} signals 🌙\"`; Nyx preserves the Unicode text without normalization."
+            "Use `$\"{city}: {signals} signals 🌙\"`; Rove preserves the Unicode text without normalization."
         ],
         "exercise_code": '''// I AM NOT DONE
 // Interpolation keeps values typed until they are formatted and avoids long
@@ -3291,8 +3291,8 @@ main()
         "name": "navigation01",
         "topic": "16_modern_expressions",
         "title": "Safe Navigation Through Nested Data",
-        "path": "exercises/16_modern_expressions/navigation01.nyx",
-        "solution": "solutions/16_modern_expressions/navigation01.nyx",
+        "path": "exercises/16_modern_expressions/navigation01.rove",
+        "solution": "solutions/16_modern_expressions/navigation01.rove",
         "mode": "run",
         "description": "Traverse nullable struct fields with ?. and provide one explicit fallback with ??.",
         "hints": [
@@ -3343,8 +3343,8 @@ main()
         "name": "match04",
         "topic": "16_modern_expressions",
         "title": "Single-Evaluation Match",
-        "path": "exercises/16_modern_expressions/match04.nyx",
-        "solution": "solutions/16_modern_expressions/match04.nyx",
+        "path": "exercises/16_modern_expressions/match04.rove",
+        "solution": "solutions/16_modern_expressions/match04.rove",
         "mode": "run",
         "description": "Use a value-producing match so a side-effecting subject is evaluated exactly once.",
         "hints": [
@@ -3411,8 +3411,8 @@ main()
         "name": "result01",
         "topic": "17_results",
         "title": "Payload Enums as Domain Data",
-        "path": "exercises/17_results/result01.nyx",
-        "solution": "solutions/17_results/result01.nyx",
+        "path": "exercises/17_results/result01.rove",
+        "solution": "solutions/17_results/result01.rove",
         "mode": "run",
         "description": "Model alternatives that carry typed data and destructure their payloads in match arms.",
         "hints": [
@@ -3475,8 +3475,8 @@ main()
         "name": "result02",
         "topic": "17_results",
         "title": "Recoverable Errors with Result",
-        "path": "exercises/17_results/result02.nyx",
-        "solution": "solutions/17_results/result02.nyx",
+        "path": "exercises/17_results/result02.rove",
+        "solution": "solutions/17_results/result02.rove",
         "mode": "run",
         "description": "Represent an expected failure with Result<T, E> and force callers to handle both outcomes.",
         "hints": [
@@ -3530,8 +3530,8 @@ main()
         "name": "result03",
         "topic": "17_results",
         "title": "Propagating Result with ?",
-        "path": "exercises/17_results/result03.nyx",
-        "solution": "solutions/17_results/result03.nyx",
+        "path": "exercises/17_results/result03.rove",
+        "solution": "solutions/17_results/result03.rove",
         "mode": "run",
         "description": "Propagate Err from a Result-returning function while continuing with the unwrapped Ok value.",
         "hints": [
@@ -3596,8 +3596,8 @@ main()
         "name": "result04",
         "topic": "17_results",
         "title": "Composing Fallible Operations",
-        "path": "exercises/17_results/result04.nyx",
-        "solution": "solutions/17_results/result04.nyx",
+        "path": "exercises/17_results/result04.rove",
+        "solution": "solutions/17_results/result04.rove",
         "mode": "run",
         "description": "Compose multiple Result-producing functions without losing the first failure.",
         "hints": [
@@ -3676,8 +3676,8 @@ main()
         "name": "collections01",
         "topic": "18_collection_transforms",
         "title": "Iterating Domain Collections",
-        "path": "exercises/18_collection_transforms/collections01.nyx",
-        "solution": "solutions/18_collection_transforms/collections01.nyx",
+        "path": "exercises/18_collection_transforms/collections01.rove",
+        "solution": "solutions/18_collection_transforms/collections01.rove",
         "mode": "run",
         "description": "Iterate Array<T> values directly and aggregate fields from typed structs.",
         "hints": [
@@ -3734,8 +3734,8 @@ main()
         "name": "collections02",
         "topic": "18_collection_transforms",
         "title": "Typed map, filter, and fold",
-        "path": "exercises/18_collection_transforms/collections02.nyx",
-        "solution": "solutions/18_collection_transforms/collections02.nyx",
+        "path": "exercises/18_collection_transforms/collections02.rove",
+        "solution": "solutions/18_collection_transforms/collections02.rove",
         "mode": "run",
         "description": "Build a typed collection transformation with contextual lambdas and a left-to-right fold.",
         "hints": [
@@ -3780,8 +3780,8 @@ main()
         "name": "async01",
         "topic": "19_async_tasks",
         "title": "Reusable Task Handles",
-        "path": "exercises/19_async_tasks/async01.nyx",
-        "solution": "solutions/19_async_tasks/async01.nyx",
+        "path": "exercises/19_async_tasks/async01.rove",
+        "solution": "solutions/19_async_tasks/async01.rove",
         "mode": "run",
         "description": "Store one Task<T> and await the same completion more than once without rerunning its body.",
         "hints": [
@@ -3827,8 +3827,8 @@ async fn main() {
         "name": "async02",
         "topic": "19_async_tasks",
         "title": "Errors Surface at await",
-        "path": "exercises/19_async_tasks/async02.nyx",
-        "solution": "solutions/19_async_tasks/async02.nyx",
+        "path": "exercises/19_async_tasks/async02.rove",
+        "solution": "solutions/19_async_tasks/async02.rove",
         "mode": "run",
         "description": "Catch an asynchronous failure at the await boundary where it becomes observable.",
         "hints": [
@@ -3874,8 +3874,8 @@ async fn main() {
         "name": "modules01",
         "topic": "20_modules_and_stdlib",
         "title": "Selective Standard-Library Imports",
-        "path": "exercises/20_modules_and_stdlib/modules01.nyx",
-        "solution": "solutions/20_modules_and_stdlib/modules01.nyx",
+        "path": "exercises/20_modules_and_stdlib/modules01.rove",
+        "solution": "solutions/20_modules_and_stdlib/modules01.rove",
         "mode": "run",
         "description": "Import only the std/math symbols a module needs and combine their typed results.",
         "hints": [
@@ -3912,8 +3912,8 @@ main()
         "name": "modules02",
         "topic": "20_modules_and_stdlib",
         "title": "Fallible Base64 Decoding",
-        "path": "exercises/20_modules_and_stdlib/modules02.nyx",
-        "solution": "solutions/20_modules_and_stdlib/modules02.nyx",
+        "path": "exercises/20_modules_and_stdlib/modules02.rove",
+        "solution": "solutions/20_modules_and_stdlib/modules02.rove",
         "mode": "run",
         "description": "Use std/encoding while keeping malformed external data in an explicit Result path.",
         "hints": [
@@ -3927,7 +3927,7 @@ main()
 import "std/encoding"
 
 fn main() {
-    let original = "Nyx 🌙"
+    let original = "Rove 🌙"
     let encoded = base64_encode(original)
     let decoded = base64_decode("%%%")
 
@@ -3941,7 +3941,7 @@ main()
         "solution_code": '''import "std/encoding"
 
 fn main() {
-    let original = "Nyx 🌙"
+    let original = "Rove 🌙"
     let encoded = base64_encode(original)
     let decoded = base64_decode(encoded)
     let malformed = base64_decode("%%%")
@@ -3960,8 +3960,8 @@ main()
         "name": "modules03",
         "topic": "20_modules_and_stdlib",
         "title": "Honest json_lite Boundaries",
-        "path": "exercises/20_modules_and_stdlib/modules03.nyx",
-        "solution": "solutions/20_modules_and_stdlib/modules03.nyx",
+        "path": "exercises/20_modules_and_stdlib/modules03.rove",
+        "solution": "solutions/20_modules_and_stdlib/modules03.rove",
         "mode": "run",
         "description": "Extract supported top-level JSON fields and handle a missing field without pretending json_lite is a full parser.",
         "hints": [
@@ -3975,12 +3975,12 @@ main()
 import "std/json_lite"
 
 fn main() {
-    let document = "{\\\"name\\\":\\\"nyx\\\",\\\"version\\\":4}"
+    let document = "{\\\"name\\\":\\\"rove\\\",\\\"version\\\":4}"
     let name = get_string(document, "name").unwrap()
     let version = get_int(document, "release").unwrap()
     let missing = get_string(document, "channel")
 
-    assert(name == "nyx", "name must be extracted")
+    assert(name == "rove", "name must be extracted")
     assert(version == 4, "version must be extracted as an int")
     assert(not missing.is_ok, "the absent field must remain an error")
     print(name, version)
@@ -3991,12 +3991,12 @@ main()
         "solution_code": '''import "std/json_lite"
 
 fn main() {
-    let document = "{\\\"name\\\":\\\"nyx\\\",\\\"version\\\":4}"
+    let document = "{\\\"name\\\":\\\"rove\\\",\\\"version\\\":4}"
     let name = get_string(document, "name").unwrap()
     let version = get_int(document, "version").unwrap()
     let missing = get_string(document, "channel")
 
-    assert(name == "nyx", "name must be extracted")
+    assert(name == "rove", "name must be extracted")
     assert(version == 4, "version must be extracted as an int")
     assert(not missing.is_ok, "the absent field must remain an error")
     print(name, version)

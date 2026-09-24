@@ -1,0 +1,14 @@
+// I AM NOT DONE
+// In Rove, concise functions can use expression bodies:
+//   fn square(x: int) -> int = x * x
+// TODO: Define an expression-bodied function `cube` that computes `x * x * x`.
+
+// Define `cube` here:
+
+fn main() {
+    let res = cube(3)
+    assert(res == 27, "Cube of 3 must be 27")
+    print("Cube of 3 is:", res)
+}
+
+main()

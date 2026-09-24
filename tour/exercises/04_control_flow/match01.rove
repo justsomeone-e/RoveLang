@@ -1,0 +1,12 @@
+// I AM NOT DONE
+// Rove `match` requires an exhaustive pattern match, so the fallback `_` is mandatory.
+// TODO: Add the mandatory `_ => ...` wildcard fallback arm to satisfy the compiler.
+
+fn describe_status(code: int) -> string {
+    let label = match code {
+        200 => "OK",
+        404 => "Not Found",
+        500 => "Server Error"
+    }
+    return label
+}

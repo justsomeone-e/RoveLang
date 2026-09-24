@@ -1,0 +1,12 @@
+// I AM NOT DONE
+// In Rove, comments start with `//` and are ignored by the compiler.
+// TODO: Uncomment the declaration of `message` and the print call!
+
+fn main() {
+    // let message = "Rove is fast!"
+    let message = ""
+    assert(message == "Rove is fast!", "message must equal 'Rove is fast!'")
+    print(message)
+}
+
+main()

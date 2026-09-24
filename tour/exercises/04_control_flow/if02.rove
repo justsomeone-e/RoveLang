@@ -1,0 +1,13 @@
+// I AM NOT DONE
+// In Rove, `if` can be an expression returning a value!
+// All branches must return the same type.
+// TODO: Fix the branch return types so `status` is consistently a `string`.
+
+fn get_status(is_online: bool) -> string {
+    let status: string = if is_online {
+        "connected"
+    } else {
+        0 // Error: 0 is an int, but string was expected!
+    }
+    return status
+}

@@ -1,4 +1,4 @@
-# Tour of Nyx PowerShell Launcher
+# Tour of Rove PowerShell Launcher
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $python = (Get-Command py, python, python3 -ErrorAction SilentlyContinue | Select-Object -First 1).Source
@@ -14,7 +14,7 @@ if (-not $python -and $env:LOCALAPPDATA) {
 }
 
 if (-not $python) {
-    Write-Error "Python 3.10+ is required to launch Tour of Nyx. Please install Python or add it to PATH."
+    Write-Error "Python 3.10+ is required to launch Tour of Rove. Please install Python or add it to PATH."
     exit 1
 }
 

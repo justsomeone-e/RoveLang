@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Tour of Nyx - Compilation & Test Runner
-Executes native Nyx compiler checks, builds, runs, and tests.
+Tour of Rove - Compilation & Test Runner
+Executes native Rove compiler checks, builds, runs, and tests.
 """
 
 import os
@@ -22,39 +22,39 @@ class TestResult:
     duration_ms: float
 
 
-class NyxRunner:
+class RoveRunner:
     def __init__(self, repo_dir: Optional[str] = None):
         self.repo_dir = repo_dir or os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-        self.nyxc_exe = self._find_nyxc()
+        self.rovec_exe = self._find_rovec()
         self.cli_py = os.path.join(self.repo_dir, "src", "cli.py")
         self.python_exe = sys.executable
 
-    def _find_nyxc(self) -> str:
-        """Find the native nyxc.exe compiler."""
-        # 1. User .nyx bin
-        user_nyxc = os.path.expanduser(r"~\.nyx\bin\nyxc.exe")
-        if os.path.isfile(user_nyxc):
-            return user_nyxc
+    def _find_rovec(self) -> str:
+        """Find the native rovec.exe compiler."""
+        # 1. User .rove bin
+        user_rovec = os.path.expanduser(r"~\.rove\bin\rovec.exe")
+        if os.path.isfile(user_rovec):
+            return user_rovec
 
         # 2. Repo build or bin
-        repo_nyxc = os.path.join(self.repo_dir, "bin", "nyxc.exe")
-        if os.path.isfile(repo_nyxc):
-            return repo_nyxc
+        repo_rovec = os.path.join(self.repo_dir, "bin", "rovec.exe")
+        if os.path.isfile(repo_rovec):
+            return repo_rovec
 
-        repo_build_nyxc = os.path.join(self.repo_dir, "build", "native", "nyxc.exe")
-        if os.path.isfile(repo_build_nyxc):
-            return repo_build_nyxc
+        repo_build_rovec = os.path.join(self.repo_dir, "build", "native", "rovec.exe")
+        if os.path.isfile(repo_build_rovec):
+            return repo_build_rovec
 
         # 3. Path
         import shutil
-        found = shutil.which("nyxc")
+        found = shutil.which("rovec")
         if found:
             return found
 
-        return "nyxc"
+        return "rovec"
 
     def check(self, file_path: str) -> TestResult:
-        """Run fast static type and syntax check using Nyx canonical compiler."""
+        """Run fast static type and syntax check using Rove canonical compiler."""
         t0 = time.perf_counter()
         abs_path = os.path.abspath(file_path)
 
@@ -65,22 +65,22 @@ class NyxRunner:
         try:
             if self.repo_dir not in sys.path:
                 sys.path.insert(0, self.repo_dir)
-            from src.api import NyxCompiler
-            compiler = NyxCompiler(os.path.dirname(abs_path))
+            from src.api import RoveCompiler
+            compiler = RoveCompiler(os.path.dirname(abs_path))
             result = compiler.check_file(abs_path)
             dur = (time.perf_counter() - t0) * 1000
             if result.success:
-                return TestResult(True, "NYX_CHECK_OK", "", dur)
+                return TestResult(True, "ROVE_CHECK_OK", "", dur)
             else:
                 rendered = "\n".join(d.rendered for d in result.diagnostics)
                 return TestResult(False, "", rendered or "Semantic or syntax error found", dur)
         except Exception:
             pass
 
-        # 2. Fallback to nyxc check
+        # 2. Fallback to rovec check
         try:
             proc = subprocess.run(
-                [self.nyxc_exe, "check", abs_path],
+                [self.rovec_exe, "check", abs_path],
                 capture_output=True,
                 text=True,
                 timeout=10,
@@ -90,7 +90,7 @@ class NyxRunner:
             stdout = proc.stdout.strip()
             stderr = proc.stderr.strip()
 
-            if proc.returncode == 0 and "NYX_CHECK_OK" in stdout:
+            if proc.returncode == 0 and "ROVE_CHECK_OK" in stdout:
                 return TestResult(True, stdout, "", dur)
             else:
                 err_msg = stdout or stderr or "Unknown compiler check failure"
@@ -101,7 +101,7 @@ class NyxRunner:
             return TestResult(False, "", str(e), 0.0)
 
     def run_file(self, file_path: str, native: bool = False) -> TestResult:
-        """Compile and execute a Nyx program."""
+        """Compile and execute a Rove program."""
         t0 = time.perf_counter()
         abs_path = os.path.abspath(file_path)
 
@@ -116,7 +116,7 @@ class NyxRunner:
                 out_exe = os.path.join(tmpdir, "tour_exec.exe")
                 try:
                     c_proc = subprocess.run(
-                        [self.nyxc_exe, "compile", abs_path, "-o", out_exe],
+                        [self.rovec_exe, "compile", abs_path, "-o", out_exe],
                         capture_output=True,
                         text=True,
                         timeout=20,
@@ -174,7 +174,7 @@ class NyxRunner:
             return TestResult(False, "", str(e), 0.0)
 
     def test_file(self, file_path: str) -> TestResult:
-        """Run in-file tests using Nyx test runner."""
+        """Run in-file tests using Rove test runner."""
         t0 = time.perf_counter()
         abs_path = os.path.abspath(file_path)
 

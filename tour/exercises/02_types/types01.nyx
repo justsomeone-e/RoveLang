@@ -1,9 +1,0 @@
-// I AM NOT DONE
-// Nyx integers do not automatically narrow from float without explicit conversion.
-// Float literals have a decimal point (e.g. 3.14).
-// TODO: Fix the type declaration so `ratio` has the correct type `float`.
-
-fn demo_numerics() {
-    let count: int = 50
-    let ratio: int = 0.75
-}

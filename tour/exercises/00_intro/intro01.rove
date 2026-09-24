@@ -1,0 +1,11 @@
+// Welcome to Tour of Rove!
+// This exercise is already solved to get you started.
+// In future exercises, you will fix errors and write code.
+//
+// Press 'n' in the Tour terminal or modify this file to experiment!
+
+fn main() {
+    print("Hello, Rove Explorer! Welcome to the Tour of Rove.")
+}
+
+main()

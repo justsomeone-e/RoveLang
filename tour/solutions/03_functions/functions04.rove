@@ -1,0 +1,10 @@
+fn greet(name: string, title: string = "Adventurer") {
+    print("Greetings, " + title + " " + name + "!")
+}
+
+fn main() {
+    greet("Kurt", "Captain")
+    greet("Rove")
+}
+
+main()

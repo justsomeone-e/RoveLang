@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -e
 
-# Tour of Nyx Unix / macOS Launcher
+# Tour of Rove Unix / macOS Launcher
 if command -v python3 >/dev/null 2>&1; then
     PY_CMD="python3"
 elif command -v python >/dev/null 2>&1; then
     PY_CMD="python"
 else
-    echo "[ERROR] Python 3.10+ is required to launch Tour of Nyx."
+    echo "[ERROR] Python 3.10+ is required to launch Tour of Rove."
     echo "Please install Python from your package manager or https://www.python.org/"
     exit 1
 fi

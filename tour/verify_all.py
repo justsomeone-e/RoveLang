@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Verification Test Harness for Tour of Nyx
+Verification Test Harness for Tour of Rove
 Autonomously tests every manifest exercise and its reference solution.
 """
 
@@ -16,7 +16,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-from runner import NyxRunner
+from runner import RoveRunner
 
 
 def verify_all():
@@ -27,10 +27,10 @@ def verify_all():
     with open(exercises_file, "r", encoding="utf-8") as f:
         exercises = json.load(f)
 
-    runner = NyxRunner(repo_dir=repo_dir)
+    runner = RoveRunner(repo_dir=repo_dir)
 
     print("=" * 70)
-    print(f"Tour of Nyx - Autonomous Verification Suite ({len(exercises)} Exercises)")
+    print(f"Tour of Rove - Autonomous Verification Suite ({len(exercises)} Exercises)")
     print("=" * 70)
 
     all_passed = True

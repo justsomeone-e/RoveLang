@@ -1,0 +1,21 @@
+// I AM NOT DONE
+// In Rove, `if`, `elif` (or `else if`), and `else` control branch execution.
+// TODO: Complete the temperature check:
+// If temp > 30 return "Hot", elif temp > 15 return "Warm", else return "Cold".
+
+fn check_temp(temp: int) -> string {
+    if temp > 30 {
+        return "Hot"
+    }
+    // Add elif and else arms here!
+    return "Unknown"
+}
+
+fn main() {
+    assert(check_temp(35) == "Hot", "35 must be Hot")
+    assert(check_temp(20) == "Warm", "20 must be Warm")
+    assert(check_temp(5) == "Cold", "5 must be Cold")
+    print("All temperature checks passed!")
+}
+
+main()
