@@ -306,7 +306,7 @@ main()`
       enableLiveAutocompletion: true,
       enableSnippets: true,
       fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-      fontSize: "13.5px",
+      fontSize: "15px",
       tabSize: 4,
       useSoftTabs: true,
       showPrintMargin: false,

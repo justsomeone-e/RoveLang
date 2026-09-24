@@ -5,10 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rove Studio | Learn, inspect, build</title>
   <meta name="description" content="Write Rove code, inspect its source shape, preview it safely in the browser, and build it locally with the native compiler.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=5.0.3-studio-1">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=rove-studio-2">
   <!-- Ace Editor & Language Tools (Fast, Synchronous, Zero CORS / Zero WebWorker dependency) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ace.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ext-language_tools.js"></script>
@@ -19,8 +20,8 @@
   <!-- Top Header Navigation -->
   <header class="header">
     <div class="header-left">
-      <a href="index.html" class="brand">
-        <div class="brand-icon">N</div>
+      <a href="index.html" class="brand" aria-label="Rove home">
+        <img class="brand-icon" src="favicon.svg" alt="" width="30" height="30">
         <span>rove</span>
       </a>
       <span class="version-badge">v5.0.3 Daydream</span>
@@ -88,6 +89,7 @@
               All Exercises
             </button>
           </div>
+          <a class="jump-editor" href="#editorSection">Jump to editor ↓</a>
         </div>
 
         <div class="lesson-card-body">
