@@ -48,7 +48,7 @@
         Install CLI
       </button>
 
-      <a href="https://github.com/justsomeone-e/rove" class="btn-secondary" target="_blank" rel="noopener">
+      <a href="https://github.com/justsomeone-e/RoveLang" class="btn-secondary" target="_blank" rel="noopener">
         Star on GitHub
       </a>
     </div>
@@ -241,18 +241,18 @@
   <div class="modal-overlay" id="installModal">
     <div class="modal-card">
       <h2 class="modal-title">Install Rove Locally</h2>
-      <p class="modal-desc">Get the native compiler and installation instructions. Native builds also require a C++20 toolchain.</p>
+      <p class="modal-desc">Clone the Rove source branch using the <a href="https://github.com/justsomeone-e/RoveLang/blob/rove/compiler-architecture-and-migration/INSTALLATION.md" target="_blank" rel="noopener">installation guide</a>, then run the local installer. Native builds also require a C++20 toolchain.</p>
 
       <div style="margin-bottom: 6px; font-size: 12px; font-weight: 600; color: var(--text-secondary);">Windows (PowerShell):</div>
       <div class="install-cmd-box">
-        <code>irm https://raw.githubusercontent.com/justsomeone-e/rove/main/install.ps1 | iex</code>
-        <button class="btn-copy" onclick="navigator.clipboard.writeText('irm https://raw.githubusercontent.com/justsomeone-e/rove/main/install.ps1 | iex'); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy', 1500)">Copy</button>
+        <code>.\install.ps1</code>
+        <button class="btn-copy" onclick="navigator.clipboard.writeText('.\\install.ps1'); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy', 1500)">Copy</button>
       </div>
 
-      <div style="margin-bottom: 6px; font-size: 12px; font-weight: 600; color: var(--text-secondary);">Linux &amp; macOS (curl):</div>
+      <div style="margin-bottom: 6px; font-size: 12px; font-weight: 600; color: var(--text-secondary);">Linux &amp; macOS (Bash):</div>
       <div class="install-cmd-box">
-        <code>curl -fsSL https://raw.githubusercontent.com/justsomeone-e/rove/main/install.sh | bash</code>
-        <button class="btn-copy" onclick="navigator.clipboard.writeText('curl -fsSL https://raw.githubusercontent.com/justsomeone-e/rove/main/install.sh | bash'); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy', 1500)">Copy</button>
+        <code>./install.sh</code>
+        <button class="btn-copy" onclick="navigator.clipboard.writeText('./install.sh'); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy', 1500)">Copy</button>
       </div>
 
       <div style="text-align: right; margin-top: 20px;">

@@ -2,8 +2,8 @@
 title: Compiling a Systems Language Directly to LLVM IR Without C++ Hops: The Rove Architecture
 published: true
 tags: compilers, llvm, webassembly, programming
-canonical_url: https://github.com/justsomeone-e/rove
-cover_image: https://raw.githubusercontent.com/justsomeone-e/rove/main/docs/assets/terminal_animated.svg
+canonical_url: https://github.com/justsomeone-e/RoveLang
+cover_image: https://raw.githubusercontent.com/justsomeone-e/RoveLang/main/assets/terminal_animated.svg
 ---
 
 When building a new programming language, transpiling to C++ is the most tempting first shortcut. You inherit an optimizing compiler, an existing runtime, and portable platform targets.
@@ -132,15 +132,19 @@ If `SHA256(rovec_stage2) != SHA256(rovec_stage3)`, the build is rejected immedia
 
 Rove is free, open source, and available under the Apache 2.0 license:
 
-* **Interactive Browser Playground & Tour:** [justsomeone-e.github.io/rove](https://justsomeone-e.github.io/rove/)
-* **GitHub Repository:** [github.com/justsomeone-e/rove](https://github.com/justsomeone-e/rove)
-* **Quick Install (Linux/macOS):**
+* **Interactive Browser Playground & Tour:** [justsomeone-e.github.io/RoveLang](https://justsomeone-e.github.io/RoveLang/)
+* **GitHub Repository:** [github.com/justsomeone-e/RoveLang](https://github.com/justsomeone-e/RoveLang)
+* **Source Install (Linux/macOS):**
   ```bash
-  curl -fsSL https://raw.githubusercontent.com/justsomeone-e/rove/main/install.sh | bash
+  git clone --branch rove/compiler-architecture-and-migration https://github.com/justsomeone-e/RoveLang.git
+  cd RoveLang
+  ./install.sh
   ```
-* **Quick Install (Windows PowerShell):**
+* **Source Install (Windows PowerShell):**
   ```powershell
-  irm https://raw.githubusercontent.com/justsomeone-e/rove/main/install.ps1 | iex
+  git clone --branch rove/compiler-architecture-and-migration https://github.com/justsomeone-e/RoveLang.git
+  cd RoveLang
+  .\install.ps1
   ```
 
 If you enjoy language design, compiler internals, and LLVM/WASM lowerings, we'd love your feedback and stars on GitHub!

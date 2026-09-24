@@ -2,11 +2,11 @@
 
 The official VS Code companion for `.rove` files.
 
-[GitHub Repository](https://github.com/justsomeone-e/rove) ·
-[Documentation](https://github.com/justsomeone-e/rove#readme) ·
-[Releases](https://github.com/justsomeone-e/rove/releases) ·
-[Compiler Roadmap](https://github.com/justsomeone-e/rove/blob/main/docs/internals/ROADMAP_AND_BACKEND_GATES.md) ·
-[Report an Issue](https://github.com/justsomeone-e/rove/issues/new)
+[GitHub Repository](https://github.com/justsomeone-e/RoveLang) ·
+[Documentation](https://github.com/justsomeone-e/RoveLang#readme) ·
+[Releases](https://github.com/justsomeone-e/RoveLang/releases) ·
+[Compiler Roadmap](https://github.com/justsomeone-e/RoveLang/blob/main/docs/internals/ROADMAP_AND_BACKEND_GATES.md) ·
+[Report an Issue](https://github.com/justsomeone-e/RoveLang/issues/new)
 
 ## What you get
 

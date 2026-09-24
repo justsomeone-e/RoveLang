@@ -142,8 +142,8 @@ async function main() {
     const manifest = require(path.join(__dirname, 'package.json'));
     assert.strictEqual(manifest.displayName, 'Rove Language Toolchain');
     assert.strictEqual(manifest.icon, 'images/rove-icon.png');
-    assert.strictEqual(manifest.homepage, 'https://github.com/justsomeone-e/rove#readme');
-    assert.strictEqual(manifest.bugs.url, 'https://github.com/justsomeone-e/rove/issues');
+    assert.strictEqual(manifest.homepage, 'https://github.com/justsomeone-e/RoveLang#readme');
+    assert.strictEqual(manifest.bugs.url, 'https://github.com/justsomeone-e/RoveLang/issues');
     assert.deepStrictEqual(manifest.galleryBanner, { color: '#171A35', theme: 'dark' });
     assert.ok(fs.existsSync(path.join(__dirname, manifest.icon)));
     const language = manifest.contributes.languages.find(item => item.id === 'rovelang');
@@ -287,11 +287,11 @@ async function main() {
         await registeredCommands.get(commandId)();
     }
     assert.deepStrictEqual(openedExternalUrls, [
-        'https://github.com/justsomeone-e/rove',
-        'https://github.com/justsomeone-e/rove#readme',
-        'https://github.com/justsomeone-e/rove/releases',
-        'https://github.com/justsomeone-e/rove/blob/main/docs/internals/ROADMAP_AND_BACKEND_GATES.md',
-        'https://github.com/justsomeone-e/rove/issues/new'
+        'https://github.com/justsomeone-e/RoveLang',
+        'https://github.com/justsomeone-e/RoveLang#readme',
+        'https://github.com/justsomeone-e/RoveLang/releases',
+        'https://github.com/justsomeone-e/RoveLang/blob/main/docs/internals/ROADMAP_AND_BACKEND_GATES.md',
+        'https://github.com/justsomeone-e/RoveLang/issues/new'
     ]);
 
     const languageSurface = require(path.join(__dirname, 'language-surface.json'));

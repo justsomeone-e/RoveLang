@@ -1,12 +1,14 @@
 # 📦 Rove Installation Guide
 
-This guide walks you through installing and configuring Rove across Windows, Linux, and macOS.
+This guide covers the Rove source checkout on Windows, Linux, and macOS.
+Published v5 binaries still use the Nyx names; a tagged Rove release is not
+available yet.
 
 ---
 
 ## 1. Prerequisites
 
-The release binary `rovec` performs native `check`, `emit-cpp`, `compile`, and
+The locally built `rovec` performs native `check`, `emit-cpp`, `compile`, and
 target discovery without Python. The unified `rove` command uses Python 3.10+
 for orchestration features such as the REPL, formatter, package manager, and
 language server. To compile native executables (`cpp`), install a modern C++20
@@ -21,17 +23,16 @@ compiler (`clang++`, `g++`, or MSVC `cl`).
 
 ---
 
-## 2. Automated Installation
+## 2. Install from this checkout
 
 ### Windows (PowerShell)
-Run in an elevated or standard PowerShell terminal:
+Run in an elevated or standard PowerShell terminal from the repository root:
 ```powershell
-irm https://raw.githubusercontent.com/justsomeone-e/rove/main/install.ps1 | iex
+.\install.ps1
 ```
-This downloads the toolchain to `~/.rove` and appends `~/.rove/bin` to your User
-`PATH`. GitHub Releases provide the standalone compiler as `rovec.exe`; the
-installer creates `rove.cmd` as the unified Windows command. A separate
-`rove.exe` release asset is therefore not expected.
+This installs to `~/.rove` and appends `~/.rove/bin` to your User `PATH`.
+The installer creates `rove.cmd` as the unified Windows command alongside
+the native `rovec.exe` compiler.
 
 The VS Code extension is optional. If PowerShell blocks an `npm.ps1` shim, the
 installer prefers `npm.cmd`/`npm.exe`; an editor-install failure no longer
@@ -39,7 +40,7 @@ prevents the core compiler from being installed.
 
 ### Linux / macOS (Bash)
 ```bash
-curl -fsSL https://raw.githubusercontent.com/justsomeone-e/rove/main/install.sh | bash
+./install.sh
 ```
 
 ---
@@ -48,8 +49,8 @@ curl -fsSL https://raw.githubusercontent.com/justsomeone-e/rove/main/install.sh 
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/justsomeone-e/rove.git
-   cd rove
+   git clone --branch rove/compiler-architecture-and-migration https://github.com/justsomeone-e/RoveLang.git
+   cd RoveLang
    ```
 
 2. Verify host diagnostics:

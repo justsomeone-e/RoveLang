@@ -1,10 +1,10 @@
 # Rove
 
 <p align="left">
-  <a href="https://justsomeone-e.github.io/rove/studio.html"><img src="https://img.shields.io/badge/Rove%20Studio-learn%20%26%20inspect-22C55E?style=for-the-badge&amp;logoColor=0F172A&amp;labelColor=0E1318" alt="Open Rove Studio"></a>
-  <a href="https://justsomeone-e.github.io/rove/"><img src="https://img.shields.io/badge/interactive%20tour-try%20in%20browser-00F0FF?style=for-the-badge&amp;logoColor=05070A&amp;labelColor=0E1318" alt="Try Tour of Rove Online"></a>
+  <a href="https://justsomeone-e.github.io/RoveLang/studio.html"><img src="https://img.shields.io/badge/Rove%20Studio-learn%20%26%20inspect-22C55E?style=for-the-badge&amp;logoColor=0F172A&amp;labelColor=0E1318" alt="Open Rove Studio"></a>
+  <a href="https://justsomeone-e.github.io/RoveLang/"><img src="https://img.shields.io/badge/interactive%20tour-try%20in%20browser-00F0FF?style=for-the-badge&amp;logoColor=05070A&amp;labelColor=0E1318" alt="Try Tour of Rove Online"></a>
   <a href="VERSION"><img src="https://img.shields.io/badge/version-5.0.3-0E1318?style=for-the-badge&amp;logoColor=00F0FF&amp;labelColor=05070A" alt="Version"></a>
-  <a href="https://github.com/justsomeone-e/rove/releases"><img src="https://img.shields.io/badge/status-stable-0E1318?style=for-the-badge&amp;logoColor=00F0FF&amp;labelColor=05070A" alt="Stable Release"></a>
+  <a href="https://github.com/justsomeone-e/RoveLang/releases"><img src="https://img.shields.io/badge/status-source%20preview-0E1318?style=for-the-badge&amp;logoColor=00F0FF&amp;labelColor=05070A" alt="Rove source preview"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0E1318?style=for-the-badge&amp;logoColor=00F0FF&amp;labelColor=05070A" alt="Apache 2.0 License"></a>
   <a href="#backends"><img src="https://img.shields.io/badge/platforms-linux%20%7C%20win%20%7C%20macos-0E1318?style=for-the-badge&amp;labelColor=05070A" alt="Platforms"></a>
 </p>
@@ -33,8 +33,9 @@ underneath it.**
 A single compiler model lowers to native C++20, WebAssembly (WASM ABI v1), Node.js, and Python through an authoritative typed intermediate representation (**Typed HIR v1**) with byte-identical native self-hosting.
 
 > [!IMPORTANT]
-> **Nyx `v5.0.3` "Daydream"** is the final release under the old name. The current
-> source tree uses the **Rove** identity. Existing `.nyx` source files, `nyx.toml`,
+> **Nyx `v5.0.3` "Daydream"** is the last tag under the old name; a Rove release
+> has not been published yet. This source tree uses the **Rove** identity.
+> Existing `.nyx` source files, `nyx.toml`,
 > `nyx.lock`, `nyx`, `nyxc`, and the versioned `nyx_host_v1` ABI remain accepted as
 > compatibility surfaces while new projects use `.rove`, `rove.toml`, `rove.lock`,
 > `rove`, and `rovec`.
@@ -44,7 +45,7 @@ A single compiler model lowers to native C++20, WebAssembly (WASM ABI v1), Node.
 </div>
 
 <p align="left">
-  <a href="https://justsomeone-e.github.io/rove/"><b>TRY ONLINE (TOUR &amp; PLAYGROUND)</b></a> •
+  <a href="https://justsomeone-e.github.io/RoveLang/"><b>TRY ONLINE (TOUR &amp; PLAYGROUND)</b></a> •
   <a href="#manifesto">MANIFESTO</a> •
   <a href="#language-tour">LANGUAGE TOUR</a> •
   <a href="#architecture">ARCHITECTURE</a> •
@@ -328,7 +329,7 @@ rove bundle src/crypto.rove --output dist/crypto --package --react --vue --svelt
 
 ### Memory Protocol
 
-ABI v1 requires modules to export `memory`, `__rove_alloc(i32)`, `__rove_free(i32, i32)`, and `__rove_abi_version() -> 1`. Strings cross the boundary as a packed 64-bit scalar `(length << 32) | pointer`; numeric arrays use borrowed `(pointer, length)` pairs. The generated JavaScript layer refreshes views after heap growth, releases input buffers inside `finally` blocks, and frees caller-owned return strings immediately after decoding. Browser capabilities use the separately versioned `rove_host_v1` import namespace. Versioning and ownership rules are defined in [`docs/internals/COMPATIBILITY_CONTRACTS.md`](docs/internals/COMPATIBILITY_CONTRACTS.md).
+ABI v1 requires modules to export `memory`, `__nyx_alloc(i32)`, `__nyx_free(i32, i32)`, and `__nyx_abi_version() -> 1`. Strings cross the boundary as a packed 64-bit scalar `(length << 32) | pointer`; numeric arrays use borrowed `(pointer, length)` pairs. The generated JavaScript layer refreshes views after heap growth, releases input buffers inside `finally` blocks, and frees caller-owned return strings immediately after decoding. Browser capabilities use the separately versioned `nyx_host_v1` import namespace. These names remain fixed for ABI v1. Versioning and ownership rules are defined in [`docs/internals/COMPATIBILITY_CONTRACTS.md`](docs/internals/COMPATIBILITY_CONTRACTS.md).
 
 ```tsx
 'use client'
@@ -356,27 +357,16 @@ and animation-loop example lives in [`examples/web_pong`](examples/web_pong/READ
 
 ## `06` — Verification
 
-The repository checks language invariants across target boundaries with an automated test battery:
+The repository checks language invariants across target boundaries with
+focused suites. The Rove migration has targeted MIR legalization, self-host,
+Bundle ABI, installer, editor, and documentation-site checks. The full
+regression battery must be rerun before a Rove release is declared:
 
-```text
-╔══════════════════════════════════════════════════════════════════════╗
-║                   ROVE v5.0.3 VERIFICATION BATTERY                  ║
-╠══════════════════════════════════════════════════════════════════════╣
-║                                                                      ║
-║  Edge-case regression test suite              ──► 138 / 138 PASS    ║
-║  Typed HIR corpus emission test               ──► 162 / 162 PASS    ║
-║  Rove/Python canonical HIR byte parity         ──► 194 / 194 PASS    ║
-║  Cross-backend runtime execution parity       ──► 3 × 138 PASS      ║
-║  Deterministic backend code generation        ──► 3 × 10  PASS      ║
-║  Standard library HIR verification            ──► 17 / 17 PASS      ║
-║  Bundle ABI allocation stress test            ──► 100,000 PASS      ║
-║  Native self-hosting reproducibility          ──► STAGES 1-2-3 PASS ║
-║  Deterministic differential fuzz engine       ──► 530 / 530 PASS    ║
-║  LSP JSON-RPC protocol compliance             ──► 4 / 4   PASS      ║
-║  C/C++ native ABI interoperability            ──► 5 / 5   PASS      ║
-║  Self-installers & VS Code VSIX verification  ──► PASS              ║
-║                                                                      ║
-╚══════════════════════════════════════════════════════════════════════╝
+```bash
+python tests/mir_legalization_suite.py
+python tests/self_host_suite.py
+python tests/docs_site_suite.py
+python tests/run_all_tests.py
 ```
 
 ---
@@ -404,10 +394,10 @@ error[E1302]: ambiguous symbol collision
 
 ## `08` — Installation
 
-Standalone native installers are provided for Windows, Linux, and macOS.
-Releases bundle the precompiled `rovec` compiler (`rovec.exe` on Windows). The
-documented `rove` command is an installer-created wrapper (`rove.cmd` on Windows),
-not a separate `rove.exe` release asset.
+Installers for Windows, Linux, and macOS are included in this source tree.
+Published v5 binaries still use the Nyx names. The Rove installer builds from
+this checkout until Rove release assets are published; it creates the `rove`
+command (`rove.cmd` on Windows) alongside the native `rovec` compiler.
 
 ### Windows (PowerShell)
 
@@ -416,23 +406,11 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\install.ps1
 ```
 
-*Or install directly via the release script:*
-
-```powershell
-$env:ROVE_RELEASE_TAG = 'v5.0.3'; irm https://raw.githubusercontent.com/justsomeone-e/rove/main/install.ps1 | iex
-```
-
 ### Linux & macOS (Bash)
 
 ```bash
 chmod +x install.sh
 ./install.sh
-```
-
-*Or install directly via curl:*
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/justsomeone-e/rove/main/install.sh | ROVE_RELEASE_TAG=v5.0.3 bash
 ```
 
 ### Toolchain Dependencies
@@ -465,17 +443,16 @@ Rove's editor support covers diagnostics, navigation, and common build commands.
 
 ### Local Visual Studio Code Extension
 
-Rove ships with a fully integrated, zero-telemetry local extension (`rove-language-support-v5.0.3.vsix`):
+The repository includes a zero-telemetry local VS Code extension:
 
 * **Language Server Protocol**: Built-in JSON-RPC server powering syntax diagnostics, hover documentation, completion, and definition lookups.
 * **Persistent Execution Console**: Windows executables run in an integrated persistent shell—never closing abruptly before you inspect output.
 * **Commands**: **Run**, **Build**, **Check**, and **Doctor** shortcuts with configurable keybindings.
 
-Install locally with:
+Package it from `vscode-extension` with `npm ci` and `npm run package`, then
+install the resulting VSIX with VS Code. A Rove VSIX has not been published yet.
 
-```bash
-code --install-extension rove-language-support-v5.0.3.vsix
-```
+Use VS Code's **Extensions: Install from VSIX...** command for the packaged file.
 
 The Windows and Unix installers also register the bundled extension
 automatically when VS Code, VS Code Insiders, or VSCodium is detected. Restart
@@ -541,7 +518,7 @@ The Rove release lifecycle is bound to verifiable technical milestones rather th
 | `v5.0.0` | **Daydream** | *The next form imagined* | Direct LLVM pipeline, aggregate lowering, CLI integration, and preserved stable backend contracts | Official Release |
 | `v5.0.1` | **Daydream** | *Reliability patch* | Windows installer resilience, native foreign imports, optional-null lowering, and corrected examples | Official Patch |
 | `v5.0.2` | **Daydream** | *Checked compiler foundations* | MIR contracts, module/generic validation, backend pilots, installer hardening, and Tour learning path | Official Patch |
-| `v5.0.3` | **Daydream** | *Studio maintenance* | Single-run browser preview, isolated Tour/Studio state, emoji-free site UI, and release surface synchronization | Current Release |
+| `v5.0.3` | **Daydream** | *Studio maintenance* | Single-run browser preview, isolated Tour/Studio state, and documentation refresh | Tagged; Rove migration in source |
 | `v6.0.0` | **Sepia** | *Memory / Preservation* | Future compiler milestone | Planned |
 | `v7.0.0` | **Solace** | *Calm after complexity* | Future ecosystem milestone | Planned |
 | `v8.0.0` | **Last Signal** | *The final transmission* | Long-term language-platform milestone | Long-term |

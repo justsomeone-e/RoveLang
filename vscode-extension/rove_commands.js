@@ -7,11 +7,11 @@ const NATIVE_REQUIREMENT =
     'Put the compiler on PATH or set ROVE_CXX; run “Rove: Toolchain Doctor” to verify it.';
 
 const PROJECT_LINKS = Object.freeze({
-    repository: 'https://github.com/justsomeone-e/rove',
-    documentation: 'https://github.com/justsomeone-e/rove#readme',
-    releases: 'https://github.com/justsomeone-e/rove/releases',
-    roadmap: 'https://github.com/justsomeone-e/rove/blob/main/docs/internals/ROADMAP_AND_BACKEND_GATES.md',
-    issues: 'https://github.com/justsomeone-e/rove/issues/new'
+    repository: 'https://github.com/justsomeone-e/RoveLang',
+    documentation: 'https://github.com/justsomeone-e/RoveLang#readme',
+    releases: 'https://github.com/justsomeone-e/RoveLang/releases',
+    roadmap: 'https://github.com/justsomeone-e/RoveLang/blob/main/docs/internals/ROADMAP_AND_BACKEND_GATES.md',
+    issues: 'https://github.com/justsomeone-e/RoveLang/issues/new'
 });
 
 const LINK_COMMANDS = Object.freeze([

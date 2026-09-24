@@ -17,7 +17,7 @@ $SrcDir = Join-Path $InstallDir "src"
 $CompilerDir = Join-Path $InstallDir "compiler"
 $ExtensionDir = Join-Path $InstallDir "vscode-extension"
 $NativeExe = Join-Path $BinDir "rovec.exe"
-$Repository = "justsomeone-e/rove"
+$Repository = "justsomeone-e/RoveLang"
 $ReleaseTag = if ($env:ROVE_RELEASE_TAG) { $env:ROVE_RELEASE_TAG } else { $env:NYX_RELEASE_TAG }
 $NativeCompilerPath = if ($env:ROVE_NATIVE_COMPILER_PATH) { $env:ROVE_NATIVE_COMPILER_PATH } else { $env:NYX_NATIVE_COMPILER_PATH }
 $SkipPathUpdate = if ($env:ROVE_SKIP_PATH_UPDATE) { $env:ROVE_SKIP_PATH_UPDATE } else { $env:NYX_SKIP_PATH_UPDATE }
@@ -87,7 +87,7 @@ $TempRoot = $null
 
 try {
     if (-not $SourceRoot) {
-        $TempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("nyx_install_" + [guid]::NewGuid().ToString("N"))
+        $TempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("rove_install_" + [guid]::NewGuid().ToString("N"))
         $TempArchive = Join-Path $TempRoot "rove-source.zip"
         $TempExtract = Join-Path $TempRoot "source"
         New-Item -ItemType Directory -Path $TempExtract -Force | Out-Null

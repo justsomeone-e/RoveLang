@@ -13,7 +13,7 @@ fn test_fs_module() {
 }
 
 fn test_http_module() {
-    var resp = get("https://api.github.com/repos/justsomeone-e/nyx");
+    var resp = get("https://api.github.com/repos/justsomeone-e/RoveLang");
     guard resp.ok else {
         print("HTTP request failed");
         return;

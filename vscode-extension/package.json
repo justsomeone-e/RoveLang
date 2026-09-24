@@ -7,11 +7,11 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/justsomeone-e/rove.git"
+    "url": "https://github.com/justsomeone-e/RoveLang.git"
   },
-  "homepage": "https://github.com/justsomeone-e/rove#readme",
+  "homepage": "https://github.com/justsomeone-e/RoveLang#readme",
   "bugs": {
-    "url": "https://github.com/justsomeone-e/rove/issues"
+    "url": "https://github.com/justsomeone-e/RoveLang/issues"
   },
   "galleryBanner": {
     "color": "#171A35",

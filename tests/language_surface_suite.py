@@ -10,7 +10,7 @@ if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
 
-from src import NyxCompiler
+from src import RoveCompiler
 from src.codegen.cpp_toolchain import CppToolchain
 from src.core.completion_catalog import completion_catalog
 from src.core.language_surface import (
@@ -52,7 +52,7 @@ def _run_artifact(target: str, content: str, directory: str) -> str:
 
 def run_language_surface_suite() -> bool:
     print("=" * 70)
-    print("NYX 4.0 CANONICAL LANGUAGE SURFACE")
+    print("ROVE 4.0 CANONICAL LANGUAGE SURFACE")
     print("=" * 70)
 
     with open(
@@ -66,7 +66,7 @@ def run_language_surface_suite() -> bool:
     assert tuple(editor_surface["experimentalKeywords"]) == EXPERIMENTAL_KEYWORDS
     assert tuple(editor_surface["reservedKeywords"]) == RESERVED_KEYWORDS
 
-    compiler = NyxCompiler(ROOT_DIR)
+    compiler = RoveCompiler(ROOT_DIR)
     for non_keyword in ("val", "def"):
         token = Lexer(non_keyword, "<language-surface>").tokenize()[0]
         assert token.type == TokenType.IDENT
@@ -220,7 +220,7 @@ fn main() {
             runtime = _run_artifact_process(target, result.artifact.content, directory)
             assert runtime.returncode != 0, f"{target} accepted non-bool dynamic truthiness"
             error_output = runtime.stderr + runtime.stdout
-            assert "Nyx condition must have type bool" in error_output, (target, error_output)
+            assert "Rove condition must have type bool" in error_output, (target, error_output)
 
     immutable = compiler.check_source(
         "let fixed: int = 1\nset fixed = 2\n",

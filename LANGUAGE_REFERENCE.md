@@ -337,8 +337,9 @@ recursive dependency cycles are rejected.
 
 For WebAssembly browser programs, `std/web` provides opaque `WebElement`,
 `WebEvent`, and `WebListener` handles plus DOM, event, animation-frame, and
-Canvas 2D functions. These calls require the generated `rove_host_v1` adapter
-and are rejected on non-WASM targets.
+Canvas 2D functions. These calls require the generated `nyx_host_v1` adapter
+and are rejected on non-WASM targets. The namespace keeps its historical name
+for Bundle ABI v1 compatibility.
 
 ## 10. Tests and unsafe boundaries
 

@@ -390,7 +390,7 @@
     {
       "name": "std/web",
       "detail": "Rove stdlib · experimental",
-      "documentation": "Typed browser host handles and DOM/canvas operations through rove_host_v1.",
+      "documentation": "Typed browser host handles and DOM/canvas operations through nyx_host_v1.",
       "targets": [
         "wasm"
       ]
