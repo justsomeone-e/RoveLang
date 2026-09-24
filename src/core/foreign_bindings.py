@@ -71,9 +71,10 @@ def _find_project_manifest(base_dir: str) -> Optional[str]:
     if os.path.isfile(current):
         current = os.path.dirname(current)
     while True:
-        candidate = os.path.join(current, "nyx.bindings.json")
-        if os.path.isfile(candidate):
-            return candidate
+        for filename in ("rove.bindings.json", "nyx.bindings.json"):
+            candidate = os.path.join(current, filename)
+            if os.path.isfile(candidate):
+                return candidate
         parent = os.path.dirname(current)
         if parent == current:
             return None

@@ -1,6 +1,6 @@
 """Canonical completion metadata shared by the LSP and editor package.
 
-The catalog is derived from compiler registries and parsed Nyx stdlib sources,
+The catalog is derived from compiler registries and parsed Rove stdlib sources,
 so editor suggestions cannot drift into APIs that do not exist.
 """
 
@@ -40,8 +40,8 @@ _BUILTIN_DETAILS = {
     "Err": ("fn Err<E>(error: E) -> Result<any, E>", "Constructs an error Result value."),
     "len": ("fn len<T>(value: T) -> int", "Returns a collection, buffer, or string length."),
     "args": ("fn args() -> Array<string>", "Returns process command-line arguments on hosted targets."),
-    "to_string": ("fn to_string<T>(value: T) -> string", "Formats a value using canonical Nyx scalar text."),
-    "to_int": ("fn to_int(value: string) -> int", "Parses a signed Nyx integer."),
+    "to_string": ("fn to_string<T>(value: T) -> string", "Formats a value using canonical Rove scalar text."),
+    "to_int": ("fn to_int(value: string) -> int", "Parses a signed Rove integer."),
     "contains": ("fn contains(value: string, part: string) -> bool", "Tests whether a string contains a substring."),
     "is_number": ("fn is_number(value: string) -> bool", "Tests whether text has numeric syntax."),
     "delay_ms": ("fn delay_ms(milliseconds: int) -> void", "Suspends or delays for the requested milliseconds."),
@@ -72,13 +72,13 @@ def _stdlib_catalog(root: Path) -> tuple[List[dict], List[dict]]:
     symbols: List[dict] = []
     stdlib_dir = root / "src" / "stdlib"
     for module_name, contract in sorted(STDLIB_CONTRACTS.items()):
-        source_path = stdlib_dir / f"{module_name}.nyx"
+        source_path = stdlib_dir / f"{module_name}.rove"
         if not source_path.is_file():
             continue
         module_path = f"std/{module_name}"
         modules.append({
             "name": module_path,
-            "detail": f"Nyx stdlib · {contract.maturity}",
+            "detail": f"Rove stdlib · {contract.maturity}",
             "documentation": contract.note or f"Standard library module {module_path}.",
             "targets": sorted(contract.targets),
         })

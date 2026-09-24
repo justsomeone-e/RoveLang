@@ -8,7 +8,7 @@ import tempfile
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLI_PATH = os.path.join(ROOT_DIR, "src", "cli.py")
-PARITY_SOURCE = os.path.join(ROOT_DIR, "tests", "test_parity_matrix.nyx")
+PARITY_SOURCE = os.path.join(ROOT_DIR, "tests", "test_parity_matrix.rove")
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
@@ -60,7 +60,7 @@ def run_capability_suite() -> bool:
     assert "http" in stdlib_modules_for_target("cpp")
     assert "http" not in stdlib_modules_for_target("js")
 
-    http_source_path = os.path.join(ROOT_DIR, "src", "stdlib", "http.nyx")
+    http_source_path = os.path.join(ROOT_DIR, "src", "stdlib", "http.rove")
     with open(http_source_path, "r", encoding="utf-8") as handle:
         http_source = handle.read()
     assert "popen(" not in http_source and "_popen(" not in http_source
@@ -89,7 +89,7 @@ def run_capability_suite() -> bool:
         rejected = NyxCompiler(ROOT_DIR).compile_source(
             propagated,
             target=target,
-            filename=f"capability-{target}.nyx",
+            filename=f"capability-{target}.rove",
         )
         assert not rejected.success, f"{target} silently accepted unsupported Result propagation"
         assert rejected.diagnostics and rejected.diagnostics[0].code == "E3001"
@@ -99,12 +99,12 @@ def run_capability_suite() -> bool:
     DiagnosticEmitter.EXIT_ON_ERROR = False
     try:
         with tempfile.TemporaryDirectory(prefix="nyx_capability_") as temp_dir:
-            js_source = os.path.join(temp_dir, "js_ok.nyx")
+            js_source = os.path.join(temp_dir, "js_ok.rove")
             _write(js_source, '#target js\nimport "std/fs"\nfn main() {}\n')
             js_ast = ModuleLoader(base_dir=temp_dir).load_program(js_source)
             assert js_ast.target == "js"
 
-            llvm_source = os.path.join(temp_dir, "llvm_ok.nyx")
+            llvm_source = os.path.join(temp_dir, "llvm_ok.rove")
             _write(llvm_source, '#target llvm\nfn answer() -> int { return 42 }\n')
             llvm_ast = ModuleLoader(base_dir=temp_dir).load_program(llvm_source)
             assert llvm_ast.target == "llvm"
@@ -114,7 +114,7 @@ def run_capability_suite() -> bool:
             assert llvm_result.artifact is not None
             assert llvm_result.artifact.extension == ".ll"
 
-            wrong_web_source = os.path.join(temp_dir, "wrong_web_target.nyx")
+            wrong_web_source = os.path.join(temp_dir, "wrong_web_target.rove")
             _write(wrong_web_source, '#target cpp\nimport "std/web"\nfn main() {}\n')
             try:
                 ModuleLoader(base_dir=temp_dir).load_program(wrong_web_source)
@@ -122,12 +122,12 @@ def run_capability_suite() -> bool:
             except DiagnosticError as error:
                 assert error.code == "E1400"
 
-            native_http_source = os.path.join(temp_dir, "native_http_ok.nyx")
+            native_http_source = os.path.join(temp_dir, "native_http_ok.rove")
             _write(native_http_source, '#target cpp\nimport "std/http"\nfn main() {}\n')
             native_http_ast = ModuleLoader(base_dir=temp_dir).load_program(native_http_source)
             assert native_http_ast.target == "cpp"
 
-            portable_str = os.path.join(temp_dir, "portable_str.nyx")
+            portable_str = os.path.join(temp_dir, "portable_str.rove")
             _write(
                 portable_str,
                 'import "std/str"\n'
@@ -186,7 +186,7 @@ def run_capability_suite() -> bool:
                 assert "[FAIL]" not in parity_output, f"stdlib parity failed for {target}: {parity_output}"
                 assert "[SUCCESS] All 6 Stdlib Modules" in parity_output
 
-            rust_source = os.path.join(temp_dir, "rust_reject.nyx")
+            rust_source = os.path.join(temp_dir, "rust_reject.rove")
             _write(rust_source, '#target rust\nimport "std/fs"\nfn main() {}\n')
             try:
                 ModuleLoader(base_dir=temp_dir).load_program(rust_source)
@@ -194,7 +194,7 @@ def run_capability_suite() -> bool:
             except DiagnosticError as error:
                 assert error.code == "E1400"
 
-            unknown_source = os.path.join(temp_dir, "unknown_target.nyx")
+            unknown_source = os.path.join(temp_dir, "unknown_target.rove")
             _write(unknown_source, '#target moonvm\nfn main() {}\n')
             try:
                 ModuleLoader(base_dir=temp_dir).load_program(unknown_source)

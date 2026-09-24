@@ -24,10 +24,10 @@ def run_module_graph_checker_suite() -> bool:
     previous = DiagnosticEmitter.EXIT_ON_ERROR
     DiagnosticEmitter.EXIT_ON_ERROR = False
     try:
-        leaf = os.path.join(temp_dir, "leaf.nyx")
-        left = os.path.join(temp_dir, "left.nyx")
-        right = os.path.join(temp_dir, "right.nyx")
-        root = os.path.join(temp_dir, "main.nyx")
+        leaf = os.path.join(temp_dir, "leaf.rove")
+        left = os.path.join(temp_dir, "left.rove")
+        right = os.path.join(temp_dir, "right.rove")
+        root = os.path.join(temp_dir, "main.rove")
         _write(leaf, "fn base() -> int { return 40; }\nvar shared: int = 2;\n")
         _write(left, 'import "./leaf"\nfn left() -> int { return base() + shared; }\n')
         _write(right, 'import { base } from "./leaf"\nfn right() -> int { return base(); }\n')
@@ -46,7 +46,7 @@ def run_module_graph_checker_suite() -> bool:
         assert "base" not in root_checker.func_defs
         assert root_checker.lookup("shared") is None
 
-        selective = os.path.join(temp_dir, "selective.nyx")
+        selective = os.path.join(temp_dir, "selective.rove")
         _write(selective, 'import { base } from "./leaf"\nprint(base());\n')
         selective_loaded = ModuleLoader(base_dir=temp_dir).load_program_graph(selective)
         selective_checked = check_program_graph(selective_loaded)

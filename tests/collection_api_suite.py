@@ -32,7 +32,7 @@ def _compile(source: str, target: str):
     return NyxCompiler(ROOT_DIR).compile_source(
         source,
         target=target,
-        filename=os.path.join(ROOT_DIR, f"collection-api-{target}.nyx"),
+        filename=os.path.join(ROOT_DIR, f"collection-api-{target}.rove"),
     )
 
 

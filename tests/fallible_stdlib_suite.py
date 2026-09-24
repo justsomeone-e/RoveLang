@@ -67,10 +67,10 @@ fn main() {{
     print("json-zero", get_int("{{\\\"count\\\":0}}", "count").unwrap())
     match get_string("{{\\\"name\\\":\\\"nyx\\\"}}", "missing") {{ Ok(value) => print("unexpected", value), Err(error) => print("json-error") }}
     match sleep_ms(-1) {{ Ok(value) => print("unexpected", value), Err(error) => print("time-error") }}
-    print("path-join", join("foo", "bar.nyx"))
-    print("path-base", basename("src/lib/test.nyx"))
-    print("path-dir", dirname("src/lib/test.nyx"))
-    print("path-ext", extname("src/lib/test.nyx"))
+    print("path-join", join("foo", "bar.rove"))
+    print("path-base", basename("src/lib/test.rove"))
+    print("path-dir", dirname("src/lib/test.rove"))
+    print("path-ext", extname("src/lib/test.rove"))
     print("str-trim", trim("  nyx  "))
     match find("hello world", "world") {{ Ok(idx) => print("str-find", idx), Err(err) => print("str-find-error") }}
     match find("hello", "missing") {{ Ok(idx) => print("unexpected", idx), Err(err) => print("str-find-missing") }}
@@ -79,7 +79,7 @@ fn main() {{
 '''
         for target in ("cpp", "js", "python"):
             result = NyxCompiler(ROOT_DIR).compile_source(
-                source, target=target, filename=os.path.join(directory, f"fallible-{target}.nyx")
+                source, target=target, filename=os.path.join(directory, f"fallible-{target}.rove")
             )
             assert result.success, (target, result.diagnostics)
             assert result.artifact is not None
@@ -88,7 +88,7 @@ fn main() {{
             assert [line.strip() for line in output.splitlines() if line.strip()] == [
                 "write true", "empty-bytes 0", "missing-error", "remove true",
                 "decoded Nyx", "base64-error", "json-zero 0", "json-error", "time-error",
-                "path-join foo/bar.nyx", "path-base test.nyx", "path-dir src/lib", "path-ext .nyx",
+                "path-join foo/bar.rove", "path-base test.rove", "path-dir src/lib", "path-ext .rove",
                 "str-trim nyx", "str-find 6", "str-find-missing", "env-missing"
             ], (target, output)
 
@@ -119,7 +119,7 @@ fn main() {{
 }}
 '''
         result = NyxCompiler(ROOT_DIR).compile_source(
-            network_source, target="cpp", filename=os.path.join(directory, "fallible-net.nyx")
+            network_source, target="cpp", filename=os.path.join(directory, "fallible-net.rove")
         )
         assert result.success, result.diagnostics
         source_path = os.path.join(directory, "fallible_net.cpp")

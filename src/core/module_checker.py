@@ -1,4 +1,4 @@
-"""Module-boundary-preserving semantic checking for loaded Nyx programs."""
+"""Module-boundary-preserving semantic checking for loaded Rove programs."""
 
 from __future__ import annotations
 

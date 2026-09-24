@@ -74,7 +74,7 @@ def run_language_surface_suite() -> bool:
     legacy_function = compiler.check_source(
         "def legacy() { return }",
         target="cpp",
-        filename="legacy_def.nyx",
+        filename="legacy_def.rove",
     )
     assert not legacy_function.success
 
@@ -97,7 +97,7 @@ fn main() {
 """
     with tempfile.TemporaryDirectory(prefix="nyx_language_surface_") as directory:
         for target in ("cpp", "js", "python"):
-            result = compiler.compile_source(source, target=target, filename="surface.nyx")
+            result = compiler.compile_source(source, target=target, filename="surface.rove")
             assert result.success, result.diagnostics
             assert result.artifact is not None
             output = _run_artifact(target, result.artifact.content, directory)
@@ -122,7 +122,7 @@ fn main() { print("trait:", Point(10, 20).show()) }
             result = compiler.compile_source(
                 trait_source,
                 target=target,
-                filename="trait_contract.nyx",
+                filename="trait_contract.rove",
             )
             assert result.success, result.diagnostics
             assert result.artifact is not None
@@ -140,7 +140,7 @@ fn main() {
             result = compiler.compile_source(
                 exception_source,
                 target=target,
-                filename="exceptions.nyx",
+                filename="exceptions.rove",
             )
             assert result.success, result.diagnostics
             assert result.artifact is not None
@@ -151,7 +151,7 @@ fn main() {
             result = compiler.compile_source(
                 exception_source,
                 target=target,
-                filename=f"exceptions_{target}.nyx",
+                filename=f"exceptions_{target}.rove",
             )
             assert not result.success, f"{target} silently accepted unsupported exception semantics"
             assert result.diagnostics and result.diagnostics[0].code == "E3001"
@@ -186,7 +186,7 @@ async fn main() {
 }
 """
         for target in ("cpp", "js", "python"):
-            result = compiler.compile_source(async_source, target=target, filename="async_tasks.nyx")
+            result = compiler.compile_source(async_source, target=target, filename="async_tasks.rove")
             assert result.success, result.diagnostics
             assert result.artifact is not None
             output = _run_artifact(target, result.artifact.content, directory)
@@ -198,7 +198,7 @@ async fn main() {
             result = compiler.compile_source(
                 async_source,
                 target=target,
-                filename=f"async_tasks_{target}.nyx",
+                filename=f"async_tasks_{target}.rove",
             )
             assert not result.success, f"{target} silently accepted unsupported Task semantics"
             assert result.diagnostics and result.diagnostics[0].code == "E3001"
@@ -213,7 +213,7 @@ fn main() {
             result = compiler.compile_source(
                 dynamic_condition_source,
                 target=target,
-                filename="dynamic_condition.nyx",
+                filename="dynamic_condition.rove",
             )
             assert result.success, result.diagnostics
             assert result.artifact is not None
@@ -225,7 +225,7 @@ fn main() {
     immutable = compiler.check_source(
         "let fixed: int = 1\nset fixed = 2\n",
         target="cpp",
-        filename="immutable.nyx",
+        filename="immutable.rove",
     )
     assert not immutable.success
     assert any(
@@ -237,14 +237,14 @@ fn main() {
         reserved = compiler.check_source(
             f'{keyword} "not implemented"\n',
             target="cpp",
-            filename=f"reserved_{keyword}.nyx",
+            filename=f"reserved_{keyword}.rove",
         )
         assert not reserved.success, f"reserved keyword unexpectedly compiled: {keyword}"
 
     sync_await = compiler.check_source(
         "async fn compute() -> int { return 1 } fn bad() -> int { return await compute() }",
         target="cpp",
-        filename="sync_await.nyx",
+        filename="sync_await.rove",
     )
     assert not sync_await.success
     assert any(diagnostic.code == "E2010" for diagnostic in sync_await.diagnostics)
@@ -252,7 +252,7 @@ fn main() {
     non_task_await = compiler.check_source(
         "async fn bad() -> int { return await 1 }",
         target="cpp",
-        filename="non_task_await.nyx",
+        filename="non_task_await.rove",
     )
     assert not non_task_await.success
     assert any(diagnostic.code == "E2011" for diagnostic in non_task_await.diagnostics)
@@ -264,7 +264,7 @@ fn main() {
         invalid_integer = compiler.check_source(
             source,
             target="cpp",
-            filename="invalid_integer_literal.nyx",
+            filename="invalid_integer_literal.rove",
         )
         assert not invalid_integer.success
         assert any(diagnostic.code == "E2012" for diagnostic in invalid_integer.diagnostics)
@@ -277,7 +277,7 @@ fn main() {
         invalid_condition = compiler.check_source(
             source,
             target="cpp",
-            filename="invalid_condition.nyx",
+            filename="invalid_condition.rove",
         )
         assert not invalid_condition.success
         assert any(diagnostic.code == "E2013" for diagnostic in invalid_condition.diagnostics)
@@ -302,7 +302,7 @@ fn main() {
         invalid_trait = compiler.check_source(
             source,
             target="cpp",
-            filename="invalid_trait.nyx",
+            filename="invalid_trait.rove",
         )
         assert not invalid_trait.success
         assert any(diagnostic.code == expected_code for diagnostic in invalid_trait.diagnostics)

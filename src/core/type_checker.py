@@ -589,7 +589,30 @@ class TypeChecker:
 
         elif isinstance(node, MatchNode):
             subject_type = self.infer_type(node.expr)
-            for pat, statements in node.cases:
+            for index, (pat, statements) in enumerate(node.cases):
+                is_legacy_wildcard = isinstance(pat, StringNode) and pat.value == "_"
+                if (isinstance(pat, IdentifierNode) or is_legacy_wildcard) and index != len(node.cases) - 1:
+                    DiagnosticEmitter.emit_error(
+                        self.filepath, self.source, pat.line, pat.col,
+                        "E2016", "Match statement fallback must be the final arm",
+                        expected="binding or _ as the final arm",
+                        found="_" if is_legacy_wildcard else pat.name,
+                        help_msg="Move the fallback arm after the specific patterns.",
+                    )
+                if not isinstance(pat, IdentifierNode) and not is_legacy_wildcard and not (
+                    isinstance(pat, FunctionCallNode)
+                    and isinstance(pat.callee, str)
+                    and (pat.callee in ("Ok", "Err") or pat.callee in self.enum_variants)
+                ):
+                    pattern_type = self.infer_type(pat)
+                    if not self.is_compatible(subject_type, pattern_type):
+                        DiagnosticEmitter.emit_error(
+                            self.filepath, self.source, pat.line, pat.col,
+                            "E2001", "Match statement pattern type is incompatible with its subject",
+                            expected=subject_type,
+                            found=pattern_type,
+                            help_msg="Use a pattern of the matched type or a value that widens to it.",
+                        )
                 self.enter_scope()
                 self._declare_pattern_bindings(pat, subject_type)
                 for statement in statements:
@@ -864,10 +887,7 @@ class TypeChecker:
                     )
                 else:
                     pattern_type = self.infer_type(pattern)
-                    if not (
-                        self.is_compatible(subject_type, pattern_type)
-                        or self.is_compatible(pattern_type, subject_type)
-                    ):
+                    if not self.is_compatible(subject_type, pattern_type):
                         DiagnosticEmitter.emit_error(
                             self.filepath, self.source, pattern.line, pattern.col,
                             "E2001", "Match expression pattern type is incompatible with its subject",
@@ -1077,7 +1097,7 @@ class TypeChecker:
                     self.filepath, self.source, node.line, node.col,
                     "E2030", f"Unknown foreign function '{node.callee.member}'",
                     note=f"The binding manifest for '{module.module}' does not declare this function.",
-                    help_msg="Add an accurate entry to nyx.bindings.json or fix the function name.",
+                    help_msg="Add an accurate entry to rove.bindings.json or fix the function name.",
                 )
             return binding
         methods = self.foreign_types.get(receiver_type)
@@ -1088,7 +1108,7 @@ class TypeChecker:
                     self.filepath, self.source, node.line, node.col,
                     "E2030", f"Unknown foreign method '{node.callee.member}'",
                     note=f"The binding manifest for type '{receiver_type}' does not declare this method.",
-                    help_msg="Add an accurate method entry to nyx.bindings.json or fix the method name.",
+                    help_msg="Add an accurate method entry to rove.bindings.json or fix the method name.",
                 )
             return binding
         return None
@@ -1124,18 +1144,24 @@ class TypeChecker:
             return
         if isinstance(pattern, FunctionCallNode) and pattern.callee in ("Ok", "Err"):
             base, arguments = _generic_type_parts(subject_type)
-            if base == "Result" and len(arguments) == 2:
-                if len(pattern.args) != 1 or not isinstance(pattern.args[0], IdentifierNode):
-                    DiagnosticEmitter.emit_error(
-                        self.filepath, self.source, pattern.line, pattern.col,
-                        "E2035", "Result pattern requires one payload binding",
-                        expected="Ok(value) or Err(error)", found=str(len(pattern.args)),
-                        help_msg="Bind one name, or use _ to ignore the payload.",
-                    )
-                argument = pattern.args[0]
-                if argument.name != "_":
-                    self.declare(argument.name, arguments[0 if pattern.callee == "Ok" else 1])
-                return
+            if base != "Result" or len(arguments) != 2:
+                DiagnosticEmitter.emit_error(
+                    self.filepath, self.source, pattern.line, pattern.col,
+                    "E2034", "Result pattern requires a Result subject",
+                    expected="Result<T, E>", found=subject_type,
+                    help_msg="Match Ok/Err only against a Result value.",
+                )
+            if len(pattern.args) != 1 or not isinstance(pattern.args[0], IdentifierNode):
+                DiagnosticEmitter.emit_error(
+                    self.filepath, self.source, pattern.line, pattern.col,
+                    "E2035", "Result pattern requires one payload binding",
+                    expected="Ok(value) or Err(error)", found=str(len(pattern.args)),
+                    help_msg="Bind one name, or use _ to ignore the payload.",
+                )
+            argument = pattern.args[0]
+            if argument.name != "_":
+                self.declare(argument.name, arguments[0 if pattern.callee == "Ok" else 1])
+            return
         if not isinstance(pattern, FunctionCallNode) or pattern.callee not in self.enum_variants:
             return
         variant = self.enum_variants[pattern.callee]

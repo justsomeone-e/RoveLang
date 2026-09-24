@@ -21,7 +21,7 @@ def _compile(source: str, target: str, base_dir: str = ROOT_DIR):
     return NyxCompiler(base_dir).compile_source(
         source,
         target=target,
-        filename=os.path.join(base_dir, f"foreign-{target}.nyx"),
+        filename=os.path.join(base_dir, f"foreign-{target}.rove"),
     )
 
 
@@ -93,7 +93,7 @@ def run_foreign_import_suite() -> bool:
                 }
             ],
         }
-        with open(os.path.join(temp_dir, "nyx.bindings.json"), "w", encoding="utf-8") as handle:
+        with open(os.path.join(temp_dir, "rove.bindings.json"), "w", encoding="utf-8") as handle:
             json.dump(custom_manifest, handle)
         custom = _compile(
             '#target js\nimport js "node:path" as path\nprint(path.basename("a/file.txt"))\n',
@@ -113,7 +113,7 @@ def run_foreign_import_suite() -> bool:
         )
         assert custom_run.returncode == 0 and custom_run.stdout.strip() == "file.txt"
 
-        with open(os.path.join(temp_dir, "nyx.bindings.json"), "w", encoding="utf-8") as handle:
+        with open(os.path.join(temp_dir, "rove.bindings.json"), "w", encoding="utf-8") as handle:
             json.dump({"schema_version": 99, "modules": []}, handle)
         invalid_manifest = _compile(
             '#target js\nimport js "node:path" as path\n',

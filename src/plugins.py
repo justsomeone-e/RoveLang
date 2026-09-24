@@ -1,4 +1,4 @@
-"""Explicit in-process extension points for trusted Nyx compiler plugins."""
+"""Explicit in-process extension points for trusted Rove compiler plugins."""
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING

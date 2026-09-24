@@ -1,4 +1,4 @@
-"""Canonical Nyx language-surface metadata.
+"""Canonical Rove language-surface metadata.
 
 This module is intentionally data-only.  The lexer, LSP, editor contract
 tests, and documentation checks consume the same status classification so a
