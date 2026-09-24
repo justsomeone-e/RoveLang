@@ -1,5 +1,5 @@
 # ==============================
-# Nyx
+# Rove
 # ==============================
 
 # Build outputs
@@ -20,9 +20,9 @@ dist/
 *.ilk
 *.vsix
 
-# Nyx generated/cache files
-.nyx-cache/
-/main.nyx
+# Rove generated/cache files
+.rove-cache/
+/main.rove
 tour/.tour-state.json
 
 # Python
