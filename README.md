@@ -13,7 +13,7 @@
 
 > *Did you ever dream of watching the stars from the gardens of Elysium?*
 
-Rove began as **HolyEasyLang**, a small experiment by its developer: could
+Rove began as a small experiment by its developer: could
 compiled programming become easier to approach without turning into a limited
 toy language? There was no grand compiler platform at the beginning—only a
 language, a growing collection of ideas, and the desire to see how far they
@@ -21,10 +21,8 @@ could be taken.
 
 As native, JavaScript, Python, Rust, and WebAssembly targets were added, the
 original direct AST-to-backend design could no longer guarantee that every
-target understood a program in the same way. HolyEasyLang became **Nyx**, and
-the project is now continuing as **Rove**. The compiler was rebuilt around one
-checked representation shared by its
-backends: **Typed HIR v1**.
+target understood a program in the same way. Rove now uses one checked
+representation shared by its backends: **Typed HIR v1**.
 
 Today, **Rove is a compiled, statically typed systems programming language
 designed to keep source code approachable without hiding the machine
@@ -33,12 +31,10 @@ underneath it.**
 A single compiler model lowers to native C++20, WebAssembly (WASM ABI v1), Node.js, and Python through an authoritative typed intermediate representation (**Typed HIR v1**) with byte-identical native self-hosting.
 
 > [!IMPORTANT]
-> **Nyx `v5.0.3` "Daydream"** is the last tag under the old name; a Rove release
-> has not been published yet. This source tree uses the **Rove** identity.
-> Existing `.nyx` source files, `nyx.toml`,
-> `nyx.lock`, `nyx`, `nyxc`, and the versioned `nyx_host_v1` ABI remain accepted as
-> compatibility surfaces while new projects use `.rove`, `rove.toml`, `rove.lock`,
-> `rove`, and `rovec`.
+> `v5.0.3` "Daydream" is the last published tag; a Rove release has not been
+> published yet. New projects use `.rove`, `rove.toml`, `rove.lock`, `rove`, and
+> `rovec`. Existing source and ABI names remain supported as described in the
+> [migration guide](docs/ROVE_MIGRATION.md).
 
 <div align="center">
   <img src="assets/terminal_animated.svg?v=rove-preview-1" width="92%" alt="Rove interactive live execution"/>
@@ -329,7 +325,13 @@ rove bundle src/crypto.rove --output dist/crypto --package --react --vue --svelt
 
 ### Memory Protocol
 
-ABI v1 requires modules to export `memory`, `__nyx_alloc(i32)`, `__nyx_free(i32, i32)`, and `__nyx_abi_version() -> 1`. Strings cross the boundary as a packed 64-bit scalar `(length << 32) | pointer`; numeric arrays use borrowed `(pointer, length)` pairs. The generated JavaScript layer refreshes views after heap growth, releases input buffers inside `finally` blocks, and frees caller-owned return strings immediately after decoding. Browser capabilities use the separately versioned `nyx_host_v1` import namespace. These names remain fixed for ABI v1. Versioning and ownership rules are defined in [`docs/internals/COMPATIBILITY_CONTRACTS.md`](docs/internals/COMPATIBILITY_CONTRACTS.md).
+Bundle ABI v1 exports linear memory, allocation functions, and an ABI version.
+Strings cross the boundary as a packed 64-bit scalar `(length << 32) | pointer`;
+numeric arrays use borrowed `(pointer, length)` pairs. The generated JavaScript
+layer refreshes views after heap growth, releases input buffers inside `finally`
+blocks, and frees caller-owned return strings after decoding. Export names,
+browser imports, versioning, and ownership rules are specified in the
+[compatibility contract](docs/internals/COMPATIBILITY_CONTRACTS.md).
 
 ```tsx
 'use client'
@@ -395,9 +397,9 @@ error[E1302]: ambiguous symbol collision
 ## `08` — Installation
 
 Installers for Windows, Linux, and macOS are included in this source tree.
-Published v5 binaries still use the Nyx names. The Rove installer builds from
-this checkout until Rove release assets are published; it creates the `rove`
-command (`rove.cmd` on Windows) alongside the native `rovec` compiler.
+The Rove installer builds from this checkout until Rove release assets are
+published. It creates the `rove` command (`rove.cmd` on Windows) alongside the
+native `rovec` compiler.
 
 ### Windows (PowerShell)
 
@@ -453,7 +455,7 @@ Package it from `vscode-extension` with `npm ci` and `npm run package`, then
 install the resulting VSIX with VS Code. A Rove VSIX has not been published yet.
 
 Use VS Code's **Extensions: Install from VSIX...** command for the packaged file.
-The older Nyx extension does not register `.rove` files; install the Rove VSIX
+The earlier editor extension does not register `.rove` files; install the Rove VSIX
 even if that extension is already present. Full language-server IntelliSense
 also needs the `rove` CLI from this checkout (or an explicit `rove.server.path`).
 
