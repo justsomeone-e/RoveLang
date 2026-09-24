@@ -281,12 +281,12 @@ setlocal
 set "ROVE_NATIVE=$BatchNative"
 set "ROVE_PYCLI=$BatchCli"
 set "ROVE_PYTHON=$BatchPython"
-if "%~1"=="check" goto nyx_native
-if "%~1"=="compile" goto nyx_native
-if "%~1"=="emit-cpp" goto nyx_native
-if "%~1"=="version" goto nyx_native
-if "%~1"=="--version" goto nyx_native
-if "%~1"=="-v" goto nyx_native
+if "%~1"=="check" goto rove_native
+if "%~1"=="compile" goto rove_native
+if "%~1"=="emit-cpp" goto rove_native
+if "%~1"=="version" goto rove_native
+if "%~1"=="--version" goto rove_native
+if "%~1"=="-v" goto rove_native
 if exist "%ROVE_PYTHON%" (
     "%ROVE_PYTHON%" "%ROVE_PYCLI%" %*
     exit /b %errorlevel%
@@ -307,7 +307,7 @@ if "%~1"=="" (
 )
 echo This command still uses the optional Python orchestration layer. Install Python 3.10+, or use rovec check/compile/emit-cpp. 1>&2
 exit /b 2
-:nyx_native
+:rove_native
 "%ROVE_NATIVE%" %*
 exit /b %errorlevel%
 "@
