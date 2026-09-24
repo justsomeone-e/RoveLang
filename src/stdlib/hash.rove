@@ -7,7 +7,7 @@
 #native include "cstdint"
 
 #native raw {
-inline std::string _nyx_hash_fnv1a_64_hex(const std::string& str) {
+inline std::string _rove_hash_fnv1a_64_hex(const std::string& str) {
     uint64_t hash = 0xcbf29ce484222325ULL;
     const uint64_t prime = 0x100000001b3ULL;
     const uint8_t* data = reinterpret_cast<const uint8_t*>(str.data());
@@ -22,5 +22,5 @@ inline std::string _nyx_hash_fnv1a_64_hex(const std::string& str) {
 }
 
 fn fnv1a_64_hex(data: string) -> string {
-    return _nyx_hash_fnv1a_64_hex(data);
+    return _rove_hash_fnv1a_64_hex(data);
 }

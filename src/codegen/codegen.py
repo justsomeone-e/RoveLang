@@ -169,7 +169,7 @@ class UniversalCodeGen:
 
         lines.append("using namespace std;\n")
         lines.extend([
-            "inline void _nyx_pause_if_standalone_console() {",
+            "inline void _rove_pause_if_standalone_console() {",
             "#ifdef _WIN32",
             "    if (getenv(\"CI\") || getenv(\"GITHUB_ACTIONS\") || getenv(\"ROVE_NO_PAUSE\") || getenv(\"NYX_NO_PAUSE\")) return;",
             "    if (!_isatty(_fileno(stdin)) || !_isatty(_fileno(stdout))) return;",
@@ -212,10 +212,10 @@ class UniversalCodeGen:
         if has_arrays or "push" in used_syms:
             helper_lines.append("template<typename T, typename V> void push(vector<T>& v, const V& val) { v.push_back(val); }")
             helper_lines.append("template<typename T> vector<T> operator+(const vector<T>& a, const vector<T>& b) { vector<T> res = a; res.insert(res.end(), b.begin(), b.end()); return res; }")
-        if has_arrays or "_nyx_at" in used_syms:
-            helper_lines.append("template<typename T> auto& _nyx_at(vector<T>& v, int64_t i) { return v[i]; }")
-            helper_lines.append("template<typename T> const auto& _nyx_at(const vector<T>& v, int64_t i) { return v[i]; }")
-            helper_lines.append("inline string _nyx_at(const string& s, int64_t i) {")
+        if has_arrays or "_rove_at" in used_syms:
+            helper_lines.append("template<typename T> auto& _rove_at(vector<T>& v, int64_t i) { return v[i]; }")
+            helper_lines.append("template<typename T> const auto& _rove_at(const vector<T>& v, int64_t i) { return v[i]; }")
+            helper_lines.append("inline string _rove_at(const string& s, int64_t i) {")
             helper_lines.append("    int64_t char_idx = 0; size_t byte_idx = 0;")
             helper_lines.append("    while (byte_idx < s.size()) {")
             helper_lines.append("        size_t start = byte_idx;")
@@ -250,7 +250,7 @@ class UniversalCodeGen:
             ])
 
         helper_lines.append("template<typename F> struct _NyxScopeExit { F f; ~_NyxScopeExit() { f(); } };")
-        helper_lines.append("template<typename F> _NyxScopeExit<F> _nyx_make_scope_exit(F f) { return {f}; }")
+        helper_lines.append("template<typename F> _NyxScopeExit<F> _rove_make_scope_exit(F f) { return {f}; }")
 
         # Volatile MMIO Hardware Primitives
         mmio_lines = [
@@ -354,8 +354,8 @@ class UniversalCodeGen:
                 lines.append("}\n")
 
         def _cpp_fn_name(name: str) -> str:
-            if name == "main": return "_nyx_user_main"
-            if name in ("abs", "min", "max"): return f"_nyx_user_{name}"
+            if name == "main": return "_rove_user_main"
+            if name in ("abs", "min", "max"): return f"_rove_user_{name}"
             return name
 
         def emit_expr(node: ASTNode) -> str:
@@ -392,14 +392,14 @@ class UniversalCodeGen:
                     return "{}"
                 rendered = emit_expr(node.cases[-1][1])
                 for pattern, value in reversed(node.cases[:-1]):
-                    rendered = f"((_nyx_match_value == {emit_expr(pattern)}) ? {emit_expr(value)} : {rendered})"
-                return f"([&](const auto& _nyx_match_value) {{ return {rendered}; }})({emit_expr(node.expr)})"
+                    rendered = f"((_rove_match_value == {emit_expr(pattern)}) ? {emit_expr(value)} : {rendered})"
+                return f"([&](const auto& _rove_match_value) {{ return {rendered}; }})({emit_expr(node.expr)})"
             if isinstance(node, MemberAccessNode):
                 if isinstance(node.obj, IdentifierNode) and node.obj.name in ("self", "this"):
                     return f"this->{node.member}"
                 return f"{emit_expr(node.obj)}.{node.member}"
             if isinstance(node, IndexAccessNode):
-                return f"_nyx_at({emit_expr(node.obj)}, {emit_expr(node.index_expr)})"
+                return f"_rove_at({emit_expr(node.obj)}, {emit_expr(node.index_expr)})"
             if isinstance(node, ArrayNode):
                 if not node.elements:
                     return "{}"
@@ -634,7 +634,7 @@ class UniversalCodeGen:
             elif isinstance(node, ContinueNode): res.append(f"{sp}continue;")
             elif isinstance(node, DeferNode):
                 defer_id = len(declared_cpp_vars) + indent + 1000 + getattr(node, 'line', 0)
-                res.append(f"{sp}auto _nyx_defer_{defer_id} = _nyx_make_scope_exit([&]() {{ {emit_expr(node.expr)}; }});")
+                res.append(f"{sp}auto _rove_defer_{defer_id} = _rove_make_scope_exit([&]() {{ {emit_expr(node.expr)}; }});")
             elif isinstance(node, GuardNode):
                 res.append(f"{sp}if (!({emit_expr(node.condition)})) {{")
                 for s in node.else_body: res.extend(emit_stmt(s, indent + 1))
@@ -689,8 +689,8 @@ class UniversalCodeGen:
                 main_stmts.extend(emit_stmt(s, 1))
 
         has_user_main = any(isinstance(s, FunctionDefNode) and s.name == "main" for s in self.ast.statements)
-        if has_user_main and "_nyx_user_main();" not in "\n".join(main_stmts):
-            main_stmts.append("    _nyx_user_main();")
+        if has_user_main and "_rove_user_main();" not in "\n".join(main_stmts):
+            main_stmts.append("    _rove_user_main();")
 
         lines.extend(top_levels)
         lines.append("int main() {")
@@ -701,7 +701,7 @@ class UniversalCodeGen:
         lines.append("    cout << boolalpha;")
         lines.append("    cout << setprecision(17);")
         lines.extend(main_stmts)
-        lines.append("    _nyx_pause_if_standalone_console();")
+        lines.append("    _rove_pause_if_standalone_console();")
         lines.append("    return 0;")
         lines.append("}")
         return "\n".join(lines)
@@ -873,68 +873,68 @@ class UniversalCodeGen:
             "    def char_code_at(s, i): return builtins.ord(s[i]) if (s and 0 <= i < len(s)) else 0",
             "",
             "# --- Rove Stdlib Python Runtime Helpers ---",
-            "import math as _nyx_math",
-            "import time as _nyx_time",
-            "import base64 as _nyx_base64",
-            "import os as _nyx_os",
-            "_nyx_math_sin = _nyx_math.sin",
-            "_nyx_math_cos = _nyx_math.cos",
-            "_nyx_math_tan = _nyx_math.tan",
-            "_nyx_math_sqrt = _nyx_math.sqrt",
-            "_nyx_math_pow = _nyx_math.pow",
-            "_nyx_math_abs = abs",
-            "_nyx_math_floor = _nyx_math.floor",
-            "_nyx_math_ceil = _nyx_math.ceil",
-            "_nyx_math_round = round",
-            "_nyx_math_clamp = lambda v, low, high: max(low, min(high, v))",
-            "_nyx_time_now_ms = lambda: int(_nyx_time.time() * 1000)",
-            "_nyx_time_now_us = lambda: int(_nyx_time.time() * 1000000)",
-            "_nyx_time_sleep_ms = lambda ms: _nyx_time.sleep(ms / 1000.0)",
-            "def _nyx_coalesce(value, fallback):",
+            "import math as _rove_math",
+            "import time as _rove_time",
+            "import base64 as _rove_base64",
+            "import os as _rove_os",
+            "_rove_math_sin = _rove_math.sin",
+            "_rove_math_cos = _rove_math.cos",
+            "_rove_math_tan = _rove_math.tan",
+            "_rove_math_sqrt = _rove_math.sqrt",
+            "_rove_math_pow = _rove_math.pow",
+            "_rove_math_abs = abs",
+            "_rove_math_floor = _rove_math.floor",
+            "_rove_math_ceil = _rove_math.ceil",
+            "_rove_math_round = round",
+            "_rove_math_clamp = lambda v, low, high: max(low, min(high, v))",
+            "_rove_time_now_ms = lambda: int(_rove_time.time() * 1000)",
+            "_rove_time_now_us = lambda: int(_rove_time.time() * 1000000)",
+            "_rove_time_sleep_ms = lambda ms: _rove_time.sleep(ms / 1000.0)",
+            "def _rove_coalesce(value, fallback):",
             "    return value if value is not None else fallback()",
-            "_nyx_base64_encode = lambda s: _nyx_base64.b64encode(s.encode('utf-8')).decode('ascii')",
-            "_nyx_base64_decode = lambda s: _nyx_base64.b64decode(s.encode('ascii')).decode('utf-8')",
-            "def _nyx_hash_fnv1a_64_hex(s: str) -> str:",
+            "_rove_base64_encode = lambda s: _rove_base64.b64encode(s.encode('utf-8')).decode('ascii')",
+            "_rove_base64_decode = lambda s: _rove_base64.b64decode(s.encode('ascii')).decode('utf-8')",
+            "def _rove_hash_fnv1a_64_hex(s: str) -> str:",
             "    h = 0xcbf29ce484222325",
             "    prime = 0x100000001b3",
             "    for b in s.encode('utf-8'):",
             "        h = ((h ^ b) * prime) & 0xFFFFFFFFFFFFFFFF",
             "    return f'{h:016x}'",
-            "import hashlib as _nyx_hashlib",
-            "def _nyx_crypto_sha256_hex(s: str) -> str:",
-            "    return _nyx_hashlib.sha256(s.encode('utf-8')).hexdigest()",
-            "import urllib.request as _nyx_urllib_req",
-            "def _nyx_http_get(url: str) -> str:",
+            "import hashlib as _rove_hashlib",
+            "def _rove_crypto_sha256_hex(s: str) -> str:",
+            "    return _rove_hashlib.sha256(s.encode('utf-8')).hexdigest()",
+            "import urllib.request as _rove_urllib_req",
+            "def _rove_http_get(url: str) -> str:",
             "    try:",
-            "        req = _nyx_urllib_req.Request(url, headers={'User-Agent': 'rove/5'})",
-            "        with _nyx_urllib_req.urlopen(req, timeout=10) as r:",
+            "        req = _rove_urllib_req.Request(url, headers={'User-Agent': 'rove/5'})",
+            "        with _rove_urllib_req.urlopen(req, timeout=10) as r:",
             "            return r.read().decode('utf-8', errors='replace')",
             "    except: return ''",
-            "def _nyx_http_post(url: str, body: str, ct: str) -> str:",
+            "def _rove_http_post(url: str, body: str, ct: str) -> str:",
             "    try:",
-            "        req = _nyx_urllib_req.Request(url, data=body.encode('utf-8'), headers={'User-Agent': 'rove/5', 'Content-Type': ct})",
-            "        with _nyx_urllib_req.urlopen(req, timeout=10) as r:",
+            "        req = _rove_urllib_req.Request(url, data=body.encode('utf-8'), headers={'User-Agent': 'rove/5', 'Content-Type': ct})",
+            "        with _rove_urllib_req.urlopen(req, timeout=10) as r:",
             "            return r.read().decode('utf-8', errors='replace')",
             "    except: return ''",
-            "def _nyx_fs_write_string(p, c):",
+            "def _rove_fs_write_string(p, c):",
             "    try:",
             "        with open(p, 'w', encoding='utf-8') as f: f.write(c)",
             "        return True",
             "    except: return False",
-            "def _nyx_fs_read_to_string(p):",
+            "def _rove_fs_read_to_string(p):",
             "    try:",
             "        with open(p, 'r', encoding='utf-8') as f: return f.read()",
             "    except: return ''",
-            "def _nyx_fs_append_string(p, c):",
+            "def _rove_fs_append_string(p, c):",
             "    try:",
             "        with open(p, 'a', encoding='utf-8') as f: f.write(c)",
             "        return True",
             "    except: return False",
-            "def _nyx_fs_exists(p): return _nyx_os.path.exists(p)",
-            "def _nyx_fs_remove_file(p):",
-            "    try: _nyx_os.remove(p); return True",
+            "def _rove_fs_exists(p): return _rove_os.path.exists(p)",
+            "def _rove_fs_remove_file(p):",
+            "    try: _rove_os.remove(p); return True",
             "    except: return False",
-            "def _nyx_json_get_string(j, k):",
+            "def _rove_json_get_string(j, k):",
             "    pat = f'\"{k}\":'",
             "    idx = j.find(pat)",
             "    if idx == -1: return ''",
@@ -945,7 +945,7 @@ class UniversalCodeGen:
             "        end = j.find('\"', pos)",
             "        if end != -1: return j[pos:end]",
             "    return ''",
-            "def _nyx_json_get_int(j, k):",
+            "def _rove_json_get_int(j, k):",
             "    pat = f'\"{k}\":'",
             "    idx = j.find(pat)",
             "    if idx == -1: return 0",
@@ -957,36 +957,36 @@ class UniversalCodeGen:
             "        try: return int(j[pos:end])",
             "        except: return 0",
             "    return 0",
-            "_nyx_json_get_string_full = _nyx_json_get_string",
-            "_nyx_json_get_int_full = _nyx_json_get_int",
-            "def _nyx_json_get_bool_full(j, k): return _nyx_json_get_string(j, k) == 'true' or (f'\"{k}\":true' in j.replace(' ', ''))",
-            "def _nyx_json_has_key(j, k): return f'\"{k}\":' in j",
-            "def _nyx_json_escape(s): return s.replace('\\\\', '\\\\\\\\').replace('\"', '\\\\\"').replace('\\n', '\\\\n').replace('\\r', '\\\\r').replace('\\t', '\\\\t')",
-            "import threading as _nyx_threading, queue as _nyx_queue, socket as _nyx_socket",
-            "_nyx_mutex_list = []",
-            "_nyx_channel_list = []",
-            "def _nyx_mutex_create(): _nyx_mutex_list.append(_nyx_threading.Lock()); return len(_nyx_mutex_list) - 1",
-            "def _nyx_mutex_lock(i): _nyx_mutex_list[i].acquire()",
-            "def _nyx_mutex_unlock(i): _nyx_mutex_list[i].release()",
-            "def _nyx_channel_create(): _nyx_channel_list.append(_nyx_queue.Queue()); return len(_nyx_channel_list) - 1",
-            "def _nyx_channel_send(i, msg): _nyx_channel_list[i].put(msg)",
-            "def _nyx_channel_recv(i): return _nyx_channel_list[i].get()",
-            "_nyx_sockets = []",
-            "def _nyx_net_tcp_connect(h, p):",
+            "_rove_json_get_string_full = _rove_json_get_string",
+            "_rove_json_get_int_full = _rove_json_get_int",
+            "def _rove_json_get_bool_full(j, k): return _rove_json_get_string(j, k) == 'true' or (f'\"{k}\":true' in j.replace(' ', ''))",
+            "def _rove_json_has_key(j, k): return f'\"{k}\":' in j",
+            "def _rove_json_escape(s): return s.replace('\\\\', '\\\\\\\\').replace('\"', '\\\\\"').replace('\\n', '\\\\n').replace('\\r', '\\\\r').replace('\\t', '\\\\t')",
+            "import threading as _rove_threading, queue as _rove_queue, socket as _rove_socket",
+            "_rove_mutex_list = []",
+            "_rove_channel_list = []",
+            "def _rove_mutex_create(): _rove_mutex_list.append(_rove_threading.Lock()); return len(_rove_mutex_list) - 1",
+            "def _rove_mutex_lock(i): _rove_mutex_list[i].acquire()",
+            "def _rove_mutex_unlock(i): _rove_mutex_list[i].release()",
+            "def _rove_channel_create(): _rove_channel_list.append(_rove_queue.Queue()); return len(_rove_channel_list) - 1",
+            "def _rove_channel_send(i, msg): _rove_channel_list[i].put(msg)",
+            "def _rove_channel_recv(i): return _rove_channel_list[i].get()",
+            "_rove_sockets = []",
+            "def _rove_net_tcp_connect(h, p):",
             "    try:",
-            "        s = _nyx_socket.socket(_nyx_socket.AF_INET, _nyx_socket.SOCK_STREAM)",
+            "        s = _rove_socket.socket(_rove_socket.AF_INET, _rove_socket.SOCK_STREAM)",
             "        s.connect((h, p))",
-            "        _nyx_sockets.append(s)",
-            "        return len(_nyx_sockets) - 1",
+            "        _rove_sockets.append(s)",
+            "        return len(_rove_sockets) - 1",
             "    except: return -1",
-            "def _nyx_net_tcp_send(i, d):",
-            "    try: _nyx_sockets[i].sendall(d.encode('utf-8')); return True",
+            "def _rove_net_tcp_send(i, d):",
+            "    try: _rove_sockets[i].sendall(d.encode('utf-8')); return True",
             "    except: return False",
-            "def _nyx_net_tcp_recv(i, m):",
-            "    try: return _nyx_sockets[i].recv(m).decode('utf-8', errors='ignore')",
+            "def _rove_net_tcp_recv(i, m):",
+            "    try: return _rove_sockets[i].recv(m).decode('utf-8', errors='ignore')",
             "    except: return ''",
-            "def _nyx_net_tcp_close(i):",
-            "    try: _nyx_sockets[i].close()",
+            "def _rove_net_tcp_close(i):",
+            "    try: _rove_sockets[i].close()",
             "    except: pass",
             ""
         ]
@@ -1016,7 +1016,7 @@ class UniversalCodeGen:
                 op_s = "not " if node.op in ("!", "not") else node.op
                 return f"({op_s}{emit_py_expr(node.expr)})"
             if isinstance(node, NullCoalesceNode):
-                return f"_nyx_coalesce({emit_py_expr(node.left)}, lambda: {emit_py_expr(node.right)})"
+                return f"_rove_coalesce({emit_py_expr(node.left)}, lambda: {emit_py_expr(node.right)})"
             if isinstance(node, ConditionalExprNode):
                 rendered = emit_py_expr(node.else_expr)
                 for condition, branch in reversed(node.elif_branches):
@@ -1027,8 +1027,8 @@ class UniversalCodeGen:
                     return "None"
                 rendered = emit_py_expr(node.cases[-1][1])
                 for pattern, value in reversed(node.cases[:-1]):
-                    rendered = f"({emit_py_expr(value)} if _nyx_match_value == {emit_py_expr(pattern)} else {rendered})"
-                return f"(lambda _nyx_match_value: {rendered})({emit_py_expr(node.expr)})"
+                    rendered = f"({emit_py_expr(value)} if _rove_match_value == {emit_py_expr(pattern)} else {rendered})"
+                return f"(lambda _rove_match_value: {rendered})({emit_py_expr(node.expr)})"
             if isinstance(node, MemberAccessNode):
                 if node.is_safe:
                     return f"(getattr({emit_py_expr(node.obj)}, '{node.member}', None) if {emit_py_expr(node.obj)} is not None else None)"
@@ -1219,27 +1219,27 @@ function to_int(v) { return parseInt(v, 10); }
 function len(v) { return v ? v.length : 0; }
 function ord(s) { return s ? s.charCodeAt(0) : 0; }
 function char_code_at(s, i) { return (s && i >= 0 && i < s.length) ? s.charCodeAt(i) : 0; }
-const _nyx_add = (a, b) => (Array.isArray(a) && Array.isArray(b)) ? a.concat(b) : (a + b);
+const _rove_add = (a, b) => (Array.isArray(a) && Array.isArray(b)) ? a.concat(b) : (a + b);
 
 // --- Rove Stdlib JavaScript Runtime Helpers ---
-const _nyx_math_sin = Math.sin;
-const _nyx_math_cos = Math.cos;
-const _nyx_math_tan = Math.tan;
-const _nyx_math_sqrt = Math.sqrt;
-const _nyx_math_pow = Math.pow;
-const _nyx_math_abs = Math.abs;
-const _nyx_math_floor = Math.floor;
-const _nyx_math_ceil = Math.ceil;
-const _nyx_math_round = Math.round;
-const _nyx_math_clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+const _rove_math_sin = Math.sin;
+const _rove_math_cos = Math.cos;
+const _rove_math_tan = Math.tan;
+const _rove_math_sqrt = Math.sqrt;
+const _rove_math_pow = Math.pow;
+const _rove_math_abs = Math.abs;
+const _rove_math_floor = Math.floor;
+const _rove_math_ceil = Math.ceil;
+const _rove_math_round = Math.round;
+const _rove_math_clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 
-const _nyx_time_now_ms = () => Date.now();
-const _nyx_time_now_us = () => Math.floor(performance.now() * 1000);
-const _nyx_time_sleep_ms = (ms) => { const start = Date.now(); while (Date.now() - start < ms); };
+const _rove_time_now_ms = () => Date.now();
+const _rove_time_now_us = () => Math.floor(performance.now() * 1000);
+const _rove_time_sleep_ms = (ms) => { const start = Date.now(); while (Date.now() - start < ms); };
 
-const _nyx_base64_encode = (str) => Buffer.from(str, 'utf-8').toString('base64');
-const _nyx_base64_decode = (b64) => Buffer.from(b64, 'base64').toString('utf-8');
-const _nyx_hash_fnv1a_64_hex = (str) => {
+const _rove_base64_encode = (str) => Buffer.from(str, 'utf-8').toString('base64');
+const _rove_base64_decode = (b64) => Buffer.from(b64, 'base64').toString('utf-8');
+const _rove_hash_fnv1a_64_hex = (str) => {
     let hash = 0xcbf29ce484222325n;
     const prime = 0x100000001b3n;
     const buf = Buffer.from(str, 'utf-8');
@@ -1249,31 +1249,31 @@ const _nyx_hash_fnv1a_64_hex = (str) => {
     return hash.toString(16).padStart(16, '0');
 };
 
-const _nyx_crypto_sha256_hex = (str) => {
+const _rove_crypto_sha256_hex = (str) => {
     return require('crypto').createHash('sha256').update(Buffer.from(str, 'utf-8')).digest('hex');
 };
 
-const _nyx_http_get = (url) => {
+const _rove_http_get = (url) => {
     try {
         const { execSync } = require('child_process');
         return execSync(`curl -sL "${url}"`, { encoding: 'utf-8', timeout: 10000 });
     } catch { return ''; }
 };
 
-const _nyx_http_post = (url, body, ct) => {
+const _rove_http_post = (url, body, ct) => {
     try {
         const { execSync } = require('child_process');
         return execSync(`curl -sL -X POST -H "Content-Type: ${ct}" -d "${body.replace(/"/g, '\\"')}" "${url}"`, { encoding: 'utf-8', timeout: 10000 });
     } catch { return ''; }
 };
 
-const _nyx_fs_write_string = (p, c) => { try { require('fs').writeFileSync(p, c, 'utf-8'); return true; } catch { return false; } };
-const _nyx_fs_read_to_string = (p) => { try { return require('fs').readFileSync(p, 'utf-8'); } catch { return ''; } };
-const _nyx_fs_append_string = (p, c) => { try { require('fs').appendFileSync(p, c, 'utf-8'); return true; } catch { return false; } };
-const _nyx_fs_exists = (p) => { try { return require('fs').existsSync(p); } catch { return false; } };
-const _nyx_fs_remove_file = (p) => { try { require('fs').unlinkSync(p); return true; } catch { return false; } };
+const _rove_fs_write_string = (p, c) => { try { require('fs').writeFileSync(p, c, 'utf-8'); return true; } catch { return false; } };
+const _rove_fs_read_to_string = (p) => { try { return require('fs').readFileSync(p, 'utf-8'); } catch { return ''; } };
+const _rove_fs_append_string = (p, c) => { try { require('fs').appendFileSync(p, c, 'utf-8'); return true; } catch { return false; } };
+const _rove_fs_exists = (p) => { try { return require('fs').existsSync(p); } catch { return false; } };
+const _rove_fs_remove_file = (p) => { try { require('fs').unlinkSync(p); return true; } catch { return false; } };
 
-const _nyx_json_get_string = (jsonStr, key) => {
+const _rove_json_get_string = (jsonStr, key) => {
     const pat = `"${key}":`;
     const idx = jsonStr.indexOf(pat);
     if (idx === -1) return "";
@@ -1286,7 +1286,7 @@ const _nyx_json_get_string = (jsonStr, key) => {
     }
     return "";
 };
-const _nyx_json_get_int = (jsonStr, key) => {
+const _rove_json_get_int = (jsonStr, key) => {
     const pat = `"${key}":`;
     const idx = jsonStr.indexOf(pat);
     if (idx === -1) return 0;
@@ -1300,25 +1300,25 @@ const _nyx_json_get_int = (jsonStr, key) => {
     }
     return 0;
 };
-const _nyx_json_get_string_full = _nyx_json_get_string;
-const _nyx_json_get_int_full = _nyx_json_get_int;
-const _nyx_json_get_bool_full = (jsonStr, key) => { const pat = `"${key}":`; const idx = jsonStr.indexOf(pat); return idx !== -1 && jsonStr.substring(idx + pat.length).trim().startsWith('true'); };
-const _nyx_json_has_key = (jsonStr, key) => jsonStr.indexOf(`"${key}":`) !== -1;
-const _nyx_json_escape = (s) => JSON.stringify(s).slice(1, -1);
+const _rove_json_get_string_full = _rove_json_get_string;
+const _rove_json_get_int_full = _rove_json_get_int;
+const _rove_json_get_bool_full = (jsonStr, key) => { const pat = `"${key}":`; const idx = jsonStr.indexOf(pat); return idx !== -1 && jsonStr.substring(idx + pat.length).trim().startsWith('true'); };
+const _rove_json_has_key = (jsonStr, key) => jsonStr.indexOf(`"${key}":`) !== -1;
+const _rove_json_escape = (s) => JSON.stringify(s).slice(1, -1);
 
-const _nyx_mutex_list = [];
-const _nyx_channel_list = [];
-const _nyx_mutex_create = () => { _nyx_mutex_list.push(false); return _nyx_mutex_list.length - 1; };
-const _nyx_mutex_lock = (i) => { _nyx_mutex_list[i] = true; };
-const _nyx_mutex_unlock = (i) => { _nyx_mutex_list[i] = false; };
-const _nyx_channel_create = () => { _nyx_channel_list.push([]); return _nyx_channel_list.length - 1; };
-const _nyx_channel_send = (i, msg) => { _nyx_channel_list[i].push(msg); };
-const _nyx_channel_recv = (i) => { return _nyx_channel_list[i].length > 0 ? _nyx_channel_list[i].shift() : ''; };
-const _nyx_sockets = [];
-const _nyx_net_tcp_connect = (h, p) => { return 0; };
-const _nyx_net_tcp_send = (i, d) => { return true; };
-const _nyx_net_tcp_recv = (i, m) => { return ''; };
-const _nyx_net_tcp_close = (i) => {};
+const _rove_mutex_list = [];
+const _rove_channel_list = [];
+const _rove_mutex_create = () => { _rove_mutex_list.push(false); return _rove_mutex_list.length - 1; };
+const _rove_mutex_lock = (i) => { _rove_mutex_list[i] = true; };
+const _rove_mutex_unlock = (i) => { _rove_mutex_list[i] = false; };
+const _rove_channel_create = () => { _rove_channel_list.push([]); return _rove_channel_list.length - 1; };
+const _rove_channel_send = (i, msg) => { _rove_channel_list[i].push(msg); };
+const _rove_channel_recv = (i) => { return _rove_channel_list[i].length > 0 ? _rove_channel_list[i].shift() : ''; };
+const _rove_sockets = [];
+const _rove_net_tcp_connect = (h, p) => { return 0; };
+const _rove_net_tcp_send = (i, d) => { return true; };
+const _rove_net_tcp_recv = (i, m) => { return ''; };
+const _rove_net_tcp_close = (i) => {};
 """)
 
         def emit_js_expr(node: Optional[ASTNode]) -> str:
@@ -1335,7 +1335,7 @@ const _nyx_net_tcp_close = (i) => {};
                 return f"[{', '.join(emit_js_expr(e) for e in node.elements)}]"
             if isinstance(node, BinaryOpNode):
                 if node.op == '+':
-                    return f"_nyx_add({emit_js_expr(node.left)}, {emit_js_expr(node.right)})"
+                    return f"_rove_add({emit_js_expr(node.left)}, {emit_js_expr(node.right)})"
                 op_map = {'and': '&&', 'or': '||', '&&': '&&', '||': '||', '==': '===', '!=': '!=='}
                 op = op_map.get(node.op, node.op)
                 if op in ('&', '|', '^', '<<', '>>'):
@@ -1356,8 +1356,8 @@ const _nyx_net_tcp_close = (i) => {};
                     return "undefined"
                 rendered = emit_js_expr(node.cases[-1][1])
                 for pattern, value in reversed(node.cases[:-1]):
-                    rendered = f"((_nyx_match_value === {emit_js_expr(pattern)}) ? {emit_js_expr(value)} : {rendered})"
-                return f"((_nyx_match_value) => {rendered})({emit_js_expr(node.expr)})"
+                    rendered = f"((_rove_match_value === {emit_js_expr(pattern)}) ? {emit_js_expr(value)} : {rendered})"
+                return f"((_rove_match_value) => {rendered})({emit_js_expr(node.expr)})"
             if isinstance(node, MemberAccessNode):
                 nav = "?." if node.is_safe else "."
                 return f"{emit_js_expr(node.obj)}{nav}{node.member}"
@@ -1582,8 +1582,8 @@ const _nyx_net_tcp_close = (i) => {};
                     return "()"
                 rendered = emit_rs_expr(node.cases[-1][1])
                 for pattern, value in reversed(node.cases[:-1]):
-                    rendered = f"(if _nyx_match_value == {emit_rs_expr(pattern)} {{ {emit_rs_expr(value)} }} else {{ {rendered} }})"
-                return f"({{ let _nyx_match_value = {emit_rs_expr(node.expr)}; {rendered} }})"
+                    rendered = f"(if _rove_match_value == {emit_rs_expr(pattern)} {{ {emit_rs_expr(value)} }} else {{ {rendered} }})"
+                return f"({{ let _rove_match_value = {emit_rs_expr(node.expr)}; {rendered} }})"
             if isinstance(node, MemberAccessNode):
                 return f"{emit_rs_expr(node.obj)}.{node.member}"
             if isinstance(node, IndexAccessNode):
@@ -1696,7 +1696,7 @@ const _nyx_net_tcp_close = (i) => {};
                 top_decls.append(f"impl {s.name} {{\n    pub fn new({ctor_params}) -> Self {{\n        Self {{ {ctor_inits} }}\n    }}\n}}\n")
                 top_decls.append(f"#[allow(non_snake_case)]\npub fn {s.name}({ctor_params}) -> {s.name} {{\n    {s.name}::new({ctor_inits})\n}}\n")
             elif isinstance(s, FunctionDefNode):
-                fn_name = "_nyx_user_main" if s.name == "main" else s.name
+                fn_name = "_rove_user_main" if s.name == "main" else s.name
                 params_s = ", ".join([f"{p.name}: {rust_type(p.type_annot)}" for p in s.params])
                 ret_s = f" -> {rust_type(s.return_type)}" if s.return_type else ""
                 fn_lines = [f"pub fn {fn_name}({params_s}){ret_s} {{"]
@@ -1714,7 +1714,7 @@ const _nyx_net_tcp_close = (i) => {};
         for s in main_stmts:
             out.extend(emit_rs_stmt(s, 1))
         if has_user_main:
-            out.append("    _nyx_user_main();")
+            out.append("    _rove_user_main();")
         out.append("}\n")
 
         return "\n".join(out)

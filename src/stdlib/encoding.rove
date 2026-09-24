@@ -5,28 +5,28 @@
 #native include "vector"
 
 #native raw {
-static const std::string _nyx_b64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static const std::string _rove_b64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-inline std::string _nyx_base64_encode(const std::string& in) {
+inline std::string _rove_base64_encode(const std::string& in) {
     std::string out;
     int val = 0, valb = -6;
     for (unsigned char c : in) {
         val = (val << 8) + c;
         valb += 8;
         while (valb >= 0) {
-            out.push_back(_nyx_b64_chars[(val >> valb) & 0x3F]);
+            out.push_back(_rove_b64_chars[(val >> valb) & 0x3F]);
             valb -= 6;
         }
     }
-    if (valb > -6) out.push_back(_nyx_b64_chars[((val << 8) >> (valb + 8)) & 0x3F]);
+    if (valb > -6) out.push_back(_rove_b64_chars[((val << 8) >> (valb + 8)) & 0x3F]);
     while (out.size() % 4) out.push_back('=');
     return out;
 }
 
-inline std::string _nyx_base64_decode(const std::string& in) {
+inline std::string _rove_base64_decode(const std::string& in) {
     std::string out;
     std::vector<int> T(256, -1);
-    for (int i = 0; i < 64; i++) T[_nyx_b64_chars[i]] = i;
+    for (int i = 0; i < 64; i++) T[_rove_b64_chars[i]] = i;
     int val = 0, valb = -8;
     for (unsigned char c : in) {
         if (T[c] == -1) break;
@@ -40,25 +40,25 @@ inline std::string _nyx_base64_decode(const std::string& in) {
     return out;
 }
 
-inline NyxResult<std::string, std::string> _nyx_base64_decode_result(const std::string& in) {
+inline NyxResult<std::string, std::string> _rove_base64_decode_result(const std::string& in) {
     if (in.size() % 4 != 0) return {false, {}, "invalid base64 length"};
     bool padding = false;
     size_t padding_count = 0;
     for (unsigned char c : in) {
         if (c == '=') { padding = true; padding_count++; continue; }
-        if (padding || _nyx_b64_chars.find(static_cast<char>(c)) == std::string::npos) {
+        if (padding || _rove_b64_chars.find(static_cast<char>(c)) == std::string::npos) {
             return {false, {}, "invalid base64 character or padding"};
         }
     }
     if (padding_count > 2) return {false, {}, "invalid base64 padding"};
-    return {true, _nyx_base64_decode(in), {}};
+    return {true, _rove_base64_decode(in), {}};
 }
 }
 
 fn base64_encode(data: string) -> string {
-    return _nyx_base64_encode(data);
+    return _rove_base64_encode(data);
 }
 
 fn base64_decode(data: string) -> Result<string, string> {
-    return _nyx_base64_decode_result(data);
+    return _rove_base64_decode_result(data);
 }

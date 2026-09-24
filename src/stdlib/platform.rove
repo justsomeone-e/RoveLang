@@ -4,7 +4,7 @@
 #native include <string>
 
 #native raw {
-inline const char* _nyx_platform_os_name() {
+inline const char* _rove_platform_os_name() {
 #if defined(_WIN32)
     return "windows";
 #elif defined(__APPLE__)
@@ -16,7 +16,7 @@ inline const char* _nyx_platform_os_name() {
 #endif
 }
 
-inline const char* _nyx_platform_arch() {
+inline const char* _rove_platform_arch() {
 #if defined(_M_X64) || defined(__x86_64__)
     return "x86_64";
 #elif defined(_M_ARM64) || defined(__aarch64__)
@@ -30,7 +30,7 @@ inline const char* _nyx_platform_arch() {
 #endif
 }
 
-inline bool _nyx_platform_is_windows() {
+inline bool _rove_platform_is_windows() {
 #if defined(_WIN32)
     return true;
 #else
@@ -38,7 +38,7 @@ inline bool _nyx_platform_is_windows() {
 #endif
 }
 
-inline bool _nyx_platform_is_linux() {
+inline bool _rove_platform_is_linux() {
 #if defined(__linux__)
     return true;
 #else
@@ -46,7 +46,7 @@ inline bool _nyx_platform_is_linux() {
 #endif
 }
 
-inline const char* _nyx_platform_path_separator() {
+inline const char* _rove_platform_path_separator() {
 #if defined(_WIN32)
     return "\\";
 #else
@@ -54,7 +54,7 @@ inline const char* _nyx_platform_path_separator() {
 #endif
 }
 
-inline const char* _nyx_platform_line_ending() {
+inline const char* _rove_platform_line_ending() {
 #if defined(_WIN32)
     return "\r\n";
 #else
@@ -63,16 +63,16 @@ inline const char* _nyx_platform_line_ending() {
 }
 }
 
-extern "C++" fn _nyx_platform_os_name() -> string
-extern "C++" fn _nyx_platform_arch() -> string
-extern "C++" fn _nyx_platform_is_windows() -> bool
-extern "C++" fn _nyx_platform_is_linux() -> bool
-extern "C++" fn _nyx_platform_path_separator() -> string
-extern "C++" fn _nyx_platform_line_ending() -> string
+extern "C++" fn _rove_platform_os_name() -> string
+extern "C++" fn _rove_platform_arch() -> string
+extern "C++" fn _rove_platform_is_windows() -> bool
+extern "C++" fn _rove_platform_is_linux() -> bool
+extern "C++" fn _rove_platform_path_separator() -> string
+extern "C++" fn _rove_platform_line_ending() -> string
 
-fn os_name() -> string = _nyx_platform_os_name()
-fn arch() -> string = _nyx_platform_arch()
-fn is_windows() -> bool = _nyx_platform_is_windows()
-fn is_linux() -> bool = _nyx_platform_is_linux()
-fn path_separator() -> string = _nyx_platform_path_separator()
-fn line_ending() -> string = _nyx_platform_line_ending()
+fn os_name() -> string = _rove_platform_os_name()
+fn arch() -> string = _rove_platform_arch()
+fn is_windows() -> bool = _rove_platform_is_windows()
+fn is_linux() -> bool = _rove_platform_is_linux()
+fn path_separator() -> string = _rove_platform_path_separator()
+fn line_ending() -> string = _rove_platform_line_ending()

@@ -171,7 +171,7 @@ class C17ScalarEmitter:
 
         # Register functions
         for fn in functions:
-            preferred = "_nyx_user_main" if fn.name == "main" else fn.name
+            preferred = "_rove_user_main" if fn.name == "main" else fn.name
             emitted = self._identifier(preferred)
             self.symbol_names[fn.symbol] = emitted
             self.function_map[fn.name] = fn
@@ -551,7 +551,7 @@ class C17ScalarEmitter:
     def _identifier(name: str) -> str:
         clean = _IDENTIFIER_CHARS.sub("_", name)
         if not clean:
-            clean = "_nyx_var"
+            clean = "_rove_var"
         if clean[0].isdigit():
             clean = "_" + clean
         if clean in _C17_RESERVED:

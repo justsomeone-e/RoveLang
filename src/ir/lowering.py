@@ -356,8 +356,8 @@ class HIRLowerer:
             source_expr = IRCall(
                 span,
                 source_expr.type,
-                "_nyx_destructure_check",
-                "intrinsic::_nyx_destructure_check",
+                "_rove_destructure_check",
+                "intrinsic::_rove_destructure_check",
                 (
                     source_expr,
                     IRLiteral(span, INT, len(node.names)),

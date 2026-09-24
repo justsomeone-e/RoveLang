@@ -5,25 +5,25 @@
 #native include "thread"
 
 #native raw {
-inline int64_t _nyx_time_now_ms() {
+inline int64_t _rove_time_now_ms() {
     auto now = std::chrono::system_clock::now();
     return std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
 }
 
-inline int64_t _nyx_time_now_us() {
+inline int64_t _rove_time_now_us() {
     auto now = std::chrono::high_resolution_clock::now();
     return std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
 }
 
-inline void _nyx_time_sleep_ms(int64_t ms) {
+inline void _rove_time_sleep_ms(int64_t ms) {
     std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
 }
 
-fn now_ms() -> int { return _nyx_time_now_ms(); }
-fn now_us() -> int { return _nyx_time_now_us(); }
+fn now_ms() -> int { return _rove_time_now_ms(); }
+fn now_us() -> int { return _rove_time_now_us(); }
 fn sleep_ms(ms: int) -> Result<bool, string> {
     if ms < 0 { return Err("sleep duration must not be negative") }
-    _nyx_time_sleep_ms(ms)
+    _rove_time_sleep_ms(ms)
     return Ok(true)
 }

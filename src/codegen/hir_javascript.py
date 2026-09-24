@@ -197,17 +197,17 @@ function to_int(value) {
     if (!/^[+-]?[0-9]+$/.test(text)) return 0n;
     try { return _nyxI64(BigInt(text)); } catch { return 0n; }
 }
-function _nyx_require_bool(value) {
+function _rove_require_bool(value) {
     if (typeof value !== "boolean") throw new TypeError("Rove condition must have type bool");
     return value;
 }
 
-function _nyx_destructure_check(value, minimum, message) {
+function _rove_destructure_check(value, minimum, message) {
     if (value.length < Number(minimum)) throw new Error(String(message));
     return value;
 }
 
-function _nyx_utf8_from_codepoint(value) {
+function _rove_utf8_from_codepoint(value) {
     let codepoint = Number(value);
     if (!Number.isInteger(codepoint) || codepoint < 0 || codepoint > 0x10FFFF ||
         (codepoint >= 0xD800 && codepoint <= 0xDFFF)) {
@@ -215,19 +215,19 @@ function _nyx_utf8_from_codepoint(value) {
     }
     return String.fromCodePoint(codepoint);
 }
-function _nyx_bootstrap_read_file(path) {
+function _rove_bootstrap_read_file(path) {
     try { return _nyxFs.readFileSync(path, "utf8"); } catch { return ""; }
 }
-function _nyx_bootstrap_write_file(path, content) {
+function _rove_bootstrap_write_file(path, content) {
     try { _nyxFs.writeFileSync(path, content, "utf8"); return true; } catch { return false; }
 }
-function _nyx_bootstrap_file_exists(path) { return _nyxFs.existsSync(path); }
-function _nyx_bootstrap_remove_file(path) {
+function _rove_bootstrap_file_exists(path) { return _nyxFs.existsSync(path); }
+function _rove_bootstrap_remove_file(path) {
     try { _nyxFs.unlinkSync(path); return true; } catch { return false; }
 }
-function _nyx_process_exit(code) { process.exit(Number(code)); }
+function _rove_process_exit(code) { process.exit(Number(code)); }
 let _nyxToolchainError = "";
-function _nyx_toolchain_compile_cpp(source, output) {
+function _rove_toolchain_compile_cpp(source, output) {
     const candidates = [process.env.ROVE_CXX || process.env.NYX_CXX, "clang++", "g++", "c++"].filter(Boolean);
     for (const compiler of candidates) {
         const result = _nyxChildProcess.spawnSync(
@@ -242,7 +242,7 @@ function _nyx_toolchain_compile_cpp(source, output) {
     _nyxToolchainError = "No C++20 compiler found (set ROVE_CXX or install clang++/g++; NYX_CXX remains a legacy alias)";
     return 127n;
 }
-function _nyx_toolchain_last_error() { return _nyxToolchainError; }
+function _rove_toolchain_last_error() { return _nyxToolchainError; }
 function contains(value, part) { return String(value).includes(String(part)); }
 function is_number(value) { return String(value).trim() !== "" && Number.isFinite(Number(value)); }
 function len(value) {
@@ -284,29 +284,29 @@ function _nyxRunDefers(stack) {
     while (stack.length > 0) stack.pop()();
 }
 
-const _nyx_math_sin = Math.sin;
-const _nyx_math_cos = Math.cos;
-const _nyx_math_tan = Math.tan;
-const _nyx_math_sqrt = Math.sqrt;
-const _nyx_math_pow = Math.pow;
-const _nyx_math_abs = Math.abs;
-const _nyx_math_floor = Math.floor;
-const _nyx_math_ceil = Math.ceil;
-const _nyx_math_round = Math.round;
-const _nyx_math_clamp = (value, low, high) => Math.min(Math.max(value, low), high);
+const _rove_math_sin = Math.sin;
+const _rove_math_cos = Math.cos;
+const _rove_math_tan = Math.tan;
+const _rove_math_sqrt = Math.sqrt;
+const _rove_math_pow = Math.pow;
+const _rove_math_abs = Math.abs;
+const _rove_math_floor = Math.floor;
+const _rove_math_ceil = Math.ceil;
+const _rove_math_round = Math.round;
+const _rove_math_clamp = (value, low, high) => Math.min(Math.max(value, low), high);
 
-const _nyx_time_now_ms = () => _nyxI64(BigInt(Date.now()));
-const _nyx_time_now_us = () => _nyxI64(BigInt(Math.trunc(performance.now() * 1000)));
-const _nyx_time_sleep_ms = delay_ms;
+const _rove_time_now_ms = () => _nyxI64(BigInt(Date.now()));
+const _rove_time_now_us = () => _nyxI64(BigInt(Math.trunc(performance.now() * 1000)));
+const _rove_time_sleep_ms = delay_ms;
 
-const _nyx_base64_encode = value => Buffer.from(value, "utf8").toString("base64");
-const _nyx_base64_decode = value => Buffer.from(value, "base64").toString("utf8");
-const _nyx_base64_decode_result = value => {
+const _rove_base64_encode = value => Buffer.from(value, "utf8").toString("base64");
+const _rove_base64_decode = value => Buffer.from(value, "base64").toString("utf8");
+const _rove_base64_decode_result = value => {
     if (typeof value !== "string" || value.length % 4 !== 0 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)) return Err("invalid base64 encoding");
     try { return Ok(Buffer.from(value, "base64").toString("utf8")); }
     catch (error) { return Err(`invalid base64 encoding: ${error.message}`); }
 };
-const _nyx_hash_fnv1a_64_hex = value => {
+const _rove_hash_fnv1a_64_hex = value => {
     let hash = 0xcbf29ce484222325n;
     for (const byte of Buffer.from(value, "utf8")) {
         hash = BigInt.asUintN(64, (hash ^ BigInt(byte)) * 0x100000001b3n);
@@ -314,40 +314,40 @@ const _nyx_hash_fnv1a_64_hex = value => {
     return hash.toString(16).padStart(16, "0");
 };
 
-const _nyx_fs_write_string = (path, content) => {
+const _rove_fs_write_string = (path, content) => {
     try { _nyxFs.writeFileSync(path, content, "utf8"); return true; } catch { return false; }
 };
-const _nyx_fs_read_to_string = path => {
+const _rove_fs_read_to_string = path => {
     try { return _nyxFs.readFileSync(path, "utf8"); } catch { return ""; }
 };
-const _nyx_fs_append_string = (path, content) => {
+const _rove_fs_append_string = (path, content) => {
     try { _nyxFs.appendFileSync(path, content, "utf8"); return true; } catch { return false; }
 };
-const _nyx_fs_exists = path => {
+const _rove_fs_exists = path => {
     try { return _nyxFs.existsSync(path); } catch { return false; }
 };
-const _nyx_fs_remove_file = path => {
+const _rove_fs_remove_file = path => {
     try { _nyxFs.unlinkSync(path); return true; } catch { return false; }
 };
-const _nyx_fs_read_to_string_result = path => {
+const _rove_fs_read_to_string_result = path => {
     try { return Ok(_nyxFs.readFileSync(path, "utf8")); }
     catch (error) { return Err(`cannot read file '${path}': ${error.message}`); }
 };
-const _nyx_fs_write_string_result = (path, content) => {
+const _rove_fs_write_string_result = (path, content) => {
     try { _nyxFs.writeFileSync(path, content, "utf8"); return Ok(true); }
     catch (error) { return Err(`cannot write file '${path}': ${error.message}`); }
 };
-const _nyx_fs_append_string_result = (path, content) => {
+const _rove_fs_append_string_result = (path, content) => {
     try { _nyxFs.appendFileSync(path, content, "utf8"); return Ok(true); }
     catch (error) { return Err(`cannot append file '${path}': ${error.message}`); }
 };
-const _nyx_fs_remove_file_result = path => {
+const _rove_fs_remove_file_result = path => {
     try { _nyxFs.unlinkSync(path); return Ok(true); }
     catch (error) { return Err(`cannot remove file '${path}': ${error.message}`); }
 };
 
-const _nyx_path_normalize = p => p.replaceAll("\\", "/");
-const _nyx_path_join = (a, b) => {
+const _rove_path_normalize = p => p.replaceAll("\\", "/");
+const _rove_path_join = (a, b) => {
     const na = a.replaceAll("\\", "/");
     const nb = b.replaceAll("\\", "/");
     if (!na) return nb;
@@ -356,13 +356,13 @@ const _nyx_path_join = (a, b) => {
     if (na.endsWith("/")) return na + nb;
     return na + "/" + nb;
 };
-const _nyx_path_basename = p => {
+const _rove_path_basename = p => {
     let s = p.replaceAll("\\", "/");
     while (s.length > 1 && s.endsWith("/")) s = s.slice(0, -1);
     const pos = s.lastIndexOf("/");
     return pos < 0 ? s : s.slice(pos + 1);
 };
-const _nyx_path_dirname = p => {
+const _rove_path_dirname = p => {
     let s = p.replaceAll("\\", "/");
     while (s.length > 1 && s.endsWith("/")) s = s.slice(0, -1);
     const pos = s.lastIndexOf("/");
@@ -371,30 +371,30 @@ const _nyx_path_dirname = p => {
     if (pos === 2 && s.length >= 2 && s[1] === ":") return s.slice(0, 3);
     return s.slice(0, pos);
 };
-const _nyx_path_extname = p => {
-    const base = _nyx_path_basename(p);
+const _rove_path_extname = p => {
+    const base = _rove_path_basename(p);
     const pos = base.lastIndexOf(".");
     if (pos <= 0) return "";
     return base.slice(pos);
 };
-const _nyx_path_is_abs = p => {
+const _rove_path_is_abs = p => {
     const s = p.replaceAll("\\", "/");
     if (!s) return false;
     return s.startsWith("/") || (s.length >= 2 && s[1] === ":");
 };
 
-const _nyx_str_trim = s => s.trim();
-const _nyx_str_starts_with = (s, prefix) => s.startsWith(prefix);
-const _nyx_str_ends_with = (s, suffix) => s.endsWith(suffix);
-const _nyx_str_find_result = (s, sub) => {
+const _rove_str_trim = s => s.trim();
+const _rove_str_starts_with = (s, prefix) => s.startsWith(prefix);
+const _rove_str_ends_with = (s, suffix) => s.endsWith(suffix);
+const _rove_str_find_result = (s, sub) => {
     const idx = s.indexOf(sub);
     return idx >= 0 ? Ok(BigInt(idx)) : Err("substring not found");
 };
-const _nyx_str_to_upper = s => s.toUpperCase();
-const _nyx_str_to_lower = s => s.toLowerCase();
-const _nyx_str_replace = (s, from_str, to_str) => from_str === "" ? s : s.split(from_str).join(to_str);
+const _rove_str_to_upper = s => s.toUpperCase();
+const _rove_str_to_lower = s => s.toLowerCase();
+const _rove_str_replace = (s, from_str, to_str) => from_str === "" ? s : s.split(from_str).join(to_str);
 
-const _nyx_process_exec_cmd_result = command => {
+const _rove_process_exec_cmd_result = command => {
     try {
         _nyxChildProcess.execSync(command, { stdio: "pipe" });
         return Ok(0n);
@@ -405,13 +405,13 @@ const _nyx_process_exec_cmd_result = command => {
         return Err(`failed to execute command: ${error.message}`);
     }
 };
-const _nyx_process_get_env_result = name => {
+const _rove_process_get_env_result = name => {
     const val = process.env[name];
     if (val === undefined) return Err(`environment variable not found: ${name}`);
     return Ok(val);
 };
 
-const _nyx_json_get_string = (document, key) => {
+const _rove_json_get_string = (document, key) => {
     const marker = `"${key}":`;
     let start = document.indexOf(marker);
     if (start < 0) return "";
@@ -422,7 +422,7 @@ const _nyx_json_get_string = (document, key) => {
     const end = document.indexOf('"', start);
     return end < 0 ? "" : document.slice(start, end);
 };
-const _nyx_json_get_int = (document, key) => {
+const _rove_json_get_int = (document, key) => {
     const marker = `"${key}":`;
     let start = document.indexOf(marker);
     if (start < 0) return 0n;
@@ -432,7 +432,7 @@ const _nyx_json_get_int = (document, key) => {
     while (end < document.length && /[0-9]/.test(document[end])) end++;
     return to_int(document.slice(start, end));
 };
-const _nyx_json_get_string_result = (document, key) => {
+const _rove_json_get_string_result = (document, key) => {
     const marker = `"${key}":`; let start = document.indexOf(marker);
     if (start < 0) return Err(`JSON field not found: ${key}`);
     start += marker.length; while (start < document.length && (document[start] === " " || document[start] === "\t")) start++;
@@ -440,7 +440,7 @@ const _nyx_json_get_string_result = (document, key) => {
     const end = document.indexOf('"', start + 1);
     return end < 0 ? Err(`unterminated JSON string field: ${key}`) : Ok(document.slice(start + 1, end));
 };
-const _nyx_json_get_int_result = (document, key) => {
+const _rove_json_get_int_result = (document, key) => {
     const marker = `"${key}":`; let start = document.indexOf(marker);
     if (start < 0) return Err(`JSON field not found: ${key}`);
     start += marker.length; while (start < document.length && (document[start] === " " || document[start] === "\t")) start++;
@@ -740,7 +740,7 @@ class HIRJavaScriptEmitter:
 
     def _condition(self, node: IRExpr) -> str:
         rendered = self._expr(node)
-        return f"_nyx_require_bool({rendered})" if node.type.is_unknown else rendered
+        return f"_rove_require_bool({rendered})" if node.type.is_unknown else rendered
 
     def _emit_statement(
         self,
@@ -1093,7 +1093,7 @@ class HIRJavaScriptEmitter:
 
     def _temporary(self, purpose: str) -> str:
         self.counter += 1
-        return f"_nyx_{purpose}_{self.counter}"
+        return f"_rove_{purpose}_{self.counter}"
 
     @staticmethod
     def _identifier(name: str) -> str:

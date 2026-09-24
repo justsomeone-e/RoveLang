@@ -782,7 +782,7 @@ def _run_stdlib_hir_contract() -> int:
         assert result.hir is not None
 
     unknown = compiler.check_source(
-        "fn invalid_intrinsic() -> int { return _nyx_missing_intrinsic() }\n",
+        "fn invalid_intrinsic() -> int { return _rove_missing_intrinsic() }\n",
         filename="<unknown-intrinsic>",
         target="cpp",
     )

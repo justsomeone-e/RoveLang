@@ -15,7 +15,7 @@
 #include <unistd.h>
 #endif
 
-inline const char* _nyx_system_os_name() {
+inline const char* _rove_system_os_name() {
 #if defined(_WIN32)
     return "Windows";
 #elif defined(__APPLE__)
@@ -27,7 +27,7 @@ inline const char* _nyx_system_os_name() {
 #endif
 }
 
-inline const char* _nyx_system_arch_name() {
+inline const char* _rove_system_arch_name() {
 #if defined(_M_X64) || defined(__x86_64__)
     return "x86_64";
 #elif defined(_M_ARM64) || defined(__aarch64__)
@@ -41,33 +41,33 @@ inline const char* _nyx_system_arch_name() {
 #endif
 }
 
-inline std::string _nyx_system_env_value(const char* primary, const char* fallback = nullptr) {
+inline std::string _rove_system_env_value(const char* primary, const char* fallback = nullptr) {
     const char* value = std::getenv(primary);
     if ((!value || !*value) && fallback) value = std::getenv(fallback);
     return value ? std::string(value) : std::string();
 }
 
-inline const char* _nyx_system_user_name() {
+inline const char* _rove_system_user_name() {
     static thread_local std::string value;
 #if defined(_WIN32)
-    value = _nyx_system_env_value("USERNAME", "USER");
+    value = _rove_system_env_value("USERNAME", "USER");
 #else
-    value = _nyx_system_env_value("USER", "LOGNAME");
+    value = _rove_system_env_value("USER", "LOGNAME");
 #endif
     return value.c_str();
 }
 
-inline const char* _nyx_system_home_directory() {
+inline const char* _rove_system_home_directory() {
     static thread_local std::string value;
 #if defined(_WIN32)
-    value = _nyx_system_env_value("USERPROFILE", "HOME");
+    value = _rove_system_env_value("USERPROFILE", "HOME");
 #else
-    value = _nyx_system_env_value("HOME");
+    value = _rove_system_env_value("HOME");
 #endif
     return value.c_str();
 }
 
-inline const char* _nyx_system_working_directory() {
+inline const char* _rove_system_working_directory() {
     static thread_local std::string value;
     try {
         value = std::filesystem::current_path().string();
@@ -77,7 +77,7 @@ inline const char* _nyx_system_working_directory() {
     return value.c_str();
 }
 
-inline const char* _nyx_system_host_name() {
+inline const char* _rove_system_host_name() {
     static thread_local std::string value;
     char name[256] = {};
 #if defined(_WIN32)
@@ -89,12 +89,12 @@ inline const char* _nyx_system_host_name() {
     return value.c_str();
 }
 
-inline std::int64_t _nyx_system_cpu_threads() {
+inline std::int64_t _rove_system_cpu_threads() {
     const unsigned int count = std::thread::hardware_concurrency();
     return count == 0 ? 1 : static_cast<std::int64_t>(count);
 }
 
-inline std::int64_t _nyx_system_total_memory_mb() {
+inline std::int64_t _rove_system_total_memory_mb() {
 #if defined(_WIN32)
     MEMORYSTATUSEX status{};
     status.dwLength = sizeof(status);
@@ -111,20 +111,20 @@ inline std::int64_t _nyx_system_total_memory_mb() {
 }
 }
 
-extern "C++" fn _nyx_system_os_name() -> string
-extern "C++" fn _nyx_system_arch_name() -> string
-extern "C++" fn _nyx_system_user_name() -> string
-extern "C++" fn _nyx_system_home_directory() -> string
-extern "C++" fn _nyx_system_working_directory() -> string
-extern "C++" fn _nyx_system_host_name() -> string
-extern "C++" fn _nyx_system_cpu_threads() -> int
-extern "C++" fn _nyx_system_total_memory_mb() -> int
+extern "C++" fn _rove_system_os_name() -> string
+extern "C++" fn _rove_system_arch_name() -> string
+extern "C++" fn _rove_system_user_name() -> string
+extern "C++" fn _rove_system_home_directory() -> string
+extern "C++" fn _rove_system_working_directory() -> string
+extern "C++" fn _rove_system_host_name() -> string
+extern "C++" fn _rove_system_cpu_threads() -> int
+extern "C++" fn _rove_system_total_memory_mb() -> int
 
-fn os_name() -> string = _nyx_system_os_name()
-fn arch_name() -> string = _nyx_system_arch_name()
-fn user_name() -> string = _nyx_system_user_name()
-fn home_directory() -> string = _nyx_system_home_directory()
-fn working_directory() -> string = _nyx_system_working_directory()
-fn host_name() -> string = _nyx_system_host_name()
-fn logical_cpu_threads() -> int = _nyx_system_cpu_threads()
-fn total_memory_mb() -> int = _nyx_system_total_memory_mb()
+fn os_name() -> string = _rove_system_os_name()
+fn arch_name() -> string = _rove_system_arch_name()
+fn user_name() -> string = _rove_system_user_name()
+fn home_directory() -> string = _rove_system_home_directory()
+fn working_directory() -> string = _rove_system_working_directory()
+fn host_name() -> string = _rove_system_host_name()
+fn logical_cpu_threads() -> int = _rove_system_cpu_threads()
+fn total_memory_mb() -> int = _rove_system_total_memory_mb()

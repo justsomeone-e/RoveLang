@@ -145,7 +145,7 @@ fn dynamic(value) { return value }
 fn main() { if dynamic(1) { print("truthiness leaked") } }
 """
     dynamic = _compile_metadata(compiler, dynamic_source, "dynamic_bool")
-    assert "_nyx_expect_bool(NyxValue::Int(" in dynamic
+    assert "_rove_expect_bool(NyxValue::Int(" in dynamic
 
     defer_source = """
 fn lifecycle(skip: bool) {
@@ -178,13 +178,13 @@ fn main() {
 }
 """
     propagated = _compile_metadata(compiler, propagate_source, "result_propagation_contract")
-    error_branch = propagated.find("NyxResult::Err(_nyx_propagate_error_")
+    error_branch = propagated.find("NyxResult::Err(_rove_propagate_error_")
     cleanup = propagated.find('"cleanup".to_string()', error_branch)
-    early_return = propagated.find("return NyxResult::Err(_nyx_propagate_error_", error_branch)
+    early_return = propagated.find("return NyxResult::Err(_rove_propagate_error_", error_branch)
     assert 0 <= error_branch < cleanup < early_return
 
     numeric = _compile_metadata(compiler, NUMERIC_SOURCE, "numeric_contract")
-    for marker in ("wrapping_add", "wrapping_sub", "wrapping_mul", "_nyx_i64_div", "_nyx_i64_mod"):
+    for marker in ("wrapping_add", "wrapping_sub", "wrapping_mul", "_rove_i64_div", "_rove_i64_mod"):
         assert marker in numeric, marker
 
     global_update = _compile_metadata(
@@ -192,10 +192,10 @@ fn main() {
         "var total = 0\nfor value in 1..3 { total = total + value }\nprint(total)",
         "global_update_locking",
     )
-    value_pos = global_update.find("let _nyx_value_")
-    write_lock_pos = global_update.find("*_nyx_global_total.lock().unwrap() =", value_pos)
+    value_pos = global_update.find("let _rove_value_")
+    write_lock_pos = global_update.find("*_rove_global_total.lock().unwrap() =", value_pos)
     assert value_pos >= 0 and write_lock_pos > value_pos
-    read_lock_pos = global_update.find("_nyx_global_total.lock().unwrap()", value_pos)
+    read_lock_pos = global_update.find("_rove_global_total.lock().unwrap()", value_pos)
     value_end_pos = global_update.find(";", value_pos)
     assert value_pos < read_lock_pos < value_end_pos < write_lock_pos
 

@@ -6,7 +6,7 @@
 #native include "cctype"
 
 #native raw {
-inline std::string _nyx_json_escape(const std::string& s) {
+inline std::string _rove_json_escape(const std::string& s) {
     std::stringstream ss;
     for (char c : s) {
         if (c == '"') ss << "\\\"";
@@ -21,7 +21,7 @@ inline std::string _nyx_json_escape(const std::string& s) {
     return ss.str();
 }
 
-inline std::string _nyx_json_get_string_full(const std::string& json_str, const std::string& key) {
+inline std::string _rove_json_get_string_full(const std::string& json_str, const std::string& key) {
     std::string pattern = "\"" + key + "\":";
     size_t pos = json_str.find(pattern);
     if (pos == std::string::npos) return "";
@@ -41,7 +41,7 @@ inline std::string _nyx_json_get_string_full(const std::string& json_str, const 
     return "";
 }
 
-inline int64_t _nyx_json_get_int_full(const std::string& json_str, const std::string& key) {
+inline int64_t _rove_json_get_int_full(const std::string& json_str, const std::string& key) {
     std::string pattern = "\"" + key + "\":";
     size_t pos = json_str.find(pattern);
     if (pos == std::string::npos) return 0;
@@ -56,7 +56,7 @@ inline int64_t _nyx_json_get_int_full(const std::string& json_str, const std::st
     return 0;
 }
 
-inline bool _nyx_json_get_bool_full(const std::string& json_str, const std::string& key) {
+inline bool _rove_json_get_bool_full(const std::string& json_str, const std::string& key) {
     std::string pattern = "\"" + key + "\":";
     size_t pos = json_str.find(pattern);
     if (pos == std::string::npos) return false;
@@ -66,28 +66,28 @@ inline bool _nyx_json_get_bool_full(const std::string& json_str, const std::stri
     return false;
 }
 
-inline bool _nyx_json_has_key(const std::string& json_str, const std::string& key) {
+inline bool _rove_json_has_key(const std::string& json_str, const std::string& key) {
     std::string pattern = "\"" + key + "\":";
     return json_str.find(pattern) != std::string::npos;
 }
 }
 
 fn get_string(json_str: string, key: string) -> string {
-    return _nyx_json_get_string_full(json_str, key);
+    return _rove_json_get_string_full(json_str, key);
 }
 
 fn get_int(json_str: string, key: string) -> int {
-    return _nyx_json_get_int_full(json_str, key);
+    return _rove_json_get_int_full(json_str, key);
 }
 
 fn get_bool(json_str: string, key: string) -> bool {
-    return _nyx_json_get_bool_full(json_str, key);
+    return _rove_json_get_bool_full(json_str, key);
 }
 
 fn has_key(json_str: string, key: string) -> bool {
-    return _nyx_json_has_key(json_str, key);
+    return _rove_json_has_key(json_str, key);
 }
 
 fn escape_string(s: string) -> string {
-    return _nyx_json_escape(s);
+    return _rove_json_escape(s);
 }

@@ -18,7 +18,7 @@
   #include <netdb.h>
 #endif
 
-inline bool _nyx_net_init_wsa() {
+inline bool _rove_net_init_wsa() {
 #ifdef _WIN32
     static bool initialized = false;
     if (!initialized) {
@@ -30,8 +30,8 @@ inline bool _nyx_net_init_wsa() {
     return true;
 }
 
-inline int64_t _nyx_net_tcp_connect(const std::string& host, int64_t port) {
-    _nyx_net_init_wsa();
+inline int64_t _rove_net_tcp_connect(const std::string& host, int64_t port) {
+    _rove_net_init_wsa();
     int sock = (int)socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) return -1;
     
@@ -63,13 +63,13 @@ inline int64_t _nyx_net_tcp_connect(const std::string& host, int64_t port) {
     return sock;
 }
 
-inline bool _nyx_net_tcp_send(int64_t sock, const std::string& data) {
+inline bool _rove_net_tcp_send(int64_t sock, const std::string& data) {
     if (sock < 0) return false;
     int res = send((int)sock, data.data(), (int)data.size(), 0);
     return res >= 0;
 }
 
-inline std::string _nyx_net_tcp_recv(int64_t sock, int64_t max_bytes) {
+inline std::string _rove_net_tcp_recv(int64_t sock, int64_t max_bytes) {
     if (sock < 0 || max_bytes <= 0) return "";
     std::vector<char> buf(max_bytes);
     int bytes_read = recv((int)sock, buf.data(), (int)max_bytes, 0);
@@ -77,7 +77,7 @@ inline std::string _nyx_net_tcp_recv(int64_t sock, int64_t max_bytes) {
     return std::string(buf.data(), bytes_read);
 }
 
-inline void _nyx_net_tcp_close(int64_t sock) {
+inline void _rove_net_tcp_close(int64_t sock) {
     if (sock >= 0) {
 #ifdef _WIN32
         closesocket((int)sock);
@@ -87,7 +87,7 @@ inline void _nyx_net_tcp_close(int64_t sock) {
     }
 }
 
-inline std::string _nyx_net_last_error(const std::string& operation) {
+inline std::string _rove_net_last_error(const std::string& operation) {
 #ifdef _WIN32
     return operation + " failed with socket error " + std::to_string(WSAGetLastError());
 #else
@@ -95,58 +95,58 @@ inline std::string _nyx_net_last_error(const std::string& operation) {
 #endif
 }
 
-inline NyxResult<int64_t, std::string> _nyx_net_tcp_connect_result(const std::string& host, int64_t port) {
+inline NyxResult<int64_t, std::string> _rove_net_tcp_connect_result(const std::string& host, int64_t port) {
     if (host.empty()) return {false, 0, "host must not be empty"};
     if (port < 1 || port > 65535) return {false, 0, "port must be between 1 and 65535"};
-    if (!_nyx_net_init_wsa()) return {false, 0, _nyx_net_last_error("socket initialization")};
-    int64_t sock = _nyx_net_tcp_connect(host, port);
-    if (sock < 0) return {false, 0, _nyx_net_last_error("TCP connect")};
+    if (!_rove_net_init_wsa()) return {false, 0, _rove_net_last_error("socket initialization")};
+    int64_t sock = _rove_net_tcp_connect(host, port);
+    if (sock < 0) return {false, 0, _rove_net_last_error("TCP connect")};
     return {true, sock, {}};
 }
 
-inline NyxResult<bool, std::string> _nyx_net_tcp_send_result(int64_t sock, const std::string& data) {
+inline NyxResult<bool, std::string> _rove_net_tcp_send_result(int64_t sock, const std::string& data) {
     if (sock < 0) return {false, false, "invalid socket handle"};
     size_t sent = 0;
     while (sent < data.size()) {
         int count = send((int)sock, data.data() + sent, static_cast<int>(data.size() - sent), 0);
-        if (count <= 0) return {false, false, _nyx_net_last_error("TCP send")};
+        if (count <= 0) return {false, false, _rove_net_last_error("TCP send")};
         sent += static_cast<size_t>(count);
     }
     return {true, true, {}};
 }
 
-inline NyxResult<std::string, std::string> _nyx_net_tcp_recv_result(int64_t sock, int64_t max_bytes) {
+inline NyxResult<std::string, std::string> _rove_net_tcp_recv_result(int64_t sock, int64_t max_bytes) {
     if (sock < 0) return {false, {}, "invalid socket handle"};
     if (max_bytes <= 0) return {false, {}, "max_bytes must be positive"};
     std::vector<char> buffer(static_cast<size_t>(max_bytes));
     int count = recv((int)sock, buffer.data(), static_cast<int>(max_bytes), 0);
-    if (count < 0) return {false, {}, _nyx_net_last_error("TCP receive")};
+    if (count < 0) return {false, {}, _rove_net_last_error("TCP receive")};
     return {true, std::string(buffer.data(), static_cast<size_t>(count)), {}};
 }
 
-inline NyxResult<bool, std::string> _nyx_net_tcp_close_result(int64_t sock) {
+inline NyxResult<bool, std::string> _rove_net_tcp_close_result(int64_t sock) {
     if (sock < 0) return {false, false, "invalid socket handle"};
 #ifdef _WIN32
-    if (closesocket((int)sock) != 0) return {false, false, _nyx_net_last_error("TCP close")};
+    if (closesocket((int)sock) != 0) return {false, false, _rove_net_last_error("TCP close")};
 #else
-    if (close((int)sock) != 0) return {false, false, _nyx_net_last_error("TCP close")};
+    if (close((int)sock) != 0) return {false, false, _rove_net_last_error("TCP close")};
 #endif
     return {true, true, {}};
 }
 }
 
 fn tcp_connect(host: string, port: int) -> Result<int, string> {
-    return _nyx_net_tcp_connect_result(host, port);
+    return _rove_net_tcp_connect_result(host, port);
 }
 
 fn tcp_send(sock: int, data: string) -> Result<bool, string> {
-    return _nyx_net_tcp_send_result(sock, data);
+    return _rove_net_tcp_send_result(sock, data);
 }
 
 fn tcp_recv(sock: int, max_bytes: int) -> Result<string, string> {
-    return _nyx_net_tcp_recv_result(sock, max_bytes);
+    return _rove_net_tcp_recv_result(sock, max_bytes);
 }
 
 fn tcp_close(sock: int) -> Result<bool, string> {
-    return _nyx_net_tcp_close_result(sock);
+    return _rove_net_tcp_close_result(sock);
 }

@@ -123,7 +123,7 @@ def _run_cli_args_smoke() -> None:
     source = "fn main() { var values: Array<string> = args(); print(values[1]); }"
     generated = _emit(source, "<hir-cli-args-smoke>")
     assert "GetConsoleProcessList(process_ids, 2) == 1" in generated
-    assert "    _nyx_pause_if_standalone_console();\n    return 0;" in generated
+    assert "    _rove_pause_if_standalone_console();\n    return 0;" in generated
     with tempfile.TemporaryDirectory(prefix="nyx_hir_cpp_args_") as directory:
         cpp_path = os.path.join(directory, "args.cpp")
         executable = os.path.join(directory, "args.exe")
@@ -160,7 +160,7 @@ def _run_compact_runtime_smoke() -> None:
         "<hir-full-runtime-fallback>",
     )
     assert "cpp HIR backend, compact runtime" not in full_runtime
-    assert "_nyx_i64_add" in full_runtime
+    assert "_rove_i64_add" in full_runtime
 
 
 def _run_recursive_struct_constructor_contract() -> None:

@@ -18,29 +18,29 @@ fn contains_substring(s: string, sub: string) -> bool {
 }
 
 fn trim(s: string) -> string {
-    return _nyx_str_trim(s);
+    return _rove_str_trim(s);
 }
 
 fn starts_with(s: string, prefix: string) -> bool {
-    return _nyx_str_starts_with(s, prefix);
+    return _rove_str_starts_with(s, prefix);
 }
 
 fn ends_with(s: string, suffix: string) -> bool {
-    return _nyx_str_ends_with(s, suffix);
+    return _rove_str_ends_with(s, suffix);
 }
 
 fn find(s: string, sub: string) -> Result<int, string> {
-    return _nyx_str_find_result(s, sub);
+    return _rove_str_find_result(s, sub);
 }
 
 fn to_upper(s: string) -> string {
-    return _nyx_str_to_upper(s);
+    return _rove_str_to_upper(s);
 }
 
 fn to_lower(s: string) -> string {
-    return _nyx_str_to_lower(s);
+    return _rove_str_to_lower(s);
 }
 
 fn replace(s: string, from_str: string, to_str: string) -> string {
-    return _nyx_str_replace(s, from_str, to_str);
+    return _rove_str_replace(s, from_str, to_str);
 }

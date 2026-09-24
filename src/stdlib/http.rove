@@ -18,12 +18,12 @@
 static constexpr std::size_t _NYX_HTTP_MAX_RESPONSE = 8u * 1024u * 1024u;
 static constexpr std::size_t _NYX_HTTP_MAX_REQUEST_BODY = 16u * 1024u;
 
-inline bool _nyx_http_url_is_supported(const std::string& url) {
+inline bool _rove_http_url_is_supported(const std::string& url) {
     return url.rfind("https://", 0) == 0 || url.rfind("http://", 0) == 0;
 }
 
 #ifdef _WIN32
-inline std::string _nyx_http_quote_windows_arg(const std::string& value) {
+inline std::string _rove_http_quote_windows_arg(const std::string& value) {
     if (value.empty()) return "\"\"";
     if (value.find_first_of(" \t\"") == std::string::npos) return value;
 
@@ -50,7 +50,7 @@ inline std::string _nyx_http_quote_windows_arg(const std::string& value) {
 }
 #endif
 
-inline std::string _nyx_http_run(const std::vector<std::string>& arguments) {
+inline std::string _rove_http_run(const std::vector<std::string>& arguments) {
     if (arguments.empty()) return "";
 
 #ifdef _WIN32
@@ -70,7 +70,7 @@ inline std::string _nyx_http_run(const std::vector<std::string>& arguments) {
     std::string command_line;
     for (const auto& argument : arguments) {
         if (!command_line.empty()) command_line.push_back(' ');
-        command_line += _nyx_http_quote_windows_arg(argument);
+        command_line += _rove_http_quote_windows_arg(argument);
     }
     std::vector<char> mutable_command(command_line.begin(), command_line.end());
     mutable_command.push_back('\0');
@@ -160,7 +160,7 @@ inline std::string _nyx_http_run(const std::vector<std::string>& arguments) {
 #endif
 }
 
-inline std::vector<std::string> _nyx_http_base_args() {
+inline std::vector<std::string> _rove_http_base_args() {
     return {
         "curl", "-fsSL",
         "--proto", "=http,https",
@@ -170,24 +170,24 @@ inline std::vector<std::string> _nyx_http_base_args() {
     };
 }
 
-inline std::string _nyx_http_get_impl(const std::string& url) {
-    if (!_nyx_http_url_is_supported(url)) return "";
-    auto arguments = _nyx_http_base_args();
+inline std::string _rove_http_get_impl(const std::string& url) {
+    if (!_rove_http_url_is_supported(url)) return "";
+    auto arguments = _rove_http_base_args();
     arguments.push_back("--");
     arguments.push_back(url);
-    return _nyx_http_run(arguments);
+    return _rove_http_run(arguments);
 }
 
-inline std::string _nyx_http_post_impl(
+inline std::string _rove_http_post_impl(
     const std::string& url,
     const std::string& body,
     const std::string& content_type
 ) {
-    if (!_nyx_http_url_is_supported(url)) return "";
+    if (!_rove_http_url_is_supported(url)) return "";
     if (body.size() > _NYX_HTTP_MAX_REQUEST_BODY) return "";
     if (content_type.find_first_of("\r\n") != std::string::npos) return "";
 
-    auto arguments = _nyx_http_base_args();
+    auto arguments = _rove_http_base_args();
     arguments.push_back("-X");
     arguments.push_back("POST");
     arguments.push_back("-H");
@@ -196,18 +196,18 @@ inline std::string _nyx_http_post_impl(
     arguments.push_back(body);
     arguments.push_back("--");
     arguments.push_back(url);
-    return _nyx_http_run(arguments);
+    return _rove_http_run(arguments);
 }
 
-inline const char* _nyx_http_get(const char* url) {
+inline const char* _rove_http_get(const char* url) {
     static thread_local std::string response;
-    response = _nyx_http_get_impl(url ? std::string(url) : std::string());
+    response = _rove_http_get_impl(url ? std::string(url) : std::string());
     return response.c_str();
 }
 
-inline const char* _nyx_http_post(const char* url, const char* body, const char* content_type) {
+inline const char* _rove_http_post(const char* url, const char* body, const char* content_type) {
     static thread_local std::string response;
-    response = _nyx_http_post_impl(
+    response = _rove_http_post_impl(
         url ? std::string(url) : std::string(),
         body ? std::string(body) : std::string(),
         content_type ? std::string(content_type) : std::string()
@@ -216,13 +216,13 @@ inline const char* _nyx_http_post(const char* url, const char* body, const char*
 }
 }
 
-extern "C++" fn _nyx_http_get(url: string) -> string
-extern "C++" fn _nyx_http_post(url: string, body: string, content_type: string) -> string
+extern "C++" fn _rove_http_get(url: string) -> string
+extern "C++" fn _rove_http_post(url: string, body: string, content_type: string) -> string
 
 fn http_get(url: string) -> string {
-    return _nyx_http_get(url)
+    return _rove_http_get(url)
 }
 
 fn http_post(url: string, body: string, content_type: string) -> string {
-    return _nyx_http_post(url, body, content_type)
+    return _rove_http_post(url, body, content_type)
 }

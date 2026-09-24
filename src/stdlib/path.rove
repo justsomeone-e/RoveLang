@@ -2,25 +2,25 @@
 // Cross-Platform Path Manipulation Primitives
 
 fn join(a: string, b: string) -> string {
-    return _nyx_path_join(a, b);
+    return _rove_path_join(a, b);
 }
 
 fn basename(p: string) -> string {
-    return _nyx_path_basename(p);
+    return _rove_path_basename(p);
 }
 
 fn dirname(p: string) -> string {
-    return _nyx_path_dirname(p);
+    return _rove_path_dirname(p);
 }
 
 fn extname(p: string) -> string {
-    return _nyx_path_extname(p);
+    return _rove_path_extname(p);
 }
 
 fn is_absolute(p: string) -> bool {
-    return _nyx_path_is_abs(p);
+    return _rove_path_is_abs(p);
 }
 
 fn normalize(p: string) -> string {
-    return _nyx_path_normalize(p);
+    return _rove_path_normalize(p);
 }
