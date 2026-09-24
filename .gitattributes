@@ -4,10 +4,8 @@
 # language percentage.  The real implementation languages stay detectable.
 
 # Rove source extension
-*.rove linguist-language=Nix
 *.rove linguist-detectable=true
 *.rove linguist-vendored=false
-repo/**/*.rove linguist-language=Nix
 repo/**/*.rove linguist-detectable=true
 repo/**/*.rove linguist-vendored=false
 
