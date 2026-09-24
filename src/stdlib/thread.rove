@@ -8,13 +8,13 @@
 #native include "condition_variable"
 
 #native raw {
-struct _NyxChannel {
+struct _RoveChannel {
     std::queue<std::string> q;
     std::mutex m;
     std::condition_variable cv;
 };
 
-static std::vector<_NyxChannel*> _rove_channels;
+static std::vector<_RoveChannel*> _rove_channels;
 static std::vector<std::mutex*> _rove_mutexes;
 
 inline int64_t _rove_mutex_create() {
@@ -36,7 +36,7 @@ inline void _rove_mutex_unlock(int64_t id) {
 }
 
 inline int64_t _rove_channel_create() {
-    auto ch = new _NyxChannel();
+    auto ch = new _RoveChannel();
     _rove_channels.push_back(ch);
     return (int64_t)(_rove_channels.size() - 1);
 }

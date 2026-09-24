@@ -91,17 +91,17 @@ class Result {
     }
 }
 
-class _NyxResultPropagation {
+class _RoveResultPropagation {
     constructor(error) { this.error = error; }
 }
 
 function _nyxPropagate(result) {
     if (!(result instanceof Result)) throw new TypeError("Rove '?' operand is not a Result");
-    if (!result.is_ok) throw new _NyxResultPropagation(result.error);
+    if (!result.is_ok) throw new _RoveResultPropagation(result.error);
     return result.value;
 }
 
-class NyxEnumValue {
+class RoveEnumValue {
     constructor(enumName, variantName, payload) {
         this.enum_name = enumName;
         this.variant_name = variantName;
@@ -226,7 +226,7 @@ function _rove_bootstrap_remove_file(path) {
     try { _nyxFs.unlinkSync(path); return true; } catch { return false; }
 }
 function _rove_process_exit(code) { process.exit(Number(code)); }
-let _nyxToolchainError = "";
+let _roveToolchainError = "";
 function _rove_toolchain_compile_cpp(source, output) {
     const candidates = [process.env.ROVE_CXX || process.env.NYX_CXX, "clang++", "g++", "c++"].filter(Boolean);
     for (const compiler of candidates) {
@@ -235,14 +235,14 @@ function _rove_toolchain_compile_cpp(source, output) {
         );
         if (result.error && result.error.code === "ENOENT") continue;
         const code = Number(result.status ?? 1);
-        if (code === 0) { _nyxToolchainError = ""; return 0n; }
-        _nyxToolchainError = `${compiler} exited with code ${code}`;
+        if (code === 0) { _roveToolchainError = ""; return 0n; }
+        _roveToolchainError = `${compiler} exited with code ${code}`;
         return _nyxI64(BigInt(code));
     }
-    _nyxToolchainError = "No C++20 compiler found (set ROVE_CXX or install clang++/g++; NYX_CXX remains a legacy alias)";
+    _roveToolchainError = "No C++20 compiler found (set ROVE_CXX or install clang++/g++; NYX_CXX remains a legacy alias)";
     return 127n;
 }
-function _rove_toolchain_last_error() { return _nyxToolchainError; }
+function _rove_toolchain_last_error() { return _roveToolchainError; }
 function contains(value, part) { return String(value).includes(String(part)); }
 function is_number(value) { return String(value).trim() !== "" && Number.isFinite(Number(value)); }
 function len(value) {
@@ -270,7 +270,7 @@ function delay_ms(milliseconds) {
     while (Date.now() < deadline) {}
 }
 
-class _NyxChannel {
+class _RoveChannel {
     constructor() { this.values = []; }
     send(value) { this.values.push(value); }
     receive() {
@@ -278,7 +278,7 @@ class _NyxChannel {
         return this.values.shift();
     }
 }
-function channel(..._typeArguments) { return new _NyxChannel(); }
+function channel(..._typeArguments) { return new _RoveChannel(); }
 
 function _nyxRunDefers(stack) {
     while (stack.length > 0) stack.pop()();
@@ -588,7 +588,7 @@ class HIRJavaScriptEmitter:
             return [f"const {self._symbol(node.symbol, node.name)} = Object;"]
         if isinstance(node, IREnum):
             if any(member.is_variant for member in node.members):
-                lines = [f"const {self._symbol(node.symbol, node.name)} = NyxEnumValue;"]
+                lines = [f"const {self._symbol(node.symbol, node.name)} = RoveEnumValue;"]
                 for member in node.members:
                     if not member.is_variant:
                         raise JavaScriptEmissionError(
@@ -599,7 +599,7 @@ class HIRJavaScriptEmitter:
                         f"enum::{node.name}::variant::{member.name}", member.name
                     )
                     lines.append(
-                        f"function {constructor}({', '.join(params)}) {{ return new NyxEnumValue("
+                        f"function {constructor}({', '.join(params)}) {{ return new RoveEnumValue("
                         f"{self._string(node.name)}, {self._string(member.name)}, [{', '.join(params)}]); }}"
                     )
                 return lines
@@ -699,7 +699,7 @@ class HIRJavaScriptEmitter:
                 lines.extend(self._emit_block(node.body, indent + 2))
                 lines.append(f"{prefix}    }} catch ({caught}) {{")
                 lines.append(
-                    f"{prefix}        if ({caught} instanceof _NyxResultPropagation) "
+                    f"{prefix}        if ({caught} instanceof _RoveResultPropagation) "
                     f"return Err({caught}.error);"
                 )
                 lines.append(f"{prefix}        throw {caught};")
@@ -869,7 +869,7 @@ class HIRJavaScriptEmitter:
             if variant is not None:
                 enum_node, member = variant
                 condition = (
-                    f"{value} instanceof NyxEnumValue && "
+                    f"{value} instanceof RoveEnumValue && "
                     f"{value}.enum_name === {self._string(enum_node.name)} && "
                     f"{value}.variant_name === {self._string(member.name)}"
                 )

@@ -1,4 +1,4 @@
-// Nyx Standard Library: std/path
+// Rove Standard Library: std/path
 // Cross-Platform Path Manipulation Primitives
 
 fn join(a: string, b: string) -> string {

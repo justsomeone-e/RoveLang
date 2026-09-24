@@ -82,12 +82,12 @@ use std::sync::{Arc, LazyLock, Mutex};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::Duration;
 
-trait NyxDisplay {
-    fn nyx_display(&self) -> String;
+trait RoveDisplay {
+    fn rove_display(&self) -> String;
 }
 
-fn _rove_display<T: NyxDisplay + ?Sized>(value: &T) -> String {
-    value.nyx_display()
+fn _rove_display<T: RoveDisplay + ?Sized>(value: &T) -> String {
+    value.rove_display()
 }
 
 fn _rove_f64_to_string(value: f64) -> String {
@@ -102,90 +102,90 @@ fn _rove_f64_to_string(value: f64) -> String {
     value.to_string()
 }
 
-impl NyxDisplay for i64 { fn nyx_display(&self) -> String { self.to_string() } }
-impl NyxDisplay for usize { fn nyx_display(&self) -> String { self.to_string() } }
-impl NyxDisplay for f64 { fn nyx_display(&self) -> String { _rove_f64_to_string(*self) } }
-impl NyxDisplay for bool {
-    fn nyx_display(&self) -> String {
+impl RoveDisplay for i64 { fn rove_display(&self) -> String { self.to_string() } }
+impl RoveDisplay for usize { fn rove_display(&self) -> String { self.to_string() } }
+impl RoveDisplay for f64 { fn rove_display(&self) -> String { _rove_f64_to_string(*self) } }
+impl RoveDisplay for bool {
+    fn rove_display(&self) -> String {
         if *self { "true".to_string() } else { "false".to_string() }
     }
 }
-impl NyxDisplay for String { fn nyx_display(&self) -> String { self.clone() } }
-impl NyxDisplay for str { fn nyx_display(&self) -> String { self.to_string() } }
-impl NyxDisplay for () { fn nyx_display(&self) -> String { String::new() } }
-impl<T: NyxDisplay> NyxDisplay for Vec<T> {
-    fn nyx_display(&self) -> String {
-        let values: Vec<String> = self.iter().map(NyxDisplay::nyx_display).collect();
+impl RoveDisplay for String { fn rove_display(&self) -> String { self.clone() } }
+impl RoveDisplay for str { fn rove_display(&self) -> String { self.to_string() } }
+impl RoveDisplay for () { fn rove_display(&self) -> String { String::new() } }
+impl<T: RoveDisplay> RoveDisplay for Vec<T> {
+    fn rove_display(&self) -> String {
+        let values: Vec<String> = self.iter().map(RoveDisplay::rove_display).collect();
         format!("[{}]", values.join(", "))
     }
 }
-impl<T: NyxDisplay> NyxDisplay for Option<T> {
-    fn nyx_display(&self) -> String {
+impl<T: RoveDisplay> RoveDisplay for Option<T> {
+    fn rove_display(&self) -> String {
         match self {
-            Some(value) => value.nyx_display(),
+            Some(value) => value.rove_display(),
             None => "null".to_string(),
         }
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum NyxValue {
+enum RoveValue {
     Null,
     Int(i64),
     Float(f64),
     Bool(bool),
     String(String),
-    Array(Vec<NyxValue>),
+    Array(Vec<RoveValue>),
     Opaque(String),
 }
 
-impl NyxDisplay for NyxValue {
-    fn nyx_display(&self) -> String {
+impl RoveDisplay for RoveValue {
+    fn rove_display(&self) -> String {
         match self {
             Self::Null => "null".to_string(),
-            Self::Int(value) => value.nyx_display(),
-            Self::Float(value) => value.nyx_display(),
-            Self::Bool(value) => value.nyx_display(),
+            Self::Int(value) => value.rove_display(),
+            Self::Float(value) => value.rove_display(),
+            Self::Bool(value) => value.rove_display(),
             Self::String(value) => value.clone(),
-            Self::Array(value) => value.nyx_display(),
+            Self::Array(value) => value.rove_display(),
             Self::Opaque(value) => value.clone(),
         }
     }
 }
 
-fn _rove_expect_i64(value: NyxValue) -> i64 {
+fn _rove_expect_i64(value: RoveValue) -> i64 {
     match value {
-        NyxValue::Int(value) => value,
+        RoveValue::Int(value) => value,
         _ => panic!("Rove value must have type int"),
     }
 }
-fn _rove_expect_f64(value: NyxValue) -> f64 {
+fn _rove_expect_f64(value: RoveValue) -> f64 {
     match value {
-        NyxValue::Float(value) => value,
-        NyxValue::Int(value) => value as f64,
+        RoveValue::Float(value) => value,
+        RoveValue::Int(value) => value as f64,
         _ => panic!("Rove value must have type float"),
     }
 }
-fn _rove_expect_bool(value: NyxValue) -> bool {
+fn _rove_expect_bool(value: RoveValue) -> bool {
     match value {
-        NyxValue::Bool(value) => value,
+        RoveValue::Bool(value) => value,
         _ => panic!("Rove condition must have type bool"),
     }
 }
-fn _rove_expect_string(value: NyxValue) -> String {
+fn _rove_expect_string(value: RoveValue) -> String {
     match value {
-        NyxValue::String(value) => value,
+        RoveValue::String(value) => value,
         _ => panic!("Rove value must have type string"),
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum NyxResult<T, E> {
+enum RoveResult<T, E> {
     Ok(T),
     Err(E),
 }
 
-impl<T, E> NyxResult<T, E> {
+impl<T, E> RoveResult<T, E> {
     fn is_ok(&self) -> bool { matches!(self, Self::Ok(_)) }
     fn is_err(&self) -> bool { matches!(self, Self::Err(_)) }
     fn unwrap(self) -> T {
@@ -196,11 +196,11 @@ impl<T, E> NyxResult<T, E> {
     }
 }
 
-impl<T: NyxDisplay, E: NyxDisplay> NyxDisplay for NyxResult<T, E> {
-    fn nyx_display(&self) -> String {
+impl<T: RoveDisplay, E: RoveDisplay> RoveDisplay for RoveResult<T, E> {
+    fn rove_display(&self) -> String {
         match self {
-            Self::Ok(value) => format!("Ok({})", value.nyx_display()),
-            Self::Err(value) => format!("Err({})", value.nyx_display()),
+            Self::Ok(value) => format!("Ok({})", value.rove_display()),
+            Self::Err(value) => format!("Err({})", value.rove_display()),
         }
     }
 }
@@ -244,10 +244,10 @@ fn _rove_to_int(value: &String) -> i64 {
 fn _rove_contains(value: &String, part: &String) -> bool { value.contains(part) }
 fn _rove_is_number(value: &String) -> bool { value.trim().parse::<f64>().is_ok() }
 
-trait NyxLength { fn nyx_len(&self) -> i64; }
-impl<T> NyxLength for Vec<T> { fn nyx_len(&self) -> i64 { self.len() as i64 } }
-impl NyxLength for String { fn nyx_len(&self) -> i64 { self.len() as i64 } }
-fn _rove_len<T: NyxLength + ?Sized>(value: &T) -> i64 { value.nyx_len() }
+trait RoveLength { fn rove_len(&self) -> i64; }
+impl<T> RoveLength for Vec<T> { fn rove_len(&self) -> i64 { self.len() as i64 } }
+impl RoveLength for String { fn rove_len(&self) -> i64 { self.len() as i64 } }
+fn _rove_len<T: RoveLength + ?Sized>(value: &T) -> i64 { value.rove_len() }
 
 fn _rove_string_index(value: &String, index: i64) -> String {
     if index < 0 { return String::new(); }
@@ -259,10 +259,10 @@ fn _rove_string_index(value: &String, index: i64) -> String {
 fn _rove_str_trim(s: String) -> String { s.trim().to_string() }
 fn _rove_str_starts_with(s: String, prefix: String) -> bool { s.starts_with(&prefix) }
 fn _rove_str_ends_with(s: String, suffix: String) -> bool { s.ends_with(&suffix) }
-fn _rove_str_find_result(s: String, sub: String) -> NyxResult<i64, String> {
+fn _rove_str_find_result(s: String, sub: String) -> RoveResult<i64, String> {
     match s.find(&sub) {
-        Some(idx) => NyxResult::Ok(idx as i64),
-        None => NyxResult::Err("substring not found".to_string()),
+        Some(idx) => RoveResult::Ok(idx as i64),
+        None => RoveResult::Err("substring not found".to_string()),
     }
 }
 fn _rove_str_to_upper(s: String) -> String { s.to_uppercase() }
@@ -297,25 +297,25 @@ fn _rove_delay_ms(milliseconds: i64) {
 }
 
 #[derive(Clone, Debug)]
-struct NyxChannel {
-    sender: Sender<NyxValue>,
-    receiver: Arc<Mutex<Receiver<NyxValue>>>,
+struct RoveChannel {
+    sender: Sender<RoveValue>,
+    receiver: Arc<Mutex<Receiver<RoveValue>>>,
 }
-impl PartialEq for NyxChannel {
+impl PartialEq for RoveChannel {
     fn eq(&self, other: &Self) -> bool { Arc::ptr_eq(&self.receiver, &other.receiver) }
 }
-impl NyxDisplay for NyxChannel {
-    fn nyx_display(&self) -> String { "Channel".to_string() }
+impl RoveDisplay for RoveChannel {
+    fn rove_display(&self) -> String { "Channel".to_string() }
 }
-impl NyxChannel {
-    fn send(&self, value: NyxValue) { let _ = self.sender.send(value); }
-    fn receive(&self) -> NyxValue {
-        self.receiver.lock().unwrap().recv().unwrap_or(NyxValue::Null)
+impl RoveChannel {
+    fn send(&self, value: RoveValue) { let _ = self.sender.send(value); }
+    fn receive(&self) -> RoveValue {
+        self.receiver.lock().unwrap().recv().unwrap_or(RoveValue::Null)
     }
 }
-fn _rove_channel() -> NyxChannel {
+fn _rove_channel() -> RoveChannel {
     let (sender, receiver) = mpsc::channel();
-    NyxChannel { sender, receiver: Arc::new(Mutex::new(receiver)) }
+    RoveChannel { sender, receiver: Arc::new(Mutex::new(receiver)) }
 }
 '''.strip()
 
@@ -500,7 +500,7 @@ class HIRRustEmitter:
         for member in node.members:
             suffix = "" if member.value is None else f" = {self._expr_as(member.value, INT)}"
             lines.append(f"    {self._identifier(member.name)}{suffix},")
-        lines.extend(("}", f"impl NyxDisplay for {name} {{", "    fn nyx_display(&self) -> String { (*self as i64).to_string() }", "}"))
+        lines.extend(("}", f"impl RoveDisplay for {name} {{", "    fn rove_display(&self) -> String { (*self as i64).to_string() }", "}"))
         return lines
 
     def _emit_trait(self, node: IRTrait) -> List[str]:
@@ -524,11 +524,11 @@ class HIRRustEmitter:
         lines.append("}")
 
         impl_generics = self._generic_declaration(node.generic_params)
-        lines.append(f"impl{impl_generics} NyxDisplay for {name}{generic_use} {{")
-        lines.append("    fn nyx_display(&self) -> String {")
+        lines.append(f"impl{impl_generics} RoveDisplay for {name}{generic_use} {{")
+        lines.append("    fn rove_display(&self) -> String {")
         if node.fields:
             rendered = ", ".join(
-                f'format!("{field.name}: {{}}", self.{self._identifier(field.name)}.nyx_display())'
+                f'format!("{field.name}: {{}}", self.{self._identifier(field.name)}.rove_display())'
                 for field, _ in field_types
             )
             lines.append(f"        format!(\"{name} {{{{ {{}} }}}}\", [{rendered}].join(\", \"))")
@@ -816,7 +816,7 @@ class HIRRustEmitter:
                     binding = self._symbol(pattern.args[0].symbol, pattern.args[0].name)
                 keyword = "else if" if opened else "if"
                 lines.append(
-                    f"{prefix}{keyword} let NyxResult::{variant}({binding}) = {temporary}.clone() {{"
+                    f"{prefix}{keyword} let RoveResult::{variant}({binding}) = {temporary}.clone() {{"
                 )
             elif isinstance(pattern, IRCall) and pattern.callee == "Some":
                 binding = self._temporary("match_value")
@@ -920,9 +920,9 @@ class HIRRustEmitter:
                 cleanup += " "
             return (
                 f"(match {self._expr(node.expr)} {{ "
-                f"NyxResult::Ok({value}) => {value}, "
-                f"NyxResult::Err({error}) => {{ {cleanup}"
-                f"return NyxResult::Err({error}); }} }})"
+                f"RoveResult::Ok({value}) => {value}, "
+                f"RoveResult::Err({error}) => {{ {cleanup}"
+                f"return RoveResult::Err({error}); }} }})"
             )
         if isinstance(node, IRCall):
             return self._emit_call(node, expected)
@@ -1086,7 +1086,7 @@ class HIRRustEmitter:
             index = 0 if node.callee == "Ok" else 1
             payload = self._expr_as(node.args[0], arguments[index]) if node.args else "()"
             return (
-                f"NyxResult::<{self._rust_type(arguments[0])}, {self._rust_type(arguments[1])}>::"
+                f"RoveResult::<{self._rust_type(arguments[0])}, {self._rust_type(arguments[1])}>::"
                 f"{node.callee}({payload})"
             )
 
@@ -1175,21 +1175,21 @@ class HIRRustEmitter:
         if actual.is_unknown:
             return value
         if actual.name == "int":
-            return f"NyxValue::Int({value})"
+            return f"RoveValue::Int({value})"
         if actual.name == "float":
-            return f"NyxValue::Float({value})"
+            return f"RoveValue::Float({value})"
         if actual.name == "bool":
-            return f"NyxValue::Bool({value})"
+            return f"RoveValue::Bool({value})"
         if actual.name == "string":
-            return f"NyxValue::String({value})"
+            return f"RoveValue::String({value})"
         if actual.name == "null":
-            return "NyxValue::Null"
+            return "RoveValue::Null"
         if actual.name == "Array":
             element_type = actual.arguments[0] if actual.arguments else ANY
             if element_type.is_unknown:
-                return f"NyxValue::Array({value})"
-            return f"NyxValue::Array(({value}).into_iter().map(|item| {self._dynamic_from_name('item', element_type)}).collect())"
-        return f"NyxValue::Opaque(_rove_display(&({value})))"
+                return f"RoveValue::Array({value})"
+            return f"RoveValue::Array(({value}).into_iter().map(|item| {self._dynamic_from_name('item', element_type)}).collect())"
+        return f"RoveValue::Opaque(_rove_display(&({value})))"
 
     def _dynamic_from_name(self, name: str, value_type: IRType) -> str:
         constructors = {
@@ -1199,7 +1199,7 @@ class HIRRustEmitter:
             "string": "String",
         }
         variant = constructors.get(value_type.name)
-        return f"NyxValue::{variant}({name})" if variant else f"NyxValue::Opaque(_rove_display(&{name}))"
+        return f"RoveValue::{variant}({name})" if variant else f"RoveValue::Opaque(_rove_display(&{name}))"
 
     def _lvalue(
         self,
@@ -1272,9 +1272,9 @@ class HIRRustEmitter:
             result = self._rust_type(value_type.return_type or VOID)
             return f"Arc<dyn Fn({params}) -> {result} + Send + Sync>"
         mapping = {
-            "any": "NyxValue",
+            "any": "RoveValue",
             "void": "()",
-            "null": "NyxValue",
+            "null": "RoveValue",
             "bool": "bool",
             "int": "i64",
             "i8": "i8",
@@ -1290,7 +1290,7 @@ class HIRRustEmitter:
             "f64": "f64",
             "string": "String",
             "uintptr": "usize",
-            "Channel": "NyxChannel",
+            "Channel": "RoveChannel",
         }
         if value_type.name in mapping:
             return mapping[value_type.name]
@@ -1303,11 +1303,11 @@ class HIRRustEmitter:
         if value_type.name == "Result":
             ok_type = value_type.arguments[0] if value_type.arguments else ANY
             err_type = value_type.arguments[1] if len(value_type.arguments) > 1 else ANY
-            return f"NyxResult<{self._rust_type(ok_type)}, {self._rust_type(err_type)}>"
+            return f"RoveResult<{self._rust_type(ok_type)}, {self._rust_type(err_type)}>"
         if value_type.name == "Task":
             raise RustEmissionError("Rust backend does not support Rove Task<T> yet")
         if value_type.name not in self.declared_types:
-            return "NyxValue"
+            return "RoveValue"
         arguments = ""
         if value_type.arguments:
             arguments = "<" + ", ".join(self._rust_type(item) for item in value_type.arguments) + ">"
@@ -1372,9 +1372,9 @@ class HIRRustEmitter:
 
     @staticmethod
     def _identifier(name: str) -> str:
-        clean = re.sub(r"[^A-Za-z0-9_]", "_", name or "nyx_value")
+        clean = re.sub(r"[^A-Za-z0-9_]", "_", name or "rove_value")
         if not clean or clean[0].isdigit():
-            clean = "nyx_" + clean
+            clean = "rove_" + clean
         if clean in _RUST_KEYWORDS:
             clean += "_nyx"
         return clean
@@ -1402,7 +1402,7 @@ class HIRRustEmitter:
 
     def _generic_declaration(self, parameters: Iterable[str]) -> str:
         values = [
-            f"{self._identifier(item)}: Clone + Debug + PartialEq + NyxDisplay"
+            f"{self._identifier(item)}: Clone + Debug + PartialEq + RoveDisplay"
             for item in parameters
         ]
         return "" if not values else "<" + ", ".join(values) + ">"

@@ -1,4 +1,4 @@
-// Nyx Standard Library: std/process
+// Rove Standard Library: std/process
 // Host Process Execution and Environment
 
 fn exec_cmd(command: string) -> Result<int, string> {

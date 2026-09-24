@@ -249,14 +249,14 @@ class UniversalCodeGen:
                 "}"
             ])
 
-        helper_lines.append("template<typename F> struct _NyxScopeExit { F f; ~_NyxScopeExit() { f(); } };")
-        helper_lines.append("template<typename F> _NyxScopeExit<F> _rove_make_scope_exit(F f) { return {f}; }")
+        helper_lines.append("template<typename F> struct _RoveScopeExit { F f; ~_RoveScopeExit() { f(); } };")
+        helper_lines.append("template<typename F> _RoveScopeExit<F> _rove_make_scope_exit(F f) { return {f}; }")
 
         # Volatile MMIO Hardware Primitives
         mmio_lines = [
             "// --- Rove Volatile MMIO Hardware Primitives ---",
-            "#ifndef NYX_MMIO_DEFINED",
-            "#define NYX_MMIO_DEFINED",
+            "#ifndef ROVE_MMIO_DEFINED",
+            "#define ROVE_MMIO_DEFINED",
             "extern \"C\" {",
             "    inline int64_t nyx_mmio_read8(uintptr_t addr) { return (int64_t)*(volatile uint8_t*)(addr); }",
             "    inline void nyx_mmio_write8(uintptr_t addr, int64_t val) { *(volatile uint8_t*)(addr) = (uint8_t)val; }",

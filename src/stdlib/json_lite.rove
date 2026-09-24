@@ -36,7 +36,7 @@ inline int64_t _rove_json_get_int(const std::string& json_str, const std::string
     return 0;
 }
 
-inline NyxResult<std::string, std::string> _rove_json_get_string_result(const std::string& json_str, const std::string& key) {
+inline RoveResult<std::string, std::string> _rove_json_get_string_result(const std::string& json_str, const std::string& key) {
     std::string pattern = "\"" + key + "\":";
     size_t pos = json_str.find(pattern);
     if (pos == std::string::npos) return {false, {}, "JSON field not found: " + key};
@@ -48,7 +48,7 @@ inline NyxResult<std::string, std::string> _rove_json_get_string_result(const st
     return {true, json_str.substr(pos + 1, end - pos - 1), {}};
 }
 
-inline NyxResult<int64_t, std::string> _rove_json_get_int_result(const std::string& json_str, const std::string& key) {
+inline RoveResult<int64_t, std::string> _rove_json_get_int_result(const std::string& json_str, const std::string& key) {
     std::string pattern = "\"" + key + "\":";
     size_t pos = json_str.find(pattern);
     if (pos == std::string::npos) return {false, 0, "JSON field not found: " + key};

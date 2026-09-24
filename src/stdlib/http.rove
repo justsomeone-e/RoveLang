@@ -1,4 +1,4 @@
-// Nyx Standard Library - std/http
+// Rove Standard Library - std/http
 // Experimental hosted HTTP client for the native C++ target.
 // curl is executed directly with an argument vector; no command shell is used.
 

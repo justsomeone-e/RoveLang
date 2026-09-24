@@ -40,7 +40,7 @@ inline std::string _rove_base64_decode(const std::string& in) {
     return out;
 }
 
-inline NyxResult<std::string, std::string> _rove_base64_decode_result(const std::string& in) {
+inline RoveResult<std::string, std::string> _rove_base64_decode_result(const std::string& in) {
     if (in.size() % 4 != 0) return {false, {}, "invalid base64 length"};
     bool padding = false;
     size_t padding_count = 0;

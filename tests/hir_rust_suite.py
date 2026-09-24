@@ -13,7 +13,7 @@ if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
 
-from src import CompilerPlugin, NyxCompiler
+from src import CompilerPlugin, RoveCompiler
 from src.ir import HIRTransformer, IRExpr, IRLiteral
 from tests.numeric_semantics_suite import SOURCE as NUMERIC_SOURCE
 
@@ -34,7 +34,7 @@ def _rustc_metadata(source_path: str, output_path: str) -> subprocess.CompletedP
     )
 
 
-def _run_corpus_contract(compiler: NyxCompiler) -> tuple[int, int]:
+def _run_corpus_contract(compiler: RoveCompiler) -> tuple[int, int]:
     paths = []
     for relative in ("tests/battery138", "tests/bughunt"):
         paths.extend(sorted(Path(ROOT_DIR, relative).glob("*.rove")))
@@ -96,7 +96,7 @@ def _run_corpus_contract(compiler: NyxCompiler) -> tuple[int, int]:
     return len(emitted), len(rejected)
 
 
-def _compile_metadata(compiler: NyxCompiler, source: str, name: str) -> str:
+def _compile_metadata(compiler: RoveCompiler, source: str, name: str) -> str:
     result = compiler.compile_source(source, target="rust", filename=name + ".rove")
     assert result.success, result.diagnostics
     assert result.artifact is not None
@@ -127,7 +127,7 @@ class _HIRRewritePlugin(CompilerPlugin):
         return _ReplaceFortyOne().transform_module(hir)
 
 
-def _run_semantic_contracts(compiler: NyxCompiler) -> None:
+def _run_semantic_contracts(compiler: RoveCompiler) -> None:
     trait_source = """
 trait Show { fn show(self) -> string }
 struct Point { x: int, y: int }
@@ -145,7 +145,7 @@ fn dynamic(value) { return value }
 fn main() { if dynamic(1) { print("truthiness leaked") } }
 """
     dynamic = _compile_metadata(compiler, dynamic_source, "dynamic_bool")
-    assert "_rove_expect_bool(NyxValue::Int(" in dynamic
+    assert "_rove_expect_bool(RoveValue::Int(" in dynamic
 
     defer_source = """
 fn lifecycle(skip: bool) {
@@ -178,9 +178,9 @@ fn main() {
 }
 """
     propagated = _compile_metadata(compiler, propagate_source, "result_propagation_contract")
-    error_branch = propagated.find("NyxResult::Err(_rove_propagate_error_")
+    error_branch = propagated.find("RoveResult::Err(_rove_propagate_error_")
     cleanup = propagated.find('"cleanup".to_string()', error_branch)
-    early_return = propagated.find("return NyxResult::Err(_rove_propagate_error_", error_branch)
+    early_return = propagated.find("return RoveResult::Err(_rove_propagate_error_", error_branch)
     assert 0 <= error_branch < cleanup < early_return
 
     numeric = _compile_metadata(compiler, NUMERIC_SOURCE, "numeric_contract")
@@ -199,7 +199,7 @@ fn main() {
     value_end_pos = global_update.find(";", value_pos)
     assert value_pos < read_lock_pos < value_end_pos < write_lock_pos
 
-    plugin_compiler = NyxCompiler(ROOT_DIR, plugins=(_HIRRewritePlugin(),))
+    plugin_compiler = RoveCompiler(ROOT_DIR, plugins=(_HIRRewritePlugin(),))
     rewritten = _compile_metadata(plugin_compiler, "fn main() { print(41) }", "hir_plugin")
     assert "42_i64" in rewritten and "41_i64" not in rewritten
 
@@ -224,7 +224,7 @@ def run_hir_rust_suite() -> bool:
     print("NYX HIR-AUTHORITATIVE RUST 2021 BACKEND")
     print("=" * 70)
     assert RUSTC is not None, "rustc is required for the HIR Rust suite"
-    compiler = NyxCompiler(ROOT_DIR)
+    compiler = RoveCompiler(ROOT_DIR)
     emitted, rejected = _run_corpus_contract(compiler)
     _run_semantic_contracts(compiler)
     print(

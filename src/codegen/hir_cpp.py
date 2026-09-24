@@ -139,14 +139,14 @@ auto _rove_map(const std::vector<T>& items, F transform)
 }
 
 template <typename T>
-class NyxIterator {
+class RoveIterator {
 public:
     struct promise_type;
     using handle_type = std::coroutine_handle<promise_type>;
     struct promise_type {
         T current{};
         std::exception_ptr failure;
-        NyxIterator get_return_object() { return NyxIterator(handle_type::from_promise(*this)); }
+        RoveIterator get_return_object() { return RoveIterator(handle_type::from_promise(*this)); }
         std::suspend_always initial_suspend() noexcept { return {}; }
         std::suspend_always final_suspend() noexcept { return {}; }
         std::suspend_always yield_value(T value) noexcept { current = std::move(value); return {}; }
@@ -163,10 +163,10 @@ public:
         void resume() { handle_.resume(); if (handle_.done() && handle_.promise().failure) std::rethrow_exception(handle_.promise().failure); }
         handle_type handle_;
     };
-    explicit NyxIterator(handle_type handle) : handle_(handle) {}
-    NyxIterator(const NyxIterator&) = delete;
-    NyxIterator(NyxIterator&& other) noexcept : handle_(std::exchange(other.handle_, {})) {}
-    ~NyxIterator() { if (handle_) handle_.destroy(); }
+    explicit RoveIterator(handle_type handle) : handle_(handle) {}
+    RoveIterator(const RoveIterator&) = delete;
+    RoveIterator(RoveIterator&& other) noexcept : handle_(std::exchange(other.handle_, {})) {}
+    ~RoveIterator() { if (handle_) handle_.destroy(); }
     iterator begin() { iterator value(handle_); ++value; return value; }
     std::default_sentinel_t end() const { return {}; }
 private:
@@ -189,7 +189,7 @@ A _rove_fold(const std::vector<T>& items, A accumulator, F reducer) {
 
 inline void _rove_pause_if_standalone_console() {
 #ifdef _WIN32
-    if (std::getenv("CI") || std::getenv("GITHUB_ACTIONS") || std::getenv("NYX_NO_PAUSE")) return;
+    if (std::getenv("CI") || std::getenv("GITHUB_ACTIONS") || std::getenv("ROVE_NO_PAUSE") || std::getenv("NYX_NO_PAUSE")) return;
     if (!_isatty(_fileno(stdin)) || !_isatty(_fileno(stdout))) return;
     DWORD process_ids[2] = {};
     if (GetConsoleProcessList(process_ids, 2) == 1) {
@@ -201,7 +201,7 @@ inline void _rove_pause_if_standalone_console() {
 }
 
 template <typename T, typename E = std::string>
-struct NyxResult {
+struct RoveResult {
     bool is_ok;
     T value;
     E error;
@@ -212,42 +212,42 @@ struct NyxResult {
     }
 };
 
-struct NyxEnumValue {
+struct RoveEnumValue {
     std::string enum_name;
     std::string variant_name;
     std::vector<std::any> payload;
 };
 
-struct _NyxResultPropagation {
+struct _RoveResultPropagation {
     std::any error;
 };
 
 template <typename T, typename E>
-T _rove_propagate(NyxResult<T, E> result) {
-    if (!result.is_ok) throw _NyxResultPropagation{std::any(std::move(result.error))};
+T _rove_propagate(RoveResult<T, E> result) {
+    if (!result.is_ok) throw _RoveResultPropagation{std::any(std::move(result.error))};
     return std::move(result.value);
 }
 
-inline std::ostream& operator<<(std::ostream& stream, const NyxEnumValue& value) {
+inline std::ostream& operator<<(std::ostream& stream, const RoveEnumValue& value) {
     stream << value.enum_name << "::" << value.variant_name;
     return stream;
 }
 
 template <typename T>
-using NyxTask = std::shared_future<T>;
+using RoveTask = std::shared_future<T>;
 
 template <typename F>
-auto _rove_async(F&& function) -> NyxTask<std::invoke_result_t<std::decay_t<F>>> {
+auto _rove_async(F&& function) -> RoveTask<std::invoke_result_t<std::decay_t<F>>> {
     return std::async(std::launch::async, std::forward<F>(function)).share();
 }
 
 template <typename T>
-NyxResult<std::decay_t<T>, std::string> _rove_ok(T&& value) {
+RoveResult<std::decay_t<T>, std::string> _rove_ok(T&& value) {
     return {true, std::forward<T>(value), {}};
 }
 
 template <typename E>
-NyxResult<int64_t, std::decay_t<E>> _rove_err(E&& error) {
+RoveResult<int64_t, std::decay_t<E>> _rove_err(E&& error) {
     return {false, 0, std::forward<E>(error)};
 }
 
@@ -363,7 +363,7 @@ inline bool _rove_bootstrap_remove_file(const std::string& path) {
     std::exit(static_cast<int>(code));
 }
 
-inline NyxResult<int64_t, std::string> _rove_process_exec_cmd_result(const std::string& command) {
+inline RoveResult<int64_t, std::string> _rove_process_exec_cmd_result(const std::string& command) {
     int status = std::system(command.c_str());
     #ifndef _WIN32
     if (status != -1 && (status & 0x7f) == 0) {
@@ -374,7 +374,7 @@ inline NyxResult<int64_t, std::string> _rove_process_exec_cmd_result(const std::
     return {true, static_cast<int64_t>(status), {}};
 }
 
-inline NyxResult<std::string, std::string> _rove_process_get_env_result(const std::string& name) {
+inline RoveResult<std::string, std::string> _rove_process_get_env_result(const std::string& name) {
     const char* val = std::getenv(name.c_str());
     if (!val) return {false, {}, "environment variable not found: " + name};
     return {true, std::string(val), {}};
@@ -451,7 +451,7 @@ inline bool _rove_str_ends_with(const std::string& s, const std::string& suffix)
     return s.compare(s.length() - suffix.length(), suffix.length(), suffix) == 0;
 }
 
-inline NyxResult<int64_t, std::string> _rove_str_find_result(const std::string& s, const std::string& sub) {
+inline RoveResult<int64_t, std::string> _rove_str_find_result(const std::string& s, const std::string& sub) {
     auto pos = s.find(sub);
     if (pos == std::string::npos) return {false, 0, "substring not found"};
     return {true, static_cast<int64_t>(pos), {}};
@@ -752,7 +752,7 @@ inline void _rove_delay_ms(int64_t milliseconds) {
     std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
 }
 
-class _NyxChannel {
+class _RoveChannel {
 public:
     template <typename T>
     void send(T value) {
@@ -773,17 +773,17 @@ private:
     std::deque<std::any> values_;
 };
 
-inline _NyxChannel _rove_channel() { return {}; }
+inline _RoveChannel _rove_channel() { return {}; }
 
 template <typename F>
-class _NyxScopeExit {
+class _RoveScopeExit {
 public:
-    explicit _NyxScopeExit(F callback) : callback_(std::move(callback)) {}
-    _NyxScopeExit(const _NyxScopeExit&) = delete;
-    _NyxScopeExit& operator=(const _NyxScopeExit&) = delete;
-    _NyxScopeExit(_NyxScopeExit&& other) noexcept
+    explicit _RoveScopeExit(F callback) : callback_(std::move(callback)) {}
+    _RoveScopeExit(const _RoveScopeExit&) = delete;
+    _RoveScopeExit& operator=(const _RoveScopeExit&) = delete;
+    _RoveScopeExit(_RoveScopeExit&& other) noexcept
         : callback_(std::move(other.callback_)), active_(other.active_) { other.active_ = false; }
-    ~_NyxScopeExit() { if (active_) callback_(); }
+    ~_RoveScopeExit() { if (active_) callback_(); }
 
 private:
     F callback_;
@@ -791,20 +791,20 @@ private:
 };
 
 template <typename F>
-_NyxScopeExit<F> _rove_make_scope_exit(F callback) {
-    return _NyxScopeExit<F>(std::move(callback));
+_RoveScopeExit<F> _rove_make_scope_exit(F callback) {
+    return _RoveScopeExit<F>(std::move(callback));
 }
 
 template <typename T>
-struct _NyxIsOptional : std::false_type {};
+struct _RoveIsOptional : std::false_type {};
 
 template <typename T>
-struct _NyxIsOptional<std::optional<T>> : std::true_type {};
+struct _RoveIsOptional<std::optional<T>> : std::true_type {};
 
 template <typename T, typename Accessor>
 auto _rove_safe_member(const std::optional<T>& value, Accessor&& accessor) {
     using Raw = std::decay_t<decltype(accessor(*value))>;
-    if constexpr (_NyxIsOptional<Raw>::value) {
+    if constexpr (_RoveIsOptional<Raw>::value) {
         if (!value) return Raw{};
         return accessor(*value);
     } else {
@@ -816,7 +816,7 @@ auto _rove_safe_member(const std::optional<T>& value, Accessor&& accessor) {
 template <typename T, typename Accessor>
 auto _rove_safe_member(const T& value, Accessor&& accessor) {
     using Raw = std::decay_t<decltype(accessor(value))>;
-    if constexpr (_NyxIsOptional<Raw>::value) {
+    if constexpr (_RoveIsOptional<Raw>::value) {
         return accessor(value);
     } else {
         return std::optional<Raw>{accessor(value)};
@@ -893,7 +893,7 @@ _CPP_COMPACT_RUNTIME = r'''// Auto-generated by Rove Compiler (cpp HIR backend, 
 
 inline void _rove_pause_if_standalone_console() {
 #ifdef _WIN32
-    if (std::getenv("CI") || std::getenv("GITHUB_ACTIONS") || std::getenv("NYX_NO_PAUSE")) return;
+    if (std::getenv("CI") || std::getenv("GITHUB_ACTIONS") || std::getenv("ROVE_NO_PAUSE") || std::getenv("NYX_NO_PAUSE")) return;
     if (!_isatty(_fileno(stdin)) || !_isatty(_fileno(stdout))) return;
     DWORD process_ids[2] = {};
     if (GetConsoleProcessList(process_ids, 2) == 1) {
@@ -1620,10 +1620,10 @@ class HIRCppEmitter:
         if any(
             token in body
             for token in (
-                "NyxResult",
-                "NyxEnumValue",
-                "NyxIterator",
-                "_Nyx",
+                "RoveResult",
+                "RoveEnumValue",
+                "RoveIterator",
+                "_Rove",
                 "std::any",
                 "std::function<",
                 "std::optional<",
@@ -1730,7 +1730,7 @@ class HIRCppEmitter:
 
     def _emit_enum(self, node: IREnum) -> List[str]:
         if any(member.is_variant for member in node.members):
-            lines = [f"using {self._symbol(node.symbol, node.name)} = NyxEnumValue;"]
+            lines = [f"using {self._symbol(node.symbol, node.name)} = RoveEnumValue;"]
             for member in node.members:
                 if not member.is_variant:
                     raise CppEmissionError(
@@ -1742,7 +1742,7 @@ class HIRCppEmitter:
                 for index, payload_type in enumerate(member.payload_types):
                     parameter_name = f"_rove_payload_{index}"
                     if payload_type.name in node.generic_params:
-                        template_name = f"_NyxPayload{index}"
+                        template_name = f"_RovePayload{index}"
                         template_params.append(f"typename {template_name}")
                         parameters.append(f"{template_name}&& {parameter_name}")
                         values.append(f"std::any(std::forward<{template_name}>({parameter_name}))")
@@ -1757,7 +1757,7 @@ class HIRCppEmitter:
                     f"enum::{node.name}::variant::{member.name}", member.name
                 )
                 lines.append(
-                    f"inline NyxEnumValue {constructor}({', '.join(parameters)}) {{ "
+                    f"inline RoveEnumValue {constructor}({', '.join(parameters)}) {{ "
                     f"return {{{self._string_literal(node.name)}, {self._string_literal(member.name)}, "
                     f"std::vector<std::any>{{{', '.join(values)}}}}}; }}"
                 )
@@ -1791,7 +1791,7 @@ class HIRCppEmitter:
                 )
             rendered_return = self._cpp_type(return_type, role="return")
             if method.is_async:
-                rendered_return = f"NyxTask<{rendered_return}>"
+                rendered_return = f"RoveTask<{rendered_return}>"
             lines.append(
                 f"    virtual {rendered_return} "
                 f"{self._identifier(method.name)}({', '.join(parameters)}) = 0;"
@@ -1892,7 +1892,7 @@ class HIRCppEmitter:
         if not _is_known(return_type):
             raise CppEmissionError(f"Cannot infer return type for method '{owner}.{node.name}'")
         rendered_return = self._cpp_type(return_type, role="return")
-        public_return = f"NyxTask<{rendered_return}>" if node.is_async else rendered_return
+        public_return = f"RoveTask<{rendered_return}>" if node.is_async else rendered_return
         lines = [f"{prefix}{public_return} {self._identifier(node.name)}({', '.join(parameters)}) {{"]
         previous = self.current_return_type
         self.current_return_type = return_type
@@ -1951,7 +1951,7 @@ class HIRCppEmitter:
             parameters.append(rendered)
         rendered_return = self._cpp_type(return_type, role="return")
         if node.is_async:
-            rendered_return = f"NyxTask<{rendered_return}>"
+            rendered_return = f"RoveTask<{rendered_return}>"
         lines.append(
             f"{rendered_return} "
             f"{self._symbol(node.symbol, node.name)}({', '.join(parameters)});"
@@ -1975,7 +1975,7 @@ class HIRCppEmitter:
                 f"{self._parameter_name(parameter.symbol, parameter.name)}"
             )
         rendered_return = self._cpp_type(return_type, role="return")
-        public_return = f"NyxTask<{rendered_return}>" if node.is_async else rendered_return
+        public_return = f"RoveTask<{rendered_return}>" if node.is_async else rendered_return
         lines.append(
             f"{prefix}{public_return} "
             f"{self._symbol(node.symbol, node.name)}({', '.join(parameters)}) {{"
@@ -1992,7 +1992,7 @@ class HIRCppEmitter:
                     error_type = self._cpp_type(return_type.arguments[1], role="result")
                     lines.append(f"{prefix}        try {{")
                     lines.extend(self._emit_block(node.body, indent + 3))
-                    lines.append(f"{prefix}        }} catch (const _NyxResultPropagation& propagated) {{")
+                    lines.append(f"{prefix}        }} catch (const _RoveResultPropagation& propagated) {{")
                     lines.append(
                         f"{prefix}            return {{false, {success_type}{{}}, "
                         f"std::any_cast<{error_type}>(propagated.error)}};"
@@ -2007,7 +2007,7 @@ class HIRCppEmitter:
                     error_type = self._cpp_type(return_type.arguments[1], role="result")
                     lines.append(f"{prefix}    try {{")
                     lines.extend(self._emit_block(node.body, indent + 2))
-                    lines.append(f"{prefix}    }} catch (const _NyxResultPropagation& propagated) {{")
+                    lines.append(f"{prefix}    }} catch (const _RoveResultPropagation& propagated) {{")
                     lines.append(
                         f"{prefix}        return {{false, {success_type}{{}}, "
                         f"std::any_cast<{error_type}>(propagated.error)}};"
@@ -2457,7 +2457,7 @@ class HIRCppEmitter:
                 raise CppEmissionError(f"Invalid bound C++ type '{native_type}'")
             return native_type
         if value_type.name in self.payload_enums:
-            return "NyxEnumValue"
+            return "RoveEnumValue"
         if value_type.pointer:
             base = _strip_optional(IRType(value_type.name, value_type.arguments))
             rendered = "void" if base.name == "void" else self._cpp_type(base, role="pointer")
@@ -2510,7 +2510,7 @@ class HIRCppEmitter:
             "uintptr": "uintptr_t",
             "size_t": "size_t",
             "Exception": "std::exception",
-            "Channel": "_NyxChannel",
+            "Channel": "_RoveChannel",
         }
         if value_type.name == "Array":
             element = value_type.arguments[0] if value_type.arguments else ANY
@@ -2523,11 +2523,11 @@ class HIRCppEmitter:
             element = value_type.arguments[0] if value_type.arguments else ANY
             if not _is_known(element):
                 raise CppEmissionError(f"Cannot infer Iterator element type for C++ {role}")
-            return f"NyxIterator<{self._cpp_type(element, role='iterator')}>"
+            return f"RoveIterator<{self._cpp_type(element, role='iterator')}>"
         if value_type.name == "Result":
             if len(value_type.arguments) >= 2 and all(_is_known(item) for item in value_type.arguments[:2]):
                 return (
-                    f"NyxResult<{self._cpp_type(value_type.arguments[0], role='result')}, "
+                    f"RoveResult<{self._cpp_type(value_type.arguments[0], role='result')}, "
                     f"{self._cpp_type(value_type.arguments[1], role='result')}>"
                 )
             if role == "variable":
@@ -2535,7 +2535,7 @@ class HIRCppEmitter:
             raise CppEmissionError(f"Cannot infer Result payload types for C++ {role}")
         if value_type.name == "Task":
             if len(value_type.arguments) == 1 and _is_known(value_type.arguments[0]):
-                return f"NyxTask<{self._cpp_type(value_type.arguments[0], role='task')}>"
+                return f"RoveTask<{self._cpp_type(value_type.arguments[0], role='task')}>"
             if role == "variable":
                 return "auto"
             raise CppEmissionError(f"Cannot infer Task result type for C++ {role}")
@@ -2614,7 +2614,7 @@ class HIRCppEmitter:
             name = base
         else:
             digest = hashlib.sha256(symbol.encode("utf-8")).hexdigest()[:8]
-            name = f"{base}__nyx_{digest}"
+            name = f"{base}__rove_{digest}"
         self.symbol_names[symbol] = name
         return name
 

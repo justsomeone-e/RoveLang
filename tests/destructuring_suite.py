@@ -13,7 +13,7 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
-from src.api import NyxCompiler
+from src.api import RoveCompiler
 from src.codegen.cpp_toolchain import CppToolchain
 
 
@@ -44,13 +44,13 @@ fn main() {
 COLLISION_PROGRAMS = (
     (
         "before",
-        "let nyx_internal_destructure_2 = 5; let [left, right] = [20, 22]; "
-        "fn main() { print(nyx_internal_destructure_2 + left + right) }",
+        "let rove_internal_destructure_2 = 5; let [left, right] = [20, 22]; "
+        "fn main() { print(rove_internal_destructure_2 + left + right) }",
     ),
     (
         "after",
-        "let [left, right] = [20, 22]; let nyx_internal_destructure_1 = 5; "
-        "fn main() { print(nyx_internal_destructure_1 + left + right) }",
+        "let [left, right] = [20, 22]; let rove_internal_destructure_1 = 5; "
+        "fn main() { print(rove_internal_destructure_1 + left + right) }",
     ),
     (
         "nested_sanitized",
@@ -62,7 +62,7 @@ COLLISION_PROGRAMS = (
 
 
 def _compile(source: str, target: str):
-    return NyxCompiler(ROOT_DIR).compile_source(
+    return RoveCompiler(ROOT_DIR).compile_source(
         source,
         target=target,
         filename=os.path.join(ROOT_DIR, f"destructuring-{target}.rove"),

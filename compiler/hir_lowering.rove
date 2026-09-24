@@ -248,7 +248,7 @@ impl HIRLowerer {
     fn next_internal_name(self, purpose: string) -> string {
         while true {
             self.counter = self.counter + 1
-            var candidate = "nyx_internal_" + purpose + "_" + to_string(self.counter)
+            var candidate = "rove_internal_" + purpose + "_" + to_string(self.counter)
             if not self.name_is_reserved(candidate) {
                 self.reserve_name(candidate)
                 return candidate

@@ -1,4 +1,4 @@
-// Nyx Standard Library: std/str
+// Rove Standard Library: std/str
 // String Utilities and Formatting
 
 fn is_empty_str(s: string) -> bool {

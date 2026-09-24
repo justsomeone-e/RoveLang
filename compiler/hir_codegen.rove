@@ -101,21 +101,21 @@ impl HIRCodeGen {
         if value_type.name == "size_t" { return "size_t" }
         if value_type.name == "null" { return "std::nullptr_t" }
         if value_type.name == "Exception" { return "std::exception" }
-        if value_type.name == "Channel" { return "_NyxChannel" }
+        if value_type.name == "Channel" { return "_RoveChannel" }
         if value_type.name == "Array" {
             if len(value_type.arguments) == 0 or value_type.arguments[0].name == "any" { return "auto" }
             return "std::vector<" + self.map_type(value_type.arguments[0]) + ">"
         }
         if value_type.name == "Result" {
             if len(value_type.arguments) >= 2 {
-                return "NyxResult<" + self.map_type(value_type.arguments[0]) + ", " +
+                return "RoveResult<" + self.map_type(value_type.arguments[0]) + ", " +
                     self.map_type(value_type.arguments[1]) + ">"
             }
             return "auto"
         }
         if value_type.name == "Task" {
             if len(value_type.arguments) == 1 {
-                return "NyxTask<" + self.map_type(value_type.arguments[0]) + ">"
+                return "RoveTask<" + self.map_type(value_type.arguments[0]) + ">"
             }
             return "auto"
         }
@@ -324,7 +324,7 @@ impl HIRCodeGen {
         if node.kind == "IRMatchExpression" {
             if len(node.items) == 0 {
                 self.fail("Match expression has no arms")
-                return "/* NYX_EMPTY_MATCH */"
+                return "/* ROVE_EMPTY_MATCH */"
             }
             var value_name = self.temporary("match_expr")
             var fallback = node.items[len(node.items)-1]
@@ -352,7 +352,7 @@ impl HIRCodeGen {
             return "[=](" + params + ") { return " + self.gen_expr(node.second[0]) + "; }"
         }
         self.fail("Unsupported HIR expression '" + node.kind + "'")
-        return "/* NYX_HIR_EXPRESSION_ERROR */"
+        return "/* ROVE_HIR_EXPRESSION_ERROR */"
     }
 
     fn gen_expr_as(self, node: HIRNode, expected: HIRType) -> string {
@@ -612,7 +612,7 @@ impl HIRCodeGen {
         if template_line != "" { self.emit_line(template_line) }
         var return_name = "auto"
         if node.has_return_type { return_name = self.map_type(node.return_type) }
-        if node.flag_a and return_name != "auto" { return_name = "NyxTask<" + return_name + ">" }
+        if node.flag_a and return_name != "auto" { return_name = "RoveTask<" + return_name + ">" }
         self.emit_line(return_name + " " + self.function_name(node, false) + "(" +
             self.gen_params(node.first, false) + ");")
     }
@@ -624,7 +624,7 @@ impl HIRCodeGen {
         if node.has_return_type { return_name = self.map_type(node.return_type) }
         var public_return_name = return_name
         if node.flag_a and return_name != "auto" {
-            public_return_name = "NyxTask<" + return_name + ">"
+            public_return_name = "RoveTask<" + return_name + ">"
         }
         var prefix = ""
         if is_method and (len(node.first) == 0 or
@@ -657,7 +657,7 @@ impl HIRCodeGen {
                 self.indent_level = self.indent_level + 1
                 self.gen_block(node.second)
                 self.indent_level = self.indent_level - 1
-                self.emit_line("} catch (const _NyxResultPropagation& propagated) {")
+                self.emit_line("} catch (const _RoveResultPropagation& propagated) {")
                 self.indent_level = self.indent_level + 1
                 self.emit_line("return {false, " + self.map_type(node.return_type.arguments[0]) +
                     "{}, std::any_cast<" + self.map_type(node.return_type.arguments[1]) +
@@ -675,7 +675,7 @@ impl HIRCodeGen {
                 self.indent_level = self.indent_level + 1
                 self.gen_block(node.second)
                 self.indent_level = self.indent_level - 1
-                self.emit_line("} catch (const _NyxResultPropagation& propagated) {")
+                self.emit_line("} catch (const _RoveResultPropagation& propagated) {")
                 self.indent_level = self.indent_level + 1
                 self.emit_line("return {false, " + self.map_type(node.return_type.arguments[0]) +
                     "{}, std::any_cast<" + self.map_type(node.return_type.arguments[1]) +
@@ -736,7 +736,7 @@ impl HIRCodeGen {
             var return_name = "auto"
             if method.has_return_type { return_name = self.map_type(method.return_type) }
             if method.flag_a and return_name != "auto" {
-                return_name = "NyxTask<" + return_name + ">"
+                return_name = "RoveTask<" + return_name + ">"
             }
             self.emit_line("virtual " + return_name + " " + self.identifier(method.name) + "(" +
                 self.gen_params(method.first, true) + ") = 0;")
@@ -858,18 +858,18 @@ impl HIRCodeGen {
         self.emit_line("#endif")
         self.emit_line("")
         self.emit_line("template <typename T, typename E = std::string>")
-        self.emit_line("struct NyxResult {")
+        self.emit_line("struct RoveResult {")
         self.emit_line("    bool is_ok;")
         self.emit_line("    T value;")
         self.emit_line("    E error;")
         self.emit_line("    T unwrap() const { if (!is_ok) throw std::runtime_error(\"Called unwrap on an Err\"); return value; }")
         self.emit_line("};")
-        self.emit_line("struct _NyxResultPropagation { std::any error; };")
-        self.emit_line("template <typename T, typename E> T _rove_propagate(NyxResult<T, E> result) { if (!result.is_ok) throw _NyxResultPropagation{std::any(std::move(result.error))}; return std::move(result.value); }")
-        self.emit_line("template <typename T> using NyxTask = std::shared_future<T>;")
-        self.emit_line("template <typename F> auto _rove_async(F&& function) -> NyxTask<std::invoke_result_t<std::decay_t<F>>> { return std::async(std::launch::async, std::forward<F>(function)).share(); }")
-        self.emit_line("template <typename T> NyxResult<std::decay_t<T>, std::string> _rove_ok(T&& value) { return {true, std::forward<T>(value), {}}; }")
-        self.emit_line("template <typename E> NyxResult<int64_t, std::decay_t<E>> _rove_err(E&& error) { return {false, 0, std::forward<E>(error)}; }")
+        self.emit_line("struct _RoveResultPropagation { std::any error; };")
+        self.emit_line("template <typename T, typename E> T _rove_propagate(RoveResult<T, E> result) { if (!result.is_ok) throw _RoveResultPropagation{std::any(std::move(result.error))}; return std::move(result.value); }")
+        self.emit_line("template <typename T> using RoveTask = std::shared_future<T>;")
+        self.emit_line("template <typename F> auto _rove_async(F&& function) -> RoveTask<std::invoke_result_t<std::decay_t<F>>> { return std::async(std::launch::async, std::forward<F>(function)).share(); }")
+        self.emit_line("template <typename T> RoveResult<std::decay_t<T>, std::string> _rove_ok(T&& value) { return {true, std::forward<T>(value), {}}; }")
+        self.emit_line("template <typename E> RoveResult<int64_t, std::decay_t<E>> _rove_err(E&& error) { return {false, 0, std::forward<E>(error)}; }")
         self.emit_line("")
         self.emit_line("inline std::string _rove_normalize_decimal(std::string text) {")
         self.emit_line("    bool negative = !text.empty() && text.front() == '-';")
@@ -1026,7 +1026,7 @@ impl HIRCodeGen {
         self.emit_line("inline void _rove_memdump(uintptr_t address, int64_t length = 16) { auto* bytes = reinterpret_cast<const uint8_t*>(address); for (int64_t i = 0; i < length; ++i) { std::cout << std::hex << static_cast<int>(bytes[i]) << ' '; } std::cout << std::dec << '\\n'; }")
         self.emit_line("inline void _rove_delay_ms(int64_t milliseconds) { std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds)); }")
         self.emit_line("")
-        self.emit_line("class _NyxChannel {")
+        self.emit_line("class _RoveChannel {")
         self.emit_line("public:")
         self.emit_line("    template <typename T> void send(T value) { std::lock_guard<std::mutex> lock(mutex_); values_.emplace_back(std::move(value)); }")
         self.emit_line("    std::any receive() { std::lock_guard<std::mutex> lock(mutex_); if (values_.empty()) throw std::runtime_error(\"receive from empty Rove channel\"); std::any value = std::move(values_.front()); values_.pop_front(); return value; }")
@@ -1034,13 +1034,13 @@ impl HIRCodeGen {
         self.emit_line("    std::mutex mutex_;")
         self.emit_line("    std::deque<std::any> values_;")
         self.emit_line("};")
-        self.emit_line("inline _NyxChannel _rove_channel() { return {}; }")
-        self.emit_line("template <typename F> class _NyxScopeExit { public: explicit _NyxScopeExit(F callback) : callback_(std::move(callback)) {} _NyxScopeExit(const _NyxScopeExit&) = delete; _NyxScopeExit(_NyxScopeExit&& other) noexcept : callback_(std::move(other.callback_)), active_(other.active_) { other.active_ = false; } ~_NyxScopeExit() { if (active_) callback_(); } private: F callback_; bool active_ = true; };")
-        self.emit_line("template <typename F> _NyxScopeExit<F> _rove_make_scope_exit(F callback) { return _NyxScopeExit<F>(std::move(callback)); }")
-        self.emit_line("template <typename T> struct _NyxIsOptional : std::false_type {};")
-        self.emit_line("template <typename T> struct _NyxIsOptional<std::optional<T>> : std::true_type {};")
-        self.emit_line("template <typename T, typename Accessor> auto _rove_safe_member(const std::optional<T>& value, Accessor&& accessor) { using Raw = std::decay_t<decltype(accessor(*value))>; if constexpr (_NyxIsOptional<Raw>::value) { if (!value) return Raw{}; return accessor(*value); } else { if (!value) return std::optional<Raw>{}; return std::optional<Raw>{accessor(*value)}; } }")
-        self.emit_line("template <typename T, typename Accessor> auto _rove_safe_member(const T& value, Accessor&& accessor) { using Raw = std::decay_t<decltype(accessor(value))>; if constexpr (_NyxIsOptional<Raw>::value) return accessor(value); else return std::optional<Raw>{accessor(value)}; }")
+        self.emit_line("inline _RoveChannel _rove_channel() { return {}; }")
+        self.emit_line("template <typename F> class _RoveScopeExit { public: explicit _RoveScopeExit(F callback) : callback_(std::move(callback)) {} _RoveScopeExit(const _RoveScopeExit&) = delete; _RoveScopeExit(_RoveScopeExit&& other) noexcept : callback_(std::move(other.callback_)), active_(other.active_) { other.active_ = false; } ~_RoveScopeExit() { if (active_) callback_(); } private: F callback_; bool active_ = true; };")
+        self.emit_line("template <typename F> _RoveScopeExit<F> _rove_make_scope_exit(F callback) { return _RoveScopeExit<F>(std::move(callback)); }")
+        self.emit_line("template <typename T> struct _RoveIsOptional : std::false_type {};")
+        self.emit_line("template <typename T> struct _RoveIsOptional<std::optional<T>> : std::true_type {};")
+        self.emit_line("template <typename T, typename Accessor> auto _rove_safe_member(const std::optional<T>& value, Accessor&& accessor) { using Raw = std::decay_t<decltype(accessor(*value))>; if constexpr (_RoveIsOptional<Raw>::value) { if (!value) return Raw{}; return accessor(*value); } else { if (!value) return std::optional<Raw>{}; return std::optional<Raw>{accessor(*value)}; } }")
+        self.emit_line("template <typename T, typename Accessor> auto _rove_safe_member(const T& value, Accessor&& accessor) { using Raw = std::decay_t<decltype(accessor(value))>; if constexpr (_RoveIsOptional<Raw>::value) return accessor(value); else return std::optional<Raw>{accessor(value)}; }")
         self.emit_line("template <typename T, typename Fallback> T _rove_coalesce(const std::optional<T>& value, Fallback&& fallback) { return value ? *value : static_cast<T>(fallback()); }")
         self.emit_line("")
     }

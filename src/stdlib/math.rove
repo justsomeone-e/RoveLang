@@ -1,6 +1,6 @@
 // std/math.rove
-// Complete mathematical utilities for Nyx standard library
-// All functions are pure, use guard-based validation, and follow strict Nyx syntax
+// Complete mathematical utilities for Rove standard library
+// All functions are pure, use guard-based validation, and follow strict Rove syntax
 
 const SQRT_TOLERANCE: float = 0.000001;
 const SQRT_MAX_ITERATIONS: int = 100;

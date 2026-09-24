@@ -47,7 +47,7 @@ class GenericInstancePlan:
 
 
 def _concrete_name(instance: GenericInstance) -> str:
-    return f"{instance.name}__nyx_{instance.instance_id.stable_key()[-12:]}"
+    return f"{instance.name}__rove_{instance.instance_id.stable_key()[-12:]}"
 
 
 def _concrete_symbol(instance: GenericInstance) -> str:

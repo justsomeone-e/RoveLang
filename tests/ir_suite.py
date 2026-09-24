@@ -224,11 +224,11 @@ def _run_rove_authored_hir_parity() -> int:
         ),
         (
             "destructuring_temp_collision_before",
-            "let nyx_internal_destructure_2 = 5; let [left, right] = [20, 22]; fn run() -> int { return nyx_internal_destructure_2 + left + right }\n",
+            "let rove_internal_destructure_2 = 5; let [left, right] = [20, 22]; fn run() -> int { return rove_internal_destructure_2 + left + right }\n",
         ),
         (
             "destructuring_temp_collision_after",
-            "let [left, right] = [20, 22]; let nyx_internal_destructure_1 = 5; fn run() -> int { return nyx_internal_destructure_1 + left + right }\n",
+            "let [left, right] = [20, 22]; let rove_internal_destructure_1 = 5; fn run() -> int { return rove_internal_destructure_1 + left + right }\n",
         ),
         (
             "destructuring_temp_collision_nested",
@@ -370,7 +370,7 @@ def _run_rove_authored_hir_parity() -> int:
             assert actual == expected[name], (
                 f"Rove/Python HIR mismatch for {name}:\n"
                 f"Python: {expected[name]}\n"
-                f"Nyx:    {actual}"
+                f"Rove:    {actual}"
             )
     return len(corpus)
 

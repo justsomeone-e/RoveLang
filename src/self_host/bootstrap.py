@@ -229,7 +229,7 @@ fn main() {
 
     var command = cli_args[1]
     if command == "--version" or command == "version" {
-        print("rovec __NYX_VERSION__ (native self-host)")
+        print("rovec __ROVE_VERSION__ (native self-host)")
         return
     }
     if command == "--help" or command == "-h" or command == "help" {
@@ -275,7 +275,7 @@ fn main() {
 }
 
 main()
-""").replace("__NYX_VERSION__", VERSION)
+""").replace("__ROVE_VERSION__", VERSION)
 
 
 def _compile_driver(source: str) -> Tuple[int, str]:
@@ -356,7 +356,7 @@ def build_native_compiler(output_path: str) -> bool:
 
     target = Path(output_path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="nyx_native_compiler_") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="rove_native_compiler_") as temp_dir:
         cpp_path = os.path.join(temp_dir, "rovec_stage2.cpp")
         with open(cpp_path, "w", encoding="utf-8") as handle:
             handle.write(stage2_cpp)
@@ -411,9 +411,9 @@ def verify_stage2() -> bool:
     if "FunctionParam::FunctionParam() :" not in stage2_cpp:
         raise SelfHostError("Stage-2 omitted the out-of-line recursive struct constructor")
 
-    with tempfile.TemporaryDirectory(prefix="nyx_stage2_verify_") as temp_dir:
-        stage2_cpp_path = os.path.join(temp_dir, "nyx_stage2.cpp")
-        stage2_exe_path = os.path.join(temp_dir, "nyx_stage2.exe")
+    with tempfile.TemporaryDirectory(prefix="rove_stage2_verify_") as temp_dir:
+        stage2_cpp_path = os.path.join(temp_dir, "rove_stage2.cpp")
+        stage2_exe_path = os.path.join(temp_dir, "rove_stage2.exe")
         with open(stage2_cpp_path, "w", encoding="utf-8") as handle:
             handle.write(stage2_cpp)
 

@@ -811,7 +811,7 @@ class HIRLowerer:
     def _next_internal_symbol(self, purpose: str, value_type: IRType) -> _Symbol:
         while True:
             self.counter += 1
-            name = f"nyx_internal_{purpose}_{self.counter}"
+            name = f"rove_internal_{purpose}_{self.counter}"
             if name in self.reserved_names:
                 continue
             self._reserve_name(name)

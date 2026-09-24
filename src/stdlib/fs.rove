@@ -6,7 +6,7 @@
 #native include "string"
 
 #native raw {
-inline NyxResult<std::string, std::string> _rove_fs_read_to_string_result(const std::string& path) {
+inline RoveResult<std::string, std::string> _rove_fs_read_to_string_result(const std::string& path) {
     std::ifstream file(path);
     if (!file.is_open()) return {false, {}, "cannot open file for reading: " + path};
     std::stringstream buffer;
@@ -15,7 +15,7 @@ inline NyxResult<std::string, std::string> _rove_fs_read_to_string_result(const 
     return {true, buffer.str(), {}};
 }
 
-inline NyxResult<bool, std::string> _rove_fs_write_string_result(const std::string& path, const std::string& content) {
+inline RoveResult<bool, std::string> _rove_fs_write_string_result(const std::string& path, const std::string& content) {
     std::ofstream file(path);
     if (!file.is_open()) return {false, false, "cannot open file for writing: " + path};
     file << content;
@@ -23,7 +23,7 @@ inline NyxResult<bool, std::string> _rove_fs_write_string_result(const std::stri
     return {true, true, {}};
 }
 
-inline NyxResult<bool, std::string> _rove_fs_append_string_result(const std::string& path, const std::string& content) {
+inline RoveResult<bool, std::string> _rove_fs_append_string_result(const std::string& path, const std::string& content) {
     std::ofstream file(path, std::ios::app);
     if (!file.is_open()) return {false, false, "cannot open file for appending: " + path};
     file << content;
@@ -36,7 +36,7 @@ inline bool _rove_fs_exists(const std::string& path) {
     return file.good();
 }
 
-inline NyxResult<bool, std::string> _rove_fs_remove_file_result(const std::string& path) {
+inline RoveResult<bool, std::string> _rove_fs_remove_file_result(const std::string& path) {
     if (std::remove(path.c_str()) != 0) return {false, false, "cannot remove file: " + path};
     return {true, true, {}};
 }

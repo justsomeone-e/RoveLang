@@ -119,7 +119,7 @@ class Result:
         return f"{name}({self.value!r})"
 
 
-class _NyxResultPropagation(Exception):
+class _RoveResultPropagation(Exception):
     def __init__(self, error):
         super().__init__()
         self.error = error
@@ -129,7 +129,7 @@ def _rove_propagate(result):
     if not isinstance(result, Result):
         raise TypeError("Rove '?' operand is not a Result")
     if not result.is_ok:
-        raise _NyxResultPropagation(result.error)
+        raise _RoveResultPropagation(result.error)
     return result.value
 
 
@@ -148,7 +148,7 @@ def _rove_fold(items, initial, reducer):
     return accumulator
 
 
-class NyxEnumValue:
+class RoveEnumValue:
     def __init__(self, enum_name, variant_name, payload):
         self.enum_name = enum_name
         self.variant_name = variant_name
@@ -158,7 +158,7 @@ class NyxEnumValue:
         return f"{self.enum_name}::{self.variant_name}"
 
 
-class _NyxTask:
+class _RoveTask:
     """Reusable Rove Task<T> facade over one asyncio Task."""
 
     def __init__(self, coroutine):
@@ -279,13 +279,13 @@ def _rove_destructure_check(value, minimum, message):
     return value
 
 
-_NYX_I64_MASK = (1 << 64) - 1
-_NYX_I64_SIGN = 1 << 63
+_ROVE_I64_MASK = (1 << 64) - 1
+_ROVE_I64_SIGN = 1 << 63
 
 
 def _rove_i64(value):
-    bits = int(value) & _NYX_I64_MASK
-    return bits - (1 << 64) if bits & _NYX_I64_SIGN else bits
+    bits = int(value) & _ROVE_I64_MASK
+    return bits - (1 << 64) if bits & _ROVE_I64_SIGN else bits
 
 
 def _rove_i64_add(left, right):
@@ -430,7 +430,7 @@ def delay_ms(milliseconds):
     _rove_time.sleep(milliseconds / 1000.0)
 
 
-class _NyxChannel:
+class _RoveChannel:
     def __init__(self):
         self._queue = _rove_queue.Queue()
 
@@ -442,7 +442,7 @@ class _NyxChannel:
 
 
 def channel(*_type_arguments):
-    return _NyxChannel()
+    return _RoveChannel()
 
 
 def _rove_safe_getattr(value, member):
@@ -485,7 +485,7 @@ def _rove_f64_mod(left, right):
         return float("nan")
 
 
-class _NyxDeferScope:
+class _RoveDeferScope:
     def __init__(self):
         self._callbacks = []
 
@@ -889,7 +889,7 @@ class HIRPythonEmitter:
         if isinstance(node, IREnum):
             name = self._symbol(node.symbol, node.name)
             if any(member.is_variant for member in node.members):
-                lines = [f"{name} = NyxEnumValue"]
+                lines = [f"{name} = RoveEnumValue"]
                 for member in node.members:
                     if not member.is_variant:
                         raise PythonEmissionError(
@@ -901,7 +901,7 @@ class HIRPythonEmitter:
                     )
                     lines.extend((
                         f"def {constructor}({', '.join(params)}):",
-                        f"    return NyxEnumValue({node.name!r}, {member.name!r}, [{', '.join(params)}])",
+                        f"    return RoveEnumValue({node.name!r}, {member.name!r}, [{', '.join(params)}])",
                     ))
                 return lines
             lines = [f"class {name}:"]
@@ -1001,7 +1001,7 @@ class HIRPythonEmitter:
                 caught = self._temporary("propagated")
                 lines.append(f"{prefix}    try:")
                 lines.extend(self._emit_block(node.body, indent + 2))
-                lines.append(f"{prefix}    except _NyxResultPropagation as {caught}:")
+                lines.append(f"{prefix}    except _RoveResultPropagation as {caught}:")
                 lines.append(f"{prefix}        return Err({caught}.error)")
             else:
                 lines.extend(self._emit_block(node.body, indent + 1))
@@ -1013,7 +1013,7 @@ class HIRPythonEmitter:
                 lines.append(f"{prefix}    {repr(node.doc_comment)}")
             callee = f"self.{implementation_name}" if method else implementation_name
             lines.append(
-                f"{prefix}    return _NyxTask({callee}({', '.join(call_arguments)}))"
+                f"{prefix}    return _RoveTask({callee}({', '.join(call_arguments)}))"
             )
         return lines
 
@@ -1023,7 +1023,7 @@ class HIRPythonEmitter:
             return [f"{prefix}pass"]
         if any(isinstance(statement, IRDefer) for statement in statements):
             scope = self._temporary("defer")
-            lines = [f"{prefix}with _NyxDeferScope() as {scope}:"]
+            lines = [f"{prefix}with _RoveDeferScope() as {scope}:"]
             for statement in statements:
                 if isinstance(statement, IRDefer):
                     lines.append(f"{prefix}    {scope}.push(lambda: {self._expr(statement.expr)})")
@@ -1146,7 +1146,7 @@ class HIRPythonEmitter:
             if variant is not None:
                 enum_node, member = variant
                 condition = (
-                    f"isinstance({value}, NyxEnumValue) and "
+                    f"isinstance({value}, RoveEnumValue) and "
                     f"{value}.enum_name == {enum_node.name!r} and "
                     f"{value}.variant_name == {member.name!r}"
                 )
@@ -1374,7 +1374,7 @@ class HIRPythonEmitter:
             name = "_"
         else:
             digest = hashlib.sha256(symbol.encode("utf-8")).hexdigest()[:8]
-            name = f"{base}__nyx_{digest}"
+            name = f"{base}__rove_{digest}"
         self.symbol_names[symbol] = name
         return name
 

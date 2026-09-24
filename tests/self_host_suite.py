@@ -154,8 +154,8 @@ def run_self_host_suite() -> bool:
         assert "int64_t add(" in cpp
         assert "return _rove_i64_add(a, b);" in cpp
         assert "_rove_i64_add(static_cast<int64_t>(9223372036854775807), static_cast<int64_t>(1))" in cpp
-        assert "NyxTask<int64_t> compute(" in cpp
-        assert "NyxTask<int64_t> compute(int64_t value)" in cpp
+        assert "RoveTask<int64_t> compute(" in cpp
+        assert "RoveTask<int64_t> compute(int64_t value)" in cpp
         assert "_rove_user_main().get();" in cpp
         executable_path = os.path.join(temp_dir, "sample.exe")
         compiled, message = CppToolchain.compile_cpp(output_path, executable_path)
