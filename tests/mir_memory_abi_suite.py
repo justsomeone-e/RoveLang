@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.api import NyxCompiler
+from src.api import RoveCompiler
 from src.mir import (
     AggregateRValue,
     AssignStatement,
@@ -44,7 +44,7 @@ from src.mir.model import MIRField
 
 
 def _lower(path: Path):
-    checked = NyxCompiler(str(ROOT)).check_file(str(path))
+    checked = RoveCompiler(str(ROOT)).check_file(str(path))
     assert checked.success and checked.hir is not None, checked.diagnostics
     return lower_hir_to_mir(checked.hir)
 
@@ -183,7 +183,7 @@ def _projected_move_module() -> MIRModule:
 
 def run_mir_memory_abi_suite() -> bool:
     print("=" * 70)
-    print("NYX M4 MIR AGGREGATE / MEMORY / ABI CONTRACT")
+    print("ROVE M4 MIR AGGREGATE / MEMORY / ABI CONTRACT")
     print("=" * 70)
 
     aggregate_module = _lower(ROOT / "tests" / "fixtures" / "mir" / "m4_aggregates.rove")

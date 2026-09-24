@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.api import NyxCompiler
+from src.api import RoveCompiler
 from src.mir import MIRInterpreter, MIRTrap, lower_hir_to_mir, verify_mir
 
 
@@ -16,7 +16,7 @@ FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m2_scalar.rove"
 
 
 def _checked(source: str, filename: str = "<m2>"):
-    result = NyxCompiler(str(ROOT)).check_source(source, filename=filename, target="cpp")
+    result = RoveCompiler(str(ROOT)).check_source(source, filename=filename, target="cpp")
     assert result.success and result.hir is not None, result.diagnostics
     return result.hir
 
@@ -37,7 +37,7 @@ def _run_cli_target(target: str) -> str:
 
 def run_mir_lowering_suite() -> bool:
     print("=" * 70)
-    print("NYX M2 MIR SCALAR / CONTROL-FLOW LOWERING")
+    print("ROVE M2 MIR SCALAR / CONTROL-FLOW LOWERING")
     print("=" * 70)
 
     source = FIXTURE.read_text(encoding="utf-8")

@@ -316,6 +316,11 @@ std::string to_string(const Value& value) {
     rove_print_value(stream, value);
     return stream.str();
 }
+inline void print_one(bool& first, double value) {
+    if (!first) std::cout << ' ';
+    first = false;
+    std::cout << to_string(value);
+}
 template <typename Value>
 void print_one(bool& first, const Value& value) {
     if (!first) std::cout << ' ';

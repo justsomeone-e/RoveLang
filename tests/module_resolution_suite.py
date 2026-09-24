@@ -21,12 +21,12 @@ from src.ir.types import INT, array_of
 
 def run_module_suite():
     print("=" * 70)
-    print("⚡ NYX MODULE SYSTEM & RESOLUTION HARNESS")
+    print("⚡ ROVE MODULE SYSTEM & RESOLUTION HARNESS")
     print("=" * 70)
 
     # Disable exit on error so we can test negative compiler diagnostics
     DiagnosticEmitter.EXIT_ON_ERROR = False
-    temp_dir = tempfile.mkdtemp(prefix="nyx_mod_test_")
+    temp_dir = tempfile.mkdtemp(prefix="rove_mod_test_")
     passed = 0
     total = 4
 

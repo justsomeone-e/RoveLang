@@ -25,7 +25,7 @@ from src.core.backend_capabilities import (
     resolve_backend,
     stdlib_module_from_import,
 )
-from src.toolchain.manifest import NyxLock
+from src.toolchain.manifest import RoveLock
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,7 +84,7 @@ class ModuleLoader:
             )
             if lock_path:
                 roots: Dict[str, str] = {}
-                for name, item in NyxLock.read_local_dependencies(lock_path).items():
+                for name, item in RoveLock.read_local_dependencies(lock_path).items():
                     path = item.get("path")
                     if path:
                         roots[name] = os.path.realpath(os.path.join(current, path))
@@ -413,10 +413,10 @@ class ModuleLoader:
             except ValueError:
                 continue
             relative = os.path.relpath(resolved, root).replace("\\", "/")
-            if relative.endswith(".rove"):
-                relative = relative[:-4]
+            relative = relative.removesuffix(".rove").removesuffix(".nyx")
             return ModuleId(package, relative)
-        return ModuleId("external", os.path.basename(resolved).removesuffix(".rove"))
+        name = os.path.basename(resolved).removesuffix(".rove").removesuffix(".nyx")
+        return ModuleId("external", name)
 
     def _register_module(self, filepath: str, source: str, program: ProgramNode) -> None:
         if not self.track_identities:

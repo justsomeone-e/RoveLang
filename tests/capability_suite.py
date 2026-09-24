@@ -15,13 +15,15 @@ if ROOT_DIR not in sys.path:
 from src.core.backend_capabilities import (
     BACKENDS,
     CAPABILITY_SCHEMA_VERSION,
+    get_stdlib_contract,
     normalize_backend_name,
     resolve_backend,
+    stdlib_module_from_import,
     stdlib_modules_for_target,
 )
 from src.core.diagnostics import DiagnosticEmitter, DiagnosticError
 from src.core.module_loader import ModuleLoader
-from src.api import NyxCompiler
+from src.api import RoveCompiler
 
 
 def _write(path: str, source: str) -> None:
@@ -31,7 +33,7 @@ def _write(path: str, source: str) -> None:
 
 def run_capability_suite() -> bool:
     print("=" * 70)
-    print("NYX BACKEND / STDLIB CAPABILITY CONTRACT")
+    print("ROVE BACKEND / STDLIB CAPABILITY CONTRACT")
     print("=" * 70)
 
     assert normalize_backend_name("python") == "python"
@@ -57,6 +59,10 @@ def run_capability_suite() -> bool:
     } <= BACKENDS["wasm"].features
     assert "web" in stdlib_modules_for_target("wasm")
     assert "web" not in stdlib_modules_for_target("cpp")
+    assert get_stdlib_contract("web.rove") == get_stdlib_contract("web")
+    assert get_stdlib_contract("web.nyx") == get_stdlib_contract("web")
+    assert stdlib_module_from_import("std/web.rove") == "web"
+    assert stdlib_module_from_import("std/web.nyx") == "web"
     assert "http" in stdlib_modules_for_target("cpp")
     assert "http" not in stdlib_modules_for_target("js")
 
@@ -86,7 +92,7 @@ def run_capability_suite() -> bool:
         "fn run() -> Result<int, string> { let value = read()?; return Ok(value) }\n"
     )
     for target in ("asm", "wasm", "react"):
-        rejected = NyxCompiler(ROOT_DIR).compile_source(
+        rejected = RoveCompiler(ROOT_DIR).compile_source(
             propagated,
             target=target,
             filename=f"capability-{target}.rove",
@@ -98,7 +104,7 @@ def run_capability_suite() -> bool:
     previous_exit_mode = DiagnosticEmitter.EXIT_ON_ERROR
     DiagnosticEmitter.EXIT_ON_ERROR = False
     try:
-        with tempfile.TemporaryDirectory(prefix="nyx_capability_") as temp_dir:
+        with tempfile.TemporaryDirectory(prefix="rove_capability_") as temp_dir:
             js_source = os.path.join(temp_dir, "js_ok.rove")
             _write(js_source, '#target js\nimport "std/fs"\nfn main() {}\n')
             js_ast = ModuleLoader(base_dir=temp_dir).load_program(js_source)
@@ -108,7 +114,7 @@ def run_capability_suite() -> bool:
             _write(llvm_source, '#target llvm\nfn answer() -> int { return 42 }\n')
             llvm_ast = ModuleLoader(base_dir=temp_dir).load_program(llvm_source)
             assert llvm_ast.target == "llvm"
-            llvm_result = NyxCompiler(temp_dir).compile_file(llvm_source)
+            llvm_result = RoveCompiler(temp_dir).compile_file(llvm_source)
             assert llvm_result.success, llvm_result.diagnostics
             assert llvm_result.target == "llvm"
             assert llvm_result.artifact is not None

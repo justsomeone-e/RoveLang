@@ -167,7 +167,7 @@ def run_self_host_suite() -> bool:
         )
 
     print(
-        "[PASS] Nyx-authored frontend, native stage-2 bootstrap, reported examples, "
+        "[PASS] Rove-authored frontend, native stage-2 bootstrap, reported examples, "
         "and output reproducibility verified"
     )
     return True

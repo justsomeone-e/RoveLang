@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "target": "cpp",
+  "sources": [
+    "tests/01_arithmetic.rove",
+    "tests/fixtures/mir/m2_scalar.rove",
+    "tests/fixtures/mir/m3_control.rove",
+    "tests/fixtures/mir/m4_aggregates.rove"
+  ]
+}

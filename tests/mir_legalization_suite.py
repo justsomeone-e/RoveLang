@@ -657,10 +657,10 @@ def run_mir_legalization_suite() -> bool:
     _assert_rust_runtime(emit_legalized_rust(mixed_numeric), expected_mixed_numeric)
 
     floating = _lower_source(
-        "fn main() { print(1.0 / 0.0, 0.0 / 0.0, -7.5 % 2.0) }\n",
+        "fn main() { print(1.0 / 0.0, 0.0 / 0.0, -7.5 % 2.0, -0.0) }\n",
         "m5-floating.rove",
     )
-    expected_floating = "inf nan -1.5\n"
+    expected_floating = "inf nan -1.5 0\n"
     assert "\n".join(MIRInterpreter(floating).run().output) + "\n" == expected_floating
     assert _compile_and_run_cpp(emit_legalized_cpp(floating)) == expected_floating
     assert _compile_and_run_llvm(emit_legalized_llvm(floating)) == expected_floating

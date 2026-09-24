@@ -86,9 +86,8 @@ from .model import (
     UseRValue,
 )
 from .types import from_hir_type
-from .effects import infer_module_effects
 from .coroutines import elaborate_coroutines
-from .verifier import verify_mir
+from .verifier import _verify_and_infer_mir
 
 
 class MIRLoweringError(ValueError):
@@ -176,9 +175,7 @@ def lower_hir_skeleton(hir: IRModule) -> MIRModule:
         functions.append(builder.finish())
 
     module = elaborate_coroutines(MIRModule(hir.source_name, hir.target, tuple(functions)))
-    module = infer_module_effects(module)
-    verify_mir(module)
-    return module
+    return _verify_and_infer_mir(module)
 
 
 class _FunctionLowerer:
@@ -1493,6 +1490,4 @@ def lower_hir_to_mir(hir: IRModule) -> MIRModule:
         tuple(functions),
         type_definitions,
     ))
-    module = infer_module_effects(module)
-    verify_mir(module)
-    return module
+    return _verify_and_infer_mir(module)

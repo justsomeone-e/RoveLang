@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.api import NyxCompiler
+from src.api import RoveCompiler
 from src.codegen.cpp_toolchain import CppToolchain
 from src.cli import cmd_bundle
 from tests.fallible_stdlib_suite import _run
@@ -66,7 +66,7 @@ def static_integrity():
 
 def run_docs_site_suite():
     static_integrity()
-    compiler = NyxCompiler(str(ROOT / "examples/metrics"))
+    compiler = RoveCompiler(str(ROOT / "examples/metrics"))
     source = (ROOT / "examples/metrics/metrics.rove").read_text()
     program = source + '''
 fn checked(flag: bool) -> Result<int, string> {
@@ -81,7 +81,7 @@ fn main() {
     match checked(false) { Ok(value) => print(value * 0.5), Err(error) => print(error + " input") }
 }
 '''
-    with tempfile.TemporaryDirectory(prefix="nyx_docs_") as temporary:
+    with tempfile.TemporaryDirectory(prefix="rove_docs_") as temporary:
         directory = Path(temporary)
         for target in ("cpp", "js", "python"):
             compiled = compiler.compile_source(program, target=target)
@@ -117,8 +117,8 @@ fn main() {
         runner = directory / "verify.mjs"
         runner.write_text('''
 import assert from 'node:assert/strict';
-import { createNyxModule } from './metrics.mjs';
-const api = await createNyxModule();
+import { createRoveModule } from './metrics.mjs';
+const api = await createRoveModule();
 assert.equal(api.average([42, 95, 380]), 517 / 3);
 assert.equal(api.minimum([42, 95, 380]), 42);
 assert.equal(api.maximum([42, 95, 380]), 380);

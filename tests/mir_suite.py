@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.api import NyxCompiler
+from src.api import RoveCompiler
 from src.mir import (
     AssignStatement,
     ConstOperand,
@@ -19,6 +19,7 @@ from src.mir import (
     MIRLocal,
     MIRLoweringError,
     MIRModule,
+    MIRPassContract,
     MIRPassManager,
     MIRSpan,
     MIRType,
@@ -62,9 +63,22 @@ class _IdentityPass:
         return module
 
 
+class _PreservingIdentityPass:
+    name = "preserving-identity"
+    contract = MIRPassContract(
+        required_analyses=("effects",),
+        preserved_analyses=("effects",),
+        invalidated_analyses=(),
+        preserved_invariants=("verified_mir",),
+    )
+
+    def run(self, module: MIRModule) -> MIRModule:
+        return module
+
+
 def run_mir_suite() -> bool:
     print("=" * 70)
-    print("NYX M1 EXPERIMENTAL MIR CONTRACT")
+    print("ROVE M1 EXPERIMENTAL MIR CONTRACT")
     print("=" * 70)
 
     module = _valid_module()
@@ -85,6 +99,23 @@ def run_mir_suite() -> bool:
     assert pass_result.module == module and len(pass_result.records) == 1
     assert not pass_result.records[0].changed
     assert pass_result.records[0].before_fingerprint == pass_result.records[0].after_fingerprint
+    assert pass_result.records[0].invalidated_analyses == ("*",)
+
+    preserving = MIRPassManager((_PreservingIdentityPass(),)).run(module)
+    preserving_record = preserving.records[0]
+    assert preserving_record.required_analyses == ("effects",)
+    assert preserving_record.preserved_analyses == ("effects",)
+    assert preserving_record.invalidated_analyses == ()
+    assert preserving_record.preserved_invariants == ("verified_mir",)
+
+    try:
+        MIRPassContract(
+            preserved_analyses=("effects",),
+            invalidated_analyses=("effects",),
+        )
+        raise AssertionError("MIR pass contract accepted contradictory analysis policy")
+    except ValueError as error:
+        assert "preserves and invalidates" in str(error)
 
     function = module.functions[0]
     bad_target = replace(
@@ -127,7 +158,7 @@ def run_mir_suite() -> bool:
     )
     assert "MIR0100" in {issue.code for issue in collect_mir_issues(duplicate_local)}
 
-    effect_source = NyxCompiler(str(ROOT)).check_source(
+    effect_source = RoveCompiler(str(ROOT)).check_source(
         "fn pure_value() -> int { return 1 }\n"
         "fn allocate() -> int { var values = [1, 2]; return len(values) }\n"
         "struct Owned { values: Array<int> }\n"
@@ -160,7 +191,7 @@ def run_mir_suite() -> bool:
     )
     assert "MIR0111" in {issue.code for issue in collect_mir_issues(bad_effects)}
 
-    empty = NyxCompiler(str(ROOT)).check_source(
+    empty = RoveCompiler(str(ROOT)).check_source(
         "fn empty() {}\n",
         filename="empty.rove",
         target="cpp",
@@ -172,7 +203,7 @@ def run_mir_suite() -> bool:
         skeleton.functions[0].span
     )
 
-    executable = NyxCompiler(str(ROOT)).check_source(
+    executable = RoveCompiler(str(ROOT)).check_source(
         'fn main() { print("M2") }\n',
         filename="m2-required.rove",
         target="cpp",
@@ -193,7 +224,7 @@ def run_mir_suite() -> bool:
     except ValueError as error:
         assert "exactly one terminator" in str(error)
 
-    with tempfile.TemporaryDirectory(prefix="nyx_mir_cli_") as directory:
+    with tempfile.TemporaryDirectory(prefix="rove_mir_cli_") as directory:
         source_path = Path(directory, "empty.rove")
         json_path = Path(directory, "empty.mir.json")
         source_path.write_text("fn empty() {}\n", encoding="utf-8")

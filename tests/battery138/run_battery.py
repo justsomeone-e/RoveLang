@@ -1,12 +1,12 @@
 import sys
 import os
-import io
+import subprocess
 
 BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if BASE not in sys.path:
     sys.path.insert(0, BASE)
 
-from src.compiler import Compiler
+from src.api import RoveCompiler
 
 # =========================================================================
 # 138 EXHAUSTIVE EDGE-CASE TEST SUITE
@@ -183,66 +183,76 @@ add_test("unsafe_07_reverse_arrow", "#target cpp\n8700 -> freq\nprint(\"Freq:\",
 add_test("unsafe_08_dollar_var", "#target cpp\n$gold = 5000\nprint(\"Gold:\", $gold)", "Gold: 5000")
 
 def run_all_138():
-    test_dir = os.path.join(BASE, "tests", "battery138")
-    os.makedirs(test_dir, exist_ok=True)
-    
     total = len(test_cases)
     passed = 0
     failed = 0
     failures = []
-    
+    compiler = RoveCompiler(BASE)
+
     print("=" * 70)
-    print(f"⚡ NYX 138-POINT EXHAUSTIVE EDGE-CASE TEST HARNESS")
+    print("⚡ ROVE 138-POINT EXHAUSTIVE EDGE-CASE TEST HARNESS")
     print("=" * 70)
-    
+
     for idx, (name, code, expected) in enumerate(test_cases, 1):
-        filepath = os.path.join(test_dir, f"{name}.rove")
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(code)
-            
-        old_stdout = sys.stdout
-        sys.stdout = buffer = io.StringIO()
-        
+        filename = os.path.join(BASE, "tests", "battery138", f"{name}.rove")
         try:
-            compiler = Compiler(filepath)
-            compiler.compile(run_immediately=True)
-            sys.stdout = old_stdout
-            out = buffer.getvalue()
-            
-            # Extract actual program output from between markers
-            if "[+] Program Output:" in out and "=" * 50 in out:
-                prog_out = out.split("[+] Program Output:")[1].split("=" * 50)[0].strip()
-            else:
-                prog_out = out.strip()
-                
+            result = compiler.compile_source(
+                code,
+                filename=filename,
+                target="python",
+            )
+            if not result.success or result.artifact is None:
+                details = "\n".join(item.rendered for item in result.diagnostics)
+                raise RuntimeError(details or "canonical compiler API produced no artifact")
+
+            runtime = subprocess.run(
+                [sys.executable, "-c", result.artifact.content],
+                cwd=BASE,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=10,
+            )
+            if runtime.returncode != 0:
+                raise RuntimeError(runtime.stderr or runtime.stdout)
+
+            prog_out = runtime.stdout.replace("\r\n", "\n").strip()
             if expected is not None:
-                # Check output match
-                if prog_out.strip() == expected.strip() or expected.strip() in prog_out.strip():
+                expected_text = expected.replace("\r\n", "\n").strip()
+                if prog_out == expected_text or expected_text in prog_out:
                     print(f"  [{idx:3d}/{total}] [PASS] {name}")
                     passed += 1
                 else:
-                    print(f"  [{idx:3d}/{total}] [FAIL] {name} -> Expected:\n{expected}\nGot:\n{prog_out}")
+                    print(
+                        f"  [{idx:3d}/{total}] [FAIL] {name} -> "
+                        f"Expected:\n{expected_text}\nGot:\n{prog_out}"
+                    )
                     failed += 1
-                    failures.append((name, f"Expected: {expected}, Got: {prog_out}"))
+                    failures.append(
+                        (name, f"Expected: {expected_text}, Got: {prog_out}")
+                    )
             else:
                 print(f"  [{idx:3d}/{total}] [PASS] {name}")
                 passed += 1
-                
-        except (Exception, SystemExit) as e:
-            sys.stdout = old_stdout
-            print(f"  [{idx:3d}/{total}] [FAIL] {name} -> Error: {e}")
+
+        except (Exception, SystemExit) as error:
+            print(f"  [{idx:3d}/{total}] [FAIL] {name} -> Error: {error}")
             failed += 1
-            failures.append((name, str(e)))
-            
+            failures.append((name, str(error)))
+
     print("=" * 70)
-    print(f"🏁 FINAL HARNESS RESULTS: {passed}/{total} PASSED ({passed*100//total}%) | {failed} FAILED")
+    print(
+        f"🏁 FINAL HARNESS RESULTS: {passed}/{total} PASSED "
+        f"({passed*100//total}%) | {failed} FAILED"
+    )
     print("=" * 70)
-    
+
     if failures:
         print("\nFailed Tests Summary:")
-        for name, err in failures:
-            print(f"  - {name}: {err}")
-            
+        for name, error in failures:
+            print(f"  - {name}: {error}")
+
     return failed == 0
 
 if __name__ == "__main__":

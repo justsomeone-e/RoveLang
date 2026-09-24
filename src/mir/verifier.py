@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass, replace
 from typing import Iterable
 
@@ -75,10 +76,15 @@ class MIRVerifier:
             for definition in getattr(module, "type_definitions", ())
         }
         self._ownership_issue_keys: set[tuple[str, int, int, str]] = set()
+        self.inferred_module = (
+            infer_module_effects(module)
+            if isinstance(module, MIRModule)
+            else None
+        )
         self.inferred_effects = {
             function.symbol: function.effects
-            for function in infer_module_effects(module).functions
-        } if isinstance(module, MIRModule) else {}
+            for function in self.inferred_module.functions
+        } if self.inferred_module is not None else {}
 
     def collect(self) -> tuple[MIRVerificationIssue, ...]:
         if not isinstance(self.module, MIRModule):
@@ -442,9 +448,11 @@ class MIRVerifier:
         for parameter in function.parameters:
             initial[parameter] = "init"
         incoming: dict[int, tuple[str, ...]] = {0: tuple(initial)}
-        worklist = [0]
+        worklist = deque([0])
+        in_worklist = {0}
         while worklist:
-            block_id = worklist.pop(0)
+            block_id = worklist.popleft()
+            in_worklist.remove(block_id)
             state = list(incoming[block_id])
             edges = self._ownership_transfer(function.blocks[block_id], state, report=False)
             for target, edge_state in edges:
@@ -455,8 +463,9 @@ class MIRVerifier:
                 )
                 if previous != merged:
                     incoming[target] = merged
-                    if target not in worklist:
+                    if target not in in_worklist:
                         worklist.append(target)
+                        in_worklist.add(target)
 
         for block in function.blocks:
             state = incoming.get(block.id)
@@ -708,6 +717,17 @@ class MIRVerifier:
 
 def collect_mir_issues(module: MIRModule) -> tuple[MIRVerificationIssue, ...]:
     return MIRVerifier(module).collect()
+
+
+def _verify_and_infer_mir(module: MIRModule) -> MIRModule:
+    """Verify MIR and return the effect-annotated module from the same analysis."""
+    verifier = MIRVerifier(module)
+    issues = verifier.collect()
+    if issues:
+        raise MIRVerificationError(issues)
+    if verifier.inferred_module is None:
+        raise TypeError("MIR verification requires a MIRModule")
+    return verifier.inferred_module
 
 
 def verify_mir(module: MIRModule) -> MIRModule:
