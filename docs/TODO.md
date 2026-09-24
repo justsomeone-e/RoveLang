@@ -1,6 +1,6 @@
-# Nyx Compiler Roadmap
+# Rove Compiler Roadmap
 
-Bu dosya Nyx'in tamamlanan v4/v4.5 çalışmalarını ve v5 sonrası açık mühendislik
+Bu dosya Rove'in tamamlanan v4/v4.5 çalışmalarını ve v5 sonrası açık mühendislik
 işlerini izler. `v4.0.0 Nirvana` ve `v4.5.0 Ivory` yayımlandı. Güncel kararlı
 sürüm `v5.0.0 Daydream`dır; C++20, JavaScript ve Python kararlı kalırken C17 ve
 doğrudan LLVM IR backendleri deneysel capability sözleşmeleriyle sunulur.
@@ -23,9 +23,9 @@ doğrudan LLVM IR backendleri deneysel capability sözleşmeleriyle sunulur.
 
 ## Compiler çekirdeği
 
-- [x] `nyx build/run` için host-native varsayılanını tamamla; kaynak dosyada
+- [x] `rove build/run` için host-native varsayılanını tamamla; kaynak dosyada
   `#target` zorunluluğunu kaldır ve CLI/manifest override sırasını dondur.
-- [x] Python ve Nyx frontendlerinin lexer, parser, typechecker ve canonical HIR
+- [x] Python ve Rove frontendlerinin lexer, parser, typechecker ve canonical HIR
   parity kapısını her syntax değişikliğinde zorunlu tut.
 - [ ] HIR verifier hata kodlarını ve source-span davranışını public sözleşme yap.
 - [ ] C++ emitter'ın yalnız kullanılan runtime parçalarını üretmesini sağla;
@@ -37,11 +37,11 @@ doğrudan LLVM IR backendleri deneysel capability sözleşmeleriyle sunulur.
 - [ ] Compiler crash'lerini structured diagnostic'e dönüştüren negatif corpusu
   genişlet.
 
-## Kullanılabilir syntax — Nim/Haxe esintili, Nyx semantiği
+## Kullanılabilir syntax — Nim/Haxe esintili, Rove semantiği
 
 Yeni keyword yalnız yeni ve test edilebilir bir semantik getiriyorsa eklenir.
 Alias veya completion listesini şişiren eş anlamlı keyword eklenmez. Her madde
-Python parser + Nyx parser + typechecker + HIR + backend parity gerektirir.
+Python parser + Rove parser + typechecker + HIR + backend parity gerektirir.
 
 - [x] Expression-bodied function: `fn square(x: int) -> int = x * x`.
 - [x] Değer üreten exhaustive `if` ve literal `match` ifadeleri.
@@ -53,7 +53,7 @@ Python parser + Nyx parser + typechecker + HIR + backend parity gerektirir.
   `python`; operand, enclosing return ve error-type diagnostics dahil).
 - [x] Array ve struct destructuring declarations (`let [a, b] = values`,
   `let Point(x, y) = point`; tek değerlendirme, bounds/arity diagnostics ve
-  Python/Nyx HIR parity dahil).
+  Python/Rove HIR parity dahil).
 - [ ] Birinci sınıf tuple tipiyle tuple destructuring sözleşmesi.
 - [ ] Slice/rest patterns: `[head, ..tail]`.
 - [ ] Tail-expression block'ları; gereksiz `return` kullanımını azalt.
@@ -98,7 +98,7 @@ Python parser + Nyx parser + typechecker + HIR + backend parity gerektirir.
 
 ## v4.0.0-rc.2 Bodhi — Web/WASM ekosistemi
 
-- [x] `nyx build --target wasm` ile `.wat`, `.wasm`, `.mjs` ve `.d.ts`
+- [x] `rove build --target wasm` ile `.wat`, `.wasm`, `.mjs` ve `.d.ts`
   artifactlarını tek build dizininde üret.
 - [x] WASM iç fonksiyon çağrılarında UTF-8 literal ve string parametrelerini
   internal `ptr, len` ABI üzerinden geçir; string dönüş zincirini koru.
@@ -108,7 +108,7 @@ Python parser + Nyx parser + typechecker + HIR + backend parity gerektirir.
 - [x] Typed `std/web` DOM handle, attribute, event, Canvas ve lifecycle API'sini ekle.
 - [x] npm-ready `package.json`, conditional `exports`, `types`, ESM ve React 19,
   Vue 3, Svelte 5 adaptör çıktılarını üret.
-- [x] Nyx Pong'un tarayıcı sürümünü `std/web` üzerinden, elle yazılmış uygulama
+- [x] Rove Pong'un tarayıcı sürümünü `std/web` üzerinden, elle yazılmış uygulama
   JavaScript'i olmadan çalıştır.
 - [ ] JSX/HTML ve reactivity sözdizimini ayrı RFC olarak değerlendir; host ABI
   kararlı olmadan grammar'a ekleme.
@@ -123,14 +123,14 @@ yerine derleme tanısı üretir.
 - [x] Rust HIR emitter'da postfix `?` hata yayılımını etkinleştir; erken dönüşte
   aktif `defer` ifadelerini LIFO sırada çalıştır ve gerçek `rustc` testi ekle.
 - [x] JS signed 64-bit `int` sözleşmesinin `BigInt.asIntN(64)` ile uygulandığını
-  ve C++/Python ile exact runtime parity verdiğini koru; `nyx build --target js
+  ve C++/Python ile exact runtime parity verdiğini koru; `rove build --target js
   --esm` ile import-safe `.mjs` ve explicit function exportları üret.
 - [x] WASM `Array<int/float>` ABI'sini capability manifestinde açıkça yayınla
   (binary lowering ve JS typed-array marshalling RC2'de zaten mevcuttu).
 - [x] WASM için düz `int`, `float`, `bool` alanlı struct parametre ABI'si,
   deterministik alignment/offset, JS object marshalling ve TypeScript interface
   üretimini ekle.
-- [x] `nyx bundle/build --target wasm --wasi` executable profiline WASI preview1
+- [x] `rove bundle/build --target wasm --wasi` executable profiline WASI preview1
   `fd_write`, `_start` ve string stdout desteği ekle.
 - [x] React/Vue/Svelte typed adapterların tek kaynak olarak üretilen WASM/ESM
   wrapper üzerinde kaldığını koru (RC2'de tamamlandı).
@@ -189,11 +189,11 @@ güncel test kaydı: [v4.5/v5 hazırlık kaydı](internals/V4_5_V5_PREPARATION.m
   logical bounds ve taşmayan descriptor aralık kontrolüyle lower et.
 - [x] WASM `and/or` kısa devre değerlendirmesini bounds guard regresyonlarıyla düzelt.
 - [x] C17/LLVM scalar pilot kapsamını ve kaynak/HIR/ABI/lock geçiş tasarımını kaydet.
-- [x] `45-IR-2`: HIR node/type/span/capability envanterini ve negatif tanı sözleşmesini tamamla (string/Iterator indexing type loss düzeltildi, verifier generic ve primitive kuralı sıkılaştırıldı, Python/Nyx canonical byte parity korundu).
+- [x] `45-IR-2`: HIR node/type/span/capability envanterini ve negatif tanı sözleşmesini tamamla (string/Iterator indexing type loss düzeltildi, verifier generic ve primitive kuralı sıkılaştırıldı, Python/Rove canonical byte parity korundu).
 - [x] `50-C` / `50-LLVM`: tasarım kaydını gerçek toolchain ile doğrulanan experimental emitter'lara dönüştür (`50-C` C17 scalar emitter ve `50-LLVM` Clang LLVM IR scalar emitter tamamlandı ve test edildi).
 
 - [x] Sonuç odaklı docs sitesi: gerçek WASM analiz uygulaması, kaynak/ABI çıktıları ve ayrı öğrenme önizlemesi.
-- [x] Aynı Nyx hesap modülünü native CLI, JS ve Python hostlarında çalıştır.
+- [x] Aynı Rove hesap modülünü native CLI, JS ve Python hostlarında çalıştır.
 - [x] Python stage-0 için sabit corpus, aşama süreleri ve bellek ölçüm aracı ekle.
 - [x] LSP tanılarında düzeltme önerilerini koru ve UTF-16 sütunlarını düzelt.
 

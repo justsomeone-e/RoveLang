@@ -1,14 +1,14 @@
-﻿---
-title: Compiling a Systems Language Directly to LLVM IR Without C++ Hops: The Nyx Architecture
+---
+title: Compiling a Systems Language Directly to LLVM IR Without C++ Hops: The Rove Architecture
 published: true
 tags: compilers, llvm, webassembly, programming
-canonical_url: https://github.com/justsomeone-e/nyx
-cover_image: https://raw.githubusercontent.com/justsomeone-e/nyx/main/docs/assets/terminal_animated.svg
+canonical_url: https://github.com/justsomeone-e/rove
+cover_image: https://raw.githubusercontent.com/justsomeone-e/rove/main/docs/assets/terminal_animated.svg
 ---
 
 When building a new programming language, transpiling to C++ is the most tempting first shortcut. You inherit an optimizing compiler, an existing runtime, and portable platform targets.
 
-Nyx started with that approach. But as our target matrix grew to include **WebAssembly (WASM ABI v1), Node.js, Python, and native binaries**, we ran headfirst into a fundamental problem that haunts multi-target compilers: **Semantic Drift**.
+Rove started with that approach. But as our target matrix grew to include **WebAssembly (WASM ABI v1), Node.js, Python, and native binaries**, we ran headfirst into a fundamental problem that haunts multi-target compilers: **Semantic Drift**.
 
 Here is how we solved it with a canonical **Typed HIR v1**, and how our newest release candidate (**v5.0.0-rc.1 "Daydream"**) bypasses the C++ intermediate entirely to emit native LLVM IR directly.
 
@@ -20,7 +20,7 @@ In typical hobbyist and early-stage compilers, the frontend Abstract Syntax Tree
 
 ```text
                ┌─> C++ Backend  --> clang++
-Nyx AST (v3) ──┼─> JS Backend   --> node
+Rove AST (v3) ──┼─> JS Backend   --> node
                └─> WASM Backend --> wat2wasm
 ```
 
@@ -35,10 +35,10 @@ Without a shared intermediate representation, you end up writing ad-hoc workarou
 
 ### The Fix: Typed HIR v1 as the Single Source of Truth
 
-To guarantee identical behavior across platforms, we redesigned Nyx around **Typed HIR v1** (Hierarchical Intermediate Representation):
+To guarantee identical behavior across platforms, we redesigned Rove around **Typed HIR v1** (Hierarchical Intermediate Representation):
 
 ```text
-Nyx Source
+Rove Source
    │
    ▼
 Parser & Semantic Analyzer (Type Inference & Symbol Resolution)
@@ -60,10 +60,10 @@ By enforcing that **no backend may consume the raw AST**, Typed HIR becomes the 
 
 ### Bypassing C++: Direct LLVM IR Emission
 
-With `v5.0.0-rc.1`, we introduced a direct textual LLVM IR emitter (`src/codegen/llvm_scalar.py`). Instead of invoking `clang++` on an intermediate `.cpp` file, Nyx generates standard `.ll` assembly text:
+With `v5.0.0-rc.1`, we introduced a direct textual LLVM IR emitter (`src/codegen/llvm_scalar.py`). Instead of invoking `clang++` on an intermediate `.cpp` file, Rove generates standard `.ll` assembly text:
 
 ```bash
-nyx build -t llvm app.nyx --output build/
+rove build -t llvm app.rove --output build/
 ```
 
 This produces `build/llvm/app.ll`, which is fed straight to the host `clang` driver to produce an optimized native executable.
@@ -71,7 +71,7 @@ This produces `build/llvm/app.ll`, which is fed straight to the host `clang` dri
 #### 1. Preventing Poison & UB in Signed Arithmetic
 In LLVM IR, the `add nsw` instruction treats signed overflow as poison. If the optimizer detects overflow, it can legally discard bounds checks or miscompile loops.
 
-In Nyx, integers have guaranteed 64-bit wrapping semantics:
+In Rove, integers have guaranteed 64-bit wrapping semantics:
 ```llvm
 ; Safe signed addition without poison:
 %res = add i64 %a, %b
@@ -90,9 +90,9 @@ br i1 %is_overflow, label %div_overflow_wrap, label %div_safe
 ```
 
 #### 2. Value-Semantic Aggregates & Stack Arrays
-In systems programming, stack allocation beats heap churn every time. In Nyx v5, structs and fixed-size arrays are stack-owned and value-copied across call boundaries:
+In systems programming, stack allocation beats heap churn every time. In Rove v5, structs and fixed-size arrays are stack-owned and value-copied across call boundaries:
 
-```nyx
+```rove
 struct Point {
     x: int,
     y: int
@@ -120,27 +120,27 @@ define i64 @offset(%struct.Point* byval(%struct.Point) align 8 %p) {
 ### Reproducibility: The 3-Stage Bootstrap Gate
 
 One of our strictest release requirements is **byte-identical self-hosting**:
-* **Stage 1:** Python stage-0 compiler compiles `compiler/main.nyx` to a native binary (`nyxc_stage1`).
-* **Stage 2:** `nyxc_stage1` compiles `compiler/main.nyx` to produce `nyxc_stage2`.
-* **Stage 3:** `nyxc_stage2` compiles `compiler/main.nyx` to produce `nyxc_stage3`.
+* **Stage 1:** Python stage-0 compiler compiles `compiler/main.rove` to a native binary (`rovec_stage1`).
+* **Stage 2:** `rovec_stage1` compiles `compiler/main.rove` to produce `rovec_stage2`.
+* **Stage 3:** `rovec_stage2` compiles `compiler/main.rove` to produce `rovec_stage3`.
 
-If `SHA256(nyxc_stage2) != SHA256(nyxc_stage3)`, the build is rejected immediately. Determinism is non-negotiable.
+If `SHA256(rovec_stage2) != SHA256(rovec_stage3)`, the build is rejected immediately. Determinism is non-negotiable.
 
 ---
 
 ### Try It Yourself
 
-Nyx is free, open source, and available under the Apache 2.0 license:
+Rove is free, open source, and available under the Apache 2.0 license:
 
-* **Interactive Browser Playground & Tour:** [justsomeone-e.github.io/nyx](https://justsomeone-e.github.io/nyx/)
-* **GitHub Repository:** [github.com/justsomeone-e/nyx](https://github.com/justsomeone-e/nyx)
+* **Interactive Browser Playground & Tour:** [justsomeone-e.github.io/rove](https://justsomeone-e.github.io/rove/)
+* **GitHub Repository:** [github.com/justsomeone-e/rove](https://github.com/justsomeone-e/rove)
 * **Quick Install (Linux/macOS):**
   ```bash
-  curl -fsSL https://raw.githubusercontent.com/justsomeone-e/nyx/main/install.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/justsomeone-e/rove/main/install.sh | bash
   ```
 * **Quick Install (Windows PowerShell):**
   ```powershell
-  irm https://raw.githubusercontent.com/justsomeone-e/nyx/main/install.ps1 | iex
+  irm https://raw.githubusercontent.com/justsomeone-e/rove/main/install.ps1 | iex
   ```
 
 If you enjoy language design, compiler internals, and LLVM/WASM lowerings, we'd love your feedback and stars on GitHub!

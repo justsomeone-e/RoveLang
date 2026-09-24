@@ -1,18 +1,18 @@
-window.NYX_TOUR_DATA = [
+window.ROVE_TOUR_DATA = [
   {
     "id": "intro01",
     "name": "intro01",
     "topic": "00_intro",
     "topicTitle": "00. Welcome & Intro",
-    "title": "Welcome to Nyx",
+    "title": "Welcome to Rove",
     "mode": "run",
-    "description": "Run your very first Nyx program to verify your environment.",
+    "description": "Run your very first Rove program to verify your environment.",
     "hints": [
       "This exercise is already solved! Just check that it compiles and runs.",
       "Press 'n' in the terminal to advance to the next exercise."
     ],
-    "code": "// Welcome to Tour of Nyx!\n// This exercise is already solved to get you started.\n// In future exercises, you will fix errors and write code.\n//\n// Press 'n' in the Tour terminal or modify this file to experiment!\n\nfn main() {\n    print(\"Hello, Nyx Explorer! Welcome to the Tour of Nyx.\")\n}\n\nmain()\n",
-    "solution": "fn main() {\n    print(\"Hello, Nyx Explorer! Welcome to the Tour of Nyx.\")\n}\n\nmain()\n"
+    "code": "// Welcome to Tour of Rove!\n// This exercise is already solved to get you started.\n// In future exercises, you will fix errors and write code.\n//\n// Press 'n' in the Tour terminal or modify this file to experiment!\n\nfn main() {\n    print(\"Hello, Rove Explorer! Welcome to the Tour of Rove.\")\n}\n\nmain()\n",
+    "solution": "fn main() {\n    print(\"Hello, Rove Explorer! Welcome to the Tour of Rove.\")\n}\n\nmain()\n"
   },
   {
     "id": "intro02",
@@ -24,25 +24,25 @@ window.NYX_TOUR_DATA = [
     "description": "Fix a missing closing quote in a print statement.",
     "hints": [
       "Look at line 6: the string is missing a closing quote character '\"'.",
-      "Strings in Nyx must start and end with matching quotation marks."
+      "Strings in Rove must start and end with matching quotation marks."
     ],
-    "code": "// I AM NOT DONE\n// TODO: Fix the syntax error in the print statement below.\n// In Nyx, strings must be closed with matching quotes.\n\nfn main() {\n    print(\"Welcome to modern systems programming with Nyx!\n}\n\nmain()\n",
-    "solution": "fn main() {\n    print(\"Welcome to modern systems programming with Nyx!\")\n}\n\nmain()\n"
+    "code": "// I AM NOT DONE\n// TODO: Fix the syntax error in the print statement below.\n// In Rove, strings must be closed with matching quotes.\n\nfn main() {\n    print(\"Welcome to modern systems programming with Rove!\n}\n\nmain()\n",
+    "solution": "fn main() {\n    print(\"Welcome to modern systems programming with Rove!\")\n}\n\nmain()\n"
   },
   {
     "id": "intro03",
     "name": "intro03",
     "topic": "00_intro",
     "topicTitle": "00. Welcome & Intro",
-    "title": "Comments in Nyx",
+    "title": "Comments in Rove",
     "mode": "run",
     "description": "Uncomment code using double slash // line comments.",
     "hints": [
       "Lines starting with '//' are ignored by the compiler.",
-      "Remove '//' before `let message = \"Nyx is fast!\"` and the print call."
+      "Remove '//' before `let message = \"Rove is fast!\"` and the print call."
     ],
-    "code": "// I AM NOT DONE\n// In Nyx, comments start with `//` and are ignored by the compiler.\n// TODO: Uncomment the declaration of `message` and the print call!\n\nfn main() {\n    // let message = \"Nyx is fast!\"\n    let message = \"\"\n    assert(message == \"Nyx is fast!\", \"message must equal 'Nyx is fast!'\")\n    print(message)\n}\n\nmain()\n",
-    "solution": "fn main() {\n    let message = \"Nyx is fast!\"\n    assert(message == \"Nyx is fast!\", \"message must equal 'Nyx is fast!'\")\n    print(message)\n}\n\nmain()\n"
+    "code": "// I AM NOT DONE\n// In Rove, comments start with `//` and are ignored by the compiler.\n// TODO: Uncomment the declaration of `message` and the print call!\n\nfn main() {\n    // let message = \"Rove is fast!\"\n    let message = \"\"\n    assert(message == \"Rove is fast!\", \"message must equal 'Rove is fast!'\")\n    print(message)\n}\n\nmain()\n",
+    "solution": "fn main() {\n    let message = \"Rove is fast!\"\n    assert(message == \"Rove is fast!\", \"message must equal 'Rove is fast!'\")\n    print(message)\n}\n\nmain()\n"
   },
   {
     "id": "variables01",
@@ -53,10 +53,10 @@ window.NYX_TOUR_DATA = [
     "mode": "run",
     "description": "Declare an immutable variable using the let keyword.",
     "hints": [
-      "In Nyx, variables cannot be introduced without a keyword.",
+      "In Rove, variables cannot be introduced without a keyword.",
       "Use `let x = 42` to introduce an immutable binding."
     ],
-    "code": "// I AM NOT DONE\n// In Nyx, bindings are introduced with `let` (immutable) or `var` (mutable).\n// TODO: Declare `x` with value 42 using the `let` keyword.\n\nfn main() {\n    // Declare x here:\n\n    print(\"x is:\", x)\n}\n\nmain()\n",
+    "code": "// I AM NOT DONE\n// In Rove, bindings are introduced with `let` (immutable) or `var` (mutable).\n// TODO: Declare `x` with value 42 using the `let` keyword.\n\nfn main() {\n    // Declare x here:\n\n    print(\"x is:\", x)\n}\n\nmain()\n",
     "solution": "fn main() {\n    let x = 42\n    print(\"x is:\", x)\n}\n\nmain()\n"
   },
   {
@@ -71,7 +71,7 @@ window.NYX_TOUR_DATA = [
       "`let count = 10` creates an immutable binding.",
       "Change `let count = 10` to `var count = 10`."
     ],
-    "code": "// I AM NOT DONE\n// In Nyx, immutable bindings created with `let` cannot be modified.\n// To allow mutation, declare the variable with `var`, and update it with `set`.\n// TODO: Change `let` to `var` so that `count` can be incremented.\n\nfn main() {\n    let count = 10\n    set count = count + 5\n    print(\"Updated count:\", count)\n}\n\nmain()\n",
+    "code": "// I AM NOT DONE\n// In Rove, immutable bindings created with `let` cannot be modified.\n// To allow mutation, declare the variable with `var`, and update it with `set`.\n// TODO: Change `let` to `var` so that `count` can be incremented.\n\nfn main() {\n    let count = 10\n    set count = count + 5\n    print(\"Updated count:\", count)\n}\n\nmain()\n",
     "solution": "fn main() {\n    var count = 10\n    set count = count + 5\n    print(\"Updated count:\", count)\n}\n\nmain()\n"
   },
   {
@@ -86,8 +86,8 @@ window.NYX_TOUR_DATA = [
       "`let age: int` declares that `age` must be an integer.",
       "Change \"twenty\" to an integer literal like `20`."
     ],
-    "code": "// I AM NOT DONE\n// Nyx is statically typed. You can annotate variables with `: type`.\n// Types include `int`, `float`, `string`, `bool`.\n// TODO: Fix the type mismatch below so the compiler is satisfied.\n\nfn check_types() {\n    let age: int = \"twenty\"\n    let name: string = \"Nyx\"\n    let active: bool = true\n}\n",
-    "solution": "fn check_types() {\n    let age: int = 20\n    let name: string = \"Nyx\"\n    let active: bool = true\n}\n"
+    "code": "// I AM NOT DONE\n// Rove is statically typed. You can annotate variables with `: type`.\n// Types include `int`, `float`, `string`, `bool`.\n// TODO: Fix the type mismatch below so the compiler is satisfied.\n\nfn check_types() {\n    let age: int = \"twenty\"\n    let name: string = \"Rove\"\n    let active: bool = true\n}\n",
+    "solution": "fn check_types() {\n    let age: int = 20\n    let name: string = \"Rove\"\n    let active: bool = true\n}\n"
   },
   {
     "id": "variables04",
@@ -129,7 +129,7 @@ window.NYX_TOUR_DATA = [
     "hints": [
       "Use `let [x, y] = coords` to unpack the two values at once."
     ],
-    "code": "// I AM NOT DONE\n// Nyx supports array destructuring: `let [first, second] = [val1, val2]`\n// TODO: Destructure `coords` into `x` and `y`.\n\nfn main() {\n    let coords = [100, 250]\n    // Destructure here:\n    let x = 0\n    let y = 0\n    assert(x == 100 and y == 250, \"x and y must be destructured from coords!\")\n    print(\"X:\", x, \"Y:\", y)\n}\n\nmain()\n",
+    "code": "// I AM NOT DONE\n// Rove supports array destructuring: `let [first, second] = [val1, val2]`\n// TODO: Destructure `coords` into `x` and `y`.\n\nfn main() {\n    let coords = [100, 250]\n    // Destructure here:\n    let x = 0\n    let y = 0\n    assert(x == 100 and y == 250, \"x and y must be destructured from coords!\")\n    print(\"X:\", x, \"Y:\", y)\n}\n\nmain()\n",
     "solution": "fn main() {\n    let coords = [100, 250]\n    let [x, y] = coords\n    assert(x == 100 and y == 250, \"x and y must be destructured from coords!\")\n    print(\"X:\", x, \"Y:\", y)\n}\n\nmain()\n"
   },
   {
@@ -143,7 +143,7 @@ window.NYX_TOUR_DATA = [
     "hints": [
       "Write `let Point(px, py) = p` to bind `px` and `py`."
     ],
-    "code": "// I AM NOT DONE\n// Nyx also supports positional struct destructuring:\n//   `let Point(x, y) = point_instance`\n// TODO: Destructure `p` into `px` and `py`.\n\nstruct Point {\n    x: int,\n    y: int\n}\n\nfn main() {\n    let p = Point(30, 70)\n    // Destructure Point(px, py) from p:\n    let px = 0\n    let py = 0\n\n    assert(px == 30 and py == 70, \"px and py must match p.x and p.y!\")\n    print(\"Destructured Point:\", px, py)\n}\n\nmain()\n",
+    "code": "// I AM NOT DONE\n// Rove also supports positional struct destructuring:\n//   `let Point(x, y) = point_instance`\n// TODO: Destructure `p` into `px` and `py`.\n\nstruct Point {\n    x: int,\n    y: int\n}\n\nfn main() {\n    let p = Point(30, 70)\n    // Destructure Point(px, py) from p:\n    let px = 0\n    let py = 0\n\n    assert(px == 30 and py == 70, \"px and py must match p.x and p.y!\")\n    print(\"Destructured Point:\", px, py)\n}\n\nmain()\n",
     "solution": "struct Point {\n    x: int,\n    y: int\n}\n\nfn main() {\n    let p = Point(30, 70)\n    let Point(px, py) = p\n    assert(px == 30 and py == 70, \"px and py must match p.x and p.y!\")\n    print(\"Destructured Point:\", px, py)\n}\n\nmain()\n"
   },
   {
@@ -172,7 +172,7 @@ window.NYX_TOUR_DATA = [
       "0.75 has a decimal point, making it a `float`, not an `int`.",
       "Change `let ratio: int` to `let ratio: float`."
     ],
-    "code": "// I AM NOT DONE\n// Nyx integers do not automatically narrow from float without explicit conversion.\n// Float literals have a decimal point (e.g. 3.14).\n// TODO: Fix the type declaration so `ratio` has the correct type `float`.\n\nfn demo_numerics() {\n    let count: int = 50\n    let ratio: int = 0.75\n}\n",
+    "code": "// I AM NOT DONE\n// Rove integers do not automatically narrow from float without explicit conversion.\n// Float literals have a decimal point (e.g. 3.14).\n// TODO: Fix the type declaration so `ratio` has the correct type `float`.\n\nfn demo_numerics() {\n    let count: int = 50\n    let ratio: int = 0.75\n}\n",
     "solution": "fn demo_numerics() {\n    let count: int = 50\n    let ratio: float = 0.75\n}\n"
   },
   {
@@ -184,10 +184,10 @@ window.NYX_TOUR_DATA = [
     "mode": "run",
     "description": "Combine boolean flags using the `or` keyword.",
     "hints": [
-      "In Nyx, boolean OR is expressed with `or` (or `||`).",
+      "In Rove, boolean OR is expressed with `or` (or `||`).",
       "Write `let is_allowed: bool = is_admin or has_token`."
     ],
-    "code": "// I AM NOT DONE\n// Nyx uses words `and`, `or`, and `not` for boolean logic.\n// TODO: Set `is_allowed` to true when `is_admin` is true OR `has_token` is true.\n\nfn main() {\n    let is_admin: bool = false\n    let has_token: bool = true\n    let is_allowed: bool = false // Fix this condition!\n    assert(is_allowed == true, \"Access should be allowed when token is present!\")\n    print(\"Access allowed:\", is_allowed)\n}\n\nmain()\n",
+    "code": "// I AM NOT DONE\n// Rove uses words `and`, `or`, and `not` for boolean logic.\n// TODO: Set `is_allowed` to true when `is_admin` is true OR `has_token` is true.\n\nfn main() {\n    let is_admin: bool = false\n    let has_token: bool = true\n    let is_allowed: bool = false // Fix this condition!\n    assert(is_allowed == true, \"Access should be allowed when token is present!\")\n    print(\"Access allowed:\", is_allowed)\n}\n\nmain()\n",
     "solution": "fn main() {\n    let is_admin: bool = false\n    let has_token: bool = true\n    let is_allowed: bool = is_admin or has_token\n    assert(is_allowed == true, \"Access should be allowed when token is present!\")\n    print(\"Access allowed:\", is_allowed)\n}\n\nmain()\n"
   },
   {
@@ -201,8 +201,8 @@ window.NYX_TOUR_DATA = [
     "hints": [
       "Use `first + \" \" + last` to concatenate with a space."
     ],
-    "code": "// I AM NOT DONE\n// Strings in Nyx can be concatenated using the `+` operator.\n// TODO: Combine `first` and `last` with a space to form \"Nyx Language\".\n\nfn main() {\n    let first = \"Nyx\"\n    let last = \"Language\"\n    let full_name = first // Fix concatenation here\n    assert(full_name == \"Nyx Language\", \"full_name must be 'Nyx Language'!\")\n    print(\"Full name:\", full_name)\n}\n\nmain()\n",
-    "solution": "fn main() {\n    let first = \"Nyx\"\n    let last = \"Language\"\n    let full_name = first + \" \" + last\n    assert(full_name == \"Nyx Language\", \"full_name must be 'Nyx Language'!\")\n    print(\"Full name:\", full_name)\n}\n\nmain()\n"
+    "code": "// I AM NOT DONE\n// Strings in Rove can be concatenated using the `+` operator.\n// TODO: Combine `first` and `last` with a space to form \"Rove Language\".\n\nfn main() {\n    let first = \"Rove\"\n    let last = \"Language\"\n    let full_name = first // Fix concatenation here\n    assert(full_name == \"Rove Language\", \"full_name must be 'Rove Language'!\")\n    print(\"Full name:\", full_name)\n}\n\nmain()\n",
+    "solution": "fn main() {\n    let first = \"Rove\"\n    let last = \"Language\"\n    let full_name = first + \" \" + last\n    assert(full_name == \"Rove Language\", \"full_name must be 'Rove Language'!\")\n    print(\"Full name:\", full_name)\n}\n\nmain()\n"
   },
   {
     "id": "types04",
@@ -230,7 +230,7 @@ window.NYX_TOUR_DATA = [
     "hints": [
       "Use `\"Line 1\\nLine 2\"` to insert a newline."
     ],
-    "code": "// I AM NOT DONE\n// Nyx string literals support standard escape sequences like `\\n` (newline) and `\\t` (tab).\n// TODO: Create a two-line string with \"Hello\" on line 1 and \"World\" on line 2.\n\nfn main() {\n    let text = \"Hello World\" // Use \\n between Hello and World\n    assert(text == \"Hello\\nWorld\", \"text must contain a newline escape \\n\")\n    print(text)\n}\n\nmain()\n",
+    "code": "// I AM NOT DONE\n// Rove string literals support standard escape sequences like `\\n` (newline) and `\\t` (tab).\n// TODO: Create a two-line string with \"Hello\" on line 1 and \"World\" on line 2.\n\nfn main() {\n    let text = \"Hello World\" // Use \\n between Hello and World\n    assert(text == \"Hello\\nWorld\", \"text must contain a newline escape \\n\")\n    print(text)\n}\n\nmain()\n",
     "solution": "fn main() {\n    let text = \"Hello\\nWorld\"\n    assert(text == \"Hello\\nWorld\", \"text must contain a newline escape \\n\")\n    print(text)\n}\n\nmain()\n"
   },
   {
@@ -242,7 +242,7 @@ window.NYX_TOUR_DATA = [
     "mode": "run",
     "description": "Observe automatic int widening to float in mixed expressions.",
     "hints": [
-      "In Nyx, adding an int to a float widens the int to float automatically.",
+      "In Rove, adding an int to a float widens the int to float automatically.",
       "Write `let result: float = base + fraction`."
     ],
     "code": "// I AM NOT DONE\n// An `int` automatically widens to `float` when combined with a float operator.\n// TODO: Add `base` (int) and `fraction` (float) together and store in `result: float`.\n\nfn main() {\n    let base: int = 10\n    let fraction: float = 0.5\n    let result: float = 0.0 // Add base + fraction\n\n    assert(result == 10.5, \"result must be 10.5\")\n    print(\"Widened calculation:\", result)\n}\n\nmain()\n",
@@ -259,7 +259,7 @@ window.NYX_TOUR_DATA = [
     "hints": [
       "Define `fn call_me() { print(\"Called successfully!\") }`."
     ],
-    "code": "// I AM NOT DONE\n// In Nyx, functions are declared with the `fn` keyword.\n// TODO: Define a function named `call_me` that prints \"Called successfully!\".\n\nfn main() {\n    call_me()\n}\n\nmain()\n",
+    "code": "// I AM NOT DONE\n// In Rove, functions are declared with the `fn` keyword.\n// TODO: Define a function named `call_me` that prints \"Called successfully!\".\n\nfn main() {\n    call_me()\n}\n\nmain()\n",
     "solution": "fn call_me() {\n    print(\"Called successfully!\")\n}\n\nfn main() {\n    call_me()\n}\n\nmain()\n"
   },
   {
@@ -287,7 +287,7 @@ window.NYX_TOUR_DATA = [
     "hints": [
       "Write `fn cube(x: int) -> int = x * x * x`."
     ],
-    "code": "// I AM NOT DONE\n// In Nyx, concise functions can use expression bodies:\n//   fn square(x: int) -> int = x * x\n// TODO: Define an expression-bodied function `cube` that computes `x * x * x`.\n\n// Define `cube` here:\n\nfn main() {\n    let res = cube(3)\n    assert(res == 27, \"Cube of 3 must be 27\")\n    print(\"Cube of 3 is:\", res)\n}\n\nmain()\n",
+    "code": "// I AM NOT DONE\n// In Rove, concise functions can use expression bodies:\n//   fn square(x: int) -> int = x * x\n// TODO: Define an expression-bodied function `cube` that computes `x * x * x`.\n\n// Define `cube` here:\n\nfn main() {\n    let res = cube(3)\n    assert(res == 27, \"Cube of 3 must be 27\")\n    print(\"Cube of 3 is:\", res)\n}\n\nmain()\n",
     "solution": "fn cube(x: int) -> int = x * x * x\n\nfn main() {\n    let res = cube(3)\n    assert(res == 27, \"Cube of 3 must be 27\")\n    print(\"Cube of 3 is:\", res)\n}\n\nmain()\n"
   },
   {
@@ -301,8 +301,8 @@ window.NYX_TOUR_DATA = [
     "hints": [
       "Change `title: string` to `title: string = \"Adventurer\"` in the parameter list."
     ],
-    "code": "// I AM NOT DONE\n// Parameters can declare default values: `fn greet(name: string, title: string = \"Explorer\")`\n// Trailing parameters with defaults can be omitted by the caller.\n// TODO: Add a default value \"Adventurer\" to `title`.\n\nfn greet(name: string, title: string) {\n    print(\"Greetings, \" + title + \" \" + name + \"!\")\n}\n\nfn main() {\n    greet(\"Kurt\", \"Captain\")\n    greet(\"Nyx\") // Should use default title!\n}\n\nmain()\n",
-    "solution": "fn greet(name: string, title: string = \"Adventurer\") {\n    print(\"Greetings, \" + title + \" \" + name + \"!\")\n}\n\nfn main() {\n    greet(\"Kurt\", \"Captain\")\n    greet(\"Nyx\")\n}\n\nmain()\n"
+    "code": "// I AM NOT DONE\n// Parameters can declare default values: `fn greet(name: string, title: string = \"Explorer\")`\n// Trailing parameters with defaults can be omitted by the caller.\n// TODO: Add a default value \"Adventurer\" to `title`.\n\nfn greet(name: string, title: string) {\n    print(\"Greetings, \" + title + \" \" + name + \"!\")\n}\n\nfn main() {\n    greet(\"Kurt\", \"Captain\")\n    greet(\"Rove\") // Should use default title!\n}\n\nmain()\n",
+    "solution": "fn greet(name: string, title: string = \"Adventurer\") {\n    print(\"Greetings, \" + title + \" \" + name + \"!\")\n}\n\nfn main() {\n    greet(\"Kurt\", \"Captain\")\n    greet(\"Rove\")\n}\n\nmain()\n"
   },
   {
     "id": "functions05",
@@ -315,7 +315,7 @@ window.NYX_TOUR_DATA = [
     "hints": [
       "Declare `fn make_sandwich(bread: string, filling: string = \"Cheese\", toasted: bool = true)`."
     ],
-    "code": "// I AM NOT DONE\n// Multiple trailing parameters can declare defaults in Nyx.\n// TODO: Give `filling` the default \"Cheese\" and `toasted` the default `true`.\n\nfn make_sandwich(bread: string, filling: string, toasted: bool) -> string {\n    let toast_str = if toasted { \"Toasted\" } else { \"Fresh\" }\n    return toast_str + \" \" + filling + \" on \" + bread\n}\n\nfn main() {\n    let s1 = make_sandwich(\"Rye\", \"Turkey\", false)\n    let s2 = make_sandwich(\"Sourdough\") // Should use defaults: Cheese and true!\n\n    assert(s1 == \"Fresh Turkey on Rye\", \"s1 must match custom arguments\")\n    assert(s2 == \"Toasted Cheese on Sourdough\", \"s2 must use default values\")\n    print(s1)\n    print(s2)\n}\n\nmain()\n",
+    "code": "// I AM NOT DONE\n// Multiple trailing parameters can declare defaults in Rove.\n// TODO: Give `filling` the default \"Cheese\" and `toasted` the default `true`.\n\nfn make_sandwich(bread: string, filling: string, toasted: bool) -> string {\n    let toast_str = if toasted { \"Toasted\" } else { \"Fresh\" }\n    return toast_str + \" \" + filling + \" on \" + bread\n}\n\nfn main() {\n    let s1 = make_sandwich(\"Rye\", \"Turkey\", false)\n    let s2 = make_sandwich(\"Sourdough\") // Should use defaults: Cheese and true!\n\n    assert(s1 == \"Fresh Turkey on Rye\", \"s1 must match custom arguments\")\n    assert(s2 == \"Toasted Cheese on Sourdough\", \"s2 must use default values\")\n    print(s1)\n    print(s2)\n}\n\nmain()\n",
     "solution": "fn make_sandwich(bread: string, filling: string = \"Cheese\", toasted: bool = true) -> string {\n    let toast_str = if toasted { \"Toasted\" } else { \"Fresh\" }\n    return toast_str + \" \" + filling + \" on \" + bread\n}\n\nfn main() {\n    let s1 = make_sandwich(\"Rye\", \"Turkey\", false)\n    let s2 = make_sandwich(\"Sourdough\")\n\n    assert(s1 == \"Fresh Turkey on Rye\", \"s1 must match custom arguments\")\n    assert(s2 == \"Toasted Cheese on Sourdough\", \"s2 must use default values\")\n    print(s1)\n    print(s2)\n}\n\nmain()\n"
   },
   {
@@ -325,7 +325,7 @@ window.NYX_TOUR_DATA = [
     "topicTitle": "03. Functions & Expressions",
     "title": "Recursive Functions",
     "mode": "run",
-    "description": "Implement the factorial function recursively in Nyx.",
+    "description": "Implement the factorial function recursively in Rove.",
     "hints": [
       "Base case: `if n <= 1 { return 1 }`.",
       "Recursive step: `return n * factorial(n - 1)`."
@@ -344,7 +344,7 @@ window.NYX_TOUR_DATA = [
     "hints": [
       "Add `elif temp > 15 { return \"Warm\" } else { return \"Cold\" }`."
     ],
-    "code": "// I AM NOT DONE\n// In Nyx, `if`, `elif` (or `else if`), and `else` control branch execution.\n// TODO: Complete the temperature check:\n// If temp > 30 return \"Hot\", elif temp > 15 return \"Warm\", else return \"Cold\".\n\nfn check_temp(temp: int) -> string {\n    if temp > 30 {\n        return \"Hot\"\n    }\n    // Add elif and else arms here!\n    return \"Unknown\"\n}\n\nfn main() {\n    assert(check_temp(35) == \"Hot\", \"35 must be Hot\")\n    assert(check_temp(20) == \"Warm\", \"20 must be Warm\")\n    assert(check_temp(5) == \"Cold\", \"5 must be Cold\")\n    print(\"All temperature checks passed!\")\n}\n\nmain()\n",
+    "code": "// I AM NOT DONE\n// In Rove, `if`, `elif` (or `else if`), and `else` control branch execution.\n// TODO: Complete the temperature check:\n// If temp > 30 return \"Hot\", elif temp > 15 return \"Warm\", else return \"Cold\".\n\nfn check_temp(temp: int) -> string {\n    if temp > 30 {\n        return \"Hot\"\n    }\n    // Add elif and else arms here!\n    return \"Unknown\"\n}\n\nfn main() {\n    assert(check_temp(35) == \"Hot\", \"35 must be Hot\")\n    assert(check_temp(20) == \"Warm\", \"20 must be Warm\")\n    assert(check_temp(5) == \"Cold\", \"5 must be Cold\")\n    print(\"All temperature checks passed!\")\n}\n\nmain()\n",
     "solution": "fn check_temp(temp: int) -> string {\n    if temp > 30 {\n        return \"Hot\"\n    } elif temp > 15 {\n        return \"Warm\"\n    } else {\n        return \"Cold\"\n    }\n}\n\nfn main() {\n    assert(check_temp(35) == \"Hot\", \"35 must be Hot\")\n    assert(check_temp(20) == \"Warm\", \"20 must be Warm\")\n    assert(check_temp(5) == \"Cold\", \"5 must be Cold\")\n    print(\"All temperature checks passed!\")\n}\n\nmain()\n"
   },
   {
@@ -359,7 +359,7 @@ window.NYX_TOUR_DATA = [
       "The `else` arm returns integer `0`, but `status` expects a `string`.",
       "Change `0` to a string like `\"disconnected\"`."
     ],
-    "code": "// I AM NOT DONE\n// In Nyx, `if` can be an expression returning a value!\n// All branches must return the same type.\n// TODO: Fix the branch return types so `status` is consistently a `string`.\n\nfn get_status(is_online: bool) -> string {\n    let status: string = if is_online {\n        \"connected\"\n    } else {\n        0 // Error: 0 is an int, but string was expected!\n    }\n    return status\n}\n",
+    "code": "// I AM NOT DONE\n// In Rove, `if` can be an expression returning a value!\n// All branches must return the same type.\n// TODO: Fix the branch return types so `status` is consistently a `string`.\n\nfn get_status(is_online: bool) -> string {\n    let status: string = if is_online {\n        \"connected\"\n    } else {\n        0 // Error: 0 is an int, but string was expected!\n    }\n    return status\n}\n",
     "solution": "fn get_status(is_online: bool) -> string {\n    let status: string = if is_online {\n        \"connected\"\n    } else {\n        \"disconnected\"\n    }\n    return status\n}\n"
   },
   {
@@ -374,7 +374,7 @@ window.NYX_TOUR_DATA = [
       "`1..4` only goes up to 4.",
       "Change the range to `1..5`."
     ],
-    "code": "// I AM NOT DONE\n// Nyx provides inclusive range loops: `for i in start..end`\n// For example, `1..5` iterates through 1, 2, 3, 4, 5.\n// TODO: Sum all numbers from 1 to 5 inclusive and verify the total is 15.\n\nfn main() {\n    var total: int = 0\n    for i in 1..4 { // Fix the range!\n        set total = total + i\n    }\n    assert(total == 15, \"Sum from 1 to 5 must equal 15!\")\n    print(\"Sum 1..5 is:\", total)\n}\n\nmain()\n",
+    "code": "// I AM NOT DONE\n// Rove provides inclusive range loops: `for i in start..end`\n// For example, `1..5` iterates through 1, 2, 3, 4, 5.\n// TODO: Sum all numbers from 1 to 5 inclusive and verify the total is 15.\n\nfn main() {\n    var total: int = 0\n    for i in 1..4 { // Fix the range!\n        set total = total + i\n    }\n    assert(total == 15, \"Sum from 1 to 5 must equal 15!\")\n    print(\"Sum 1..5 is:\", total)\n}\n\nmain()\n",
     "solution": "fn main() {\n    var total: int = 0\n    for i in 1..5 {\n        set total = total + i\n    }\n    assert(total == 15, \"Sum from 1 to 5 must equal 15!\")\n    print(\"Sum 1..5 is:\", total)\n}\n\nmain()\n"
   },
   {
@@ -428,10 +428,10 @@ window.NYX_TOUR_DATA = [
     "mode": "check",
     "description": "Supply the mandatory wildcard _ fallback in a match expression.",
     "hints": [
-      "In Nyx, pattern matching must be exhaustive.",
+      "In Rove, pattern matching must be exhaustive.",
       "Add `_ => \"Unknown\"` as the final match arm."
     ],
-    "code": "// I AM NOT DONE\n// Nyx `match` requires an exhaustive pattern match, so the fallback `_` is mandatory.\n// TODO: Add the mandatory `_ => ...` wildcard fallback arm to satisfy the compiler.\n\nfn describe_status(code: int) -> string {\n    let label = match code {\n        200 => \"OK\",\n        404 => \"Not Found\",\n        500 => \"Server Error\"\n    }\n    return label\n}\n",
+    "code": "// I AM NOT DONE\n// Rove `match` requires an exhaustive pattern match, so the fallback `_` is mandatory.\n// TODO: Add the mandatory `_ => ...` wildcard fallback arm to satisfy the compiler.\n\nfn describe_status(code: int) -> string {\n    let label = match code {\n        200 => \"OK\",\n        404 => \"Not Found\",\n        500 => \"Server Error\"\n    }\n    return label\n}\n",
     "solution": "fn describe_status(code: int) -> string {\n    let label = match code {\n        200 => \"OK\",\n        404 => \"Not Found\",\n        500 => \"Server Error\",\n        _ => \"Unknown\"\n    }\n    return label\n}\n"
   },
   {
@@ -516,8 +516,8 @@ window.NYX_TOUR_DATA = [
     "hints": [
       "Use `len(languages)` to get the item count."
     ],
-    "code": "// I AM NOT DONE\n// The built-in `len(array)` function returns the count of items in an array.\n// TODO: Measure the number of elements in `languages`.\n\nfn main() {\n    let languages = [\"Nyx\", \"C++\", \"Rust\", \"Python\"]\n    let count = 0 // Compute len(languages)\n\n    assert(count == 4, \"languages array must have 4 items!\")\n    print(\"Tracked languages count:\", count)\n}\n\nmain()\n",
-    "solution": "fn main() {\n    let languages = [\"Nyx\", \"C++\", \"Rust\", \"Python\"]\n    let count = len(languages)\n    assert(count == 4, \"languages array must have 4 items!\")\n    print(\"Tracked languages count:\", count)\n}\n\nmain()\n"
+    "code": "// I AM NOT DONE\n// The built-in `len(array)` function returns the count of items in an array.\n// TODO: Measure the number of elements in `languages`.\n\nfn main() {\n    let languages = [\"Rove\", \"C++\", \"Rust\", \"Python\"]\n    let count = 0 // Compute len(languages)\n\n    assert(count == 4, \"languages array must have 4 items!\")\n    print(\"Tracked languages count:\", count)\n}\n\nmain()\n",
+    "solution": "fn main() {\n    let languages = [\"Rove\", \"C++\", \"Rust\", \"Python\"]\n    let count = len(languages)\n    assert(count == 4, \"languages array must have 4 items!\")\n    print(\"Tracked languages count:\", count)\n}\n\nmain()\n"
   },
   {
     "id": "arrays05",
@@ -570,7 +570,7 @@ window.NYX_TOUR_DATA = [
     "mode": "run",
     "description": "Add the self parameter to a struct method.",
     "hints": [
-      "In Nyx, methods take `self` as their first parameter.",
+      "In Rove, methods take `self` as their first parameter.",
       "Change `fn area() -> int` to `fn area(self) -> int`."
     ],
     "code": "// I AM NOT DONE\n// Methods are implemented in an `impl StructName` block.\n// The first parameter must be `self`.\n// TODO: Add `self` to the `area` method signature.\n\nstruct Rectangle {\n    width: int,\n    height: int\n}\n\nimpl Rectangle {\n    fn area() -> int { // Fix signature to take self!\n        return self.width * self.height\n    }\n}\n\nfn main() {\n    let rect = Rectangle(8, 5)\n    print(\"Rectangle area:\", rect.area())\n}\n\nmain()\n",
@@ -713,7 +713,7 @@ window.NYX_TOUR_DATA = [
     "hints": [
       "Wrap the call `validate_pin(9999)` with `try { ... } catch err { print(\"Caught error!\") }`."
     ],
-    "code": "// I AM NOT DONE\n// Nyx supports structured exceptions with `try`, `catch`, and `throw`.\n// TODO: Catch the error thrown by `validate_pin` and print \"Caught error!\".\n\nfn validate_pin(pin: int) {\n    if pin != 1234 {\n        throw \"Invalid PIN entered\"\n    }\n}\n\nfn main() {\n    // Wrap with try / catch:\n    validate_pin(9999)\n    print(\"Done\")\n}\n\nmain()\n",
+    "code": "// I AM NOT DONE\n// Rove supports structured exceptions with `try`, `catch`, and `throw`.\n// TODO: Catch the error thrown by `validate_pin` and print \"Caught error!\".\n\nfn validate_pin(pin: int) {\n    if pin != 1234 {\n        throw \"Invalid PIN entered\"\n    }\n}\n\nfn main() {\n    // Wrap with try / catch:\n    validate_pin(9999)\n    print(\"Done\")\n}\n\nmain()\n",
     "solution": "fn validate_pin(pin: int) {\n    if pin != 1234 {\n        throw \"Invalid PIN entered\"\n    }\n}\n\nfn main() {\n    try {\n        validate_pin(9999)\n    } catch err {\n        print(\"Caught error!\")\n    }\n    print(\"Done\")\n}\n\nmain()\n"
   },
   {
@@ -882,7 +882,7 @@ window.NYX_TOUR_DATA = [
       "`1 << 4` shifts 1 left by 4 bits (16).",
       "`flags | 1` sets the lowest bit."
     ],
-    "code": "// I AM NOT DONE\n// Nyx supports bitwise operators: `&` (AND), `|` (OR), `^` (XOR), and `<<` (shift).\n// TODO:\n// 1. Shift 1 left by 4 bits to get 16 (`1 << 4`).\n// 2. Bitwise OR `flags` with `1` to set the flag.\n\nfn main() {\n    let shifted = 0 // Compute 1 << 4\n    let flags = 8\n    let updated = 0 // Compute flags | 1\n\n    assert(shifted == 16, \"1 << 4 must be 16\")\n    assert(updated == 9, \"8 | 1 must be 9\")\n    print(\"Shifted:\", shifted, \"Updated flags:\", updated)\n}\n\nmain()\n",
+    "code": "// I AM NOT DONE\n// Rove supports bitwise operators: `&` (AND), `|` (OR), `^` (XOR), and `<<` (shift).\n// TODO:\n// 1. Shift 1 left by 4 bits to get 16 (`1 << 4`).\n// 2. Bitwise OR `flags` with `1` to set the flag.\n\nfn main() {\n    let shifted = 0 // Compute 1 << 4\n    let flags = 8\n    let updated = 0 // Compute flags | 1\n\n    assert(shifted == 16, \"1 << 4 must be 16\")\n    assert(updated == 9, \"8 | 1 must be 9\")\n    print(\"Shifted:\", shifted, \"Updated flags:\", updated)\n}\n\nmain()\n",
     "solution": "fn main() {\n    let shifted = 1 << 4\n    let flags = 8\n    let updated = flags | 1\n\n    assert(shifted == 16, \"1 << 4 must be 16\")\n    assert(updated == 9, \"8 | 1 must be 9\")\n    print(\"Shifted:\", shifted, \"Updated flags:\", updated)\n}\n\nmain()\n"
   },
   {
@@ -897,7 +897,7 @@ window.NYX_TOUR_DATA = [
       "The assertion checks `assert(result == 5, ...)`, but `add(2, 2)` equals 4!",
       "Change `5` to `4` in the assertion."
     ],
-    "code": "// I AM NOT DONE\n// Nyx has first-class unit tests using `test \"name\" { assert(...) }`.\n// When run with `nyx test`, all assertions are verified.\n// TODO: Fix the broken assertion below so the test passes.\n\nfn add(a: int, b: int) -> int {\n    return a + b\n}\n\ntest \"verify addition\" {\n    var result = add(2, 2)\n    assert(result == 5, \"2 + 2 must equal 4!\")\n    print(\"  [PASS] 2 + 2 == 4\")\n}\n",
+    "code": "// I AM NOT DONE\n// Rove has first-class unit tests using `test \"name\" { assert(...) }`.\n// When run with `rove test`, all assertions are verified.\n// TODO: Fix the broken assertion below so the test passes.\n\nfn add(a: int, b: int) -> int {\n    return a + b\n}\n\ntest \"verify addition\" {\n    var result = add(2, 2)\n    assert(result == 5, \"2 + 2 must equal 4!\")\n    print(\"  [PASS] 2 + 2 == 4\")\n}\n",
     "solution": "fn add(a: int, b: int) -> int {\n    return a + b\n}\n\ntest \"verify addition\" {\n    var result = add(2, 2)\n    assert(result == 4, \"2 + 2 must equal 4!\")\n    print(\"  [PASS] 2 + 2 == 4\")\n}\n"
   },
   {
@@ -969,7 +969,7 @@ window.NYX_TOUR_DATA = [
     "description": "Build readable Unicode text with typed interpolation instead of manual concatenation.",
     "hints": [
       "Interpolated strings begin with `$\"` and evaluate expressions inside `{...}`.",
-      "Use `$\"{city}: {signals} signals [night]\"`; Nyx preserves the Unicode text without normalization."
+      "Use `$\"{city}: {signals} signals [night]\"`; Rove preserves the Unicode text without normalization."
     ],
     "code": "// I AM NOT DONE\n// Interpolation keeps values typed until they are formatted and avoids long\n// chains of string concatenation. Unicode text remains intact.\n// TODO: build exactly \"İstanbul: 3 signals [night]\" with one interpolated string.\n\nfn main() {\n    let city = \"İstanbul\"\n    let signals = 3\n    let summary = city\n\n    assert(summary == \"İstanbul: 3 signals [night]\", \"summary must include both values\")\n    print(summary)\n}\n\nmain()\n",
     "solution": "fn main() {\n    let city = \"İstanbul\"\n    let signals = 3\n    let summary = $\"{city}: {signals} signals [night]\"\n\n    assert(summary == \"İstanbul: 3 signals [night]\", \"summary must include both values\")\n    print(summary)\n}\n\nmain()\n"
@@ -1151,8 +1151,8 @@ window.NYX_TOUR_DATA = [
       "Encode the original text, then pass that encoded value to `base64_decode`.",
       "Check `is_ok` before calling `unwrap()`; malformed input must remain a failed Result."
     ],
-    "code": "// I AM NOT DONE\n// Decoding external text can fail, so the API returns Result<string, string>.\n// TODO: decode the encoded message rather than malformed input.\n\nimport \"std/encoding\"\n\nfn main() {\n    let original = \"Nyx\"\n    let encoded = base64_encode(original)\n    let decoded = base64_decode(\"%%%\")\n\n    assert(decoded.is_ok, \"the generated Base64 text must decode\")\n    assert(decoded.unwrap() == original, \"valid encoded text must round-trip\")\n    print(encoded, decoded.unwrap())\n}\n\nmain()\n",
-    "solution": "import \"std/encoding\"\n\nfn main() {\n    let original = \"Nyx\"\n    let encoded = base64_encode(original)\n    let decoded = base64_decode(encoded)\n    let malformed = base64_decode(\"%%%\")\n\n    assert(decoded.is_ok, \"the generated Base64 text must decode\")\n    assert(decoded.unwrap() == original, \"valid encoded text must round-trip\")\n    assert(not malformed.is_ok, \"malformed input must remain an error\")\n    print(encoded, decoded.unwrap())\n}\n\nmain()\n"
+    "code": "// I AM NOT DONE\n// Decoding external text can fail, so the API returns Result<string, string>.\n// TODO: decode the encoded message rather than malformed input.\n\nimport \"std/encoding\"\n\nfn main() {\n    let original = \"Rove\"\n    let encoded = base64_encode(original)\n    let decoded = base64_decode(\"%%%\")\n\n    assert(decoded.is_ok, \"the generated Base64 text must decode\")\n    assert(decoded.unwrap() == original, \"valid encoded text must round-trip\")\n    print(encoded, decoded.unwrap())\n}\n\nmain()\n",
+    "solution": "import \"std/encoding\"\n\nfn main() {\n    let original = \"Rove\"\n    let encoded = base64_encode(original)\n    let decoded = base64_decode(encoded)\n    let malformed = base64_decode(\"%%%\")\n\n    assert(decoded.is_ok, \"the generated Base64 text must decode\")\n    assert(decoded.unwrap() == original, \"valid encoded text must round-trip\")\n    assert(not malformed.is_ok, \"malformed input must remain an error\")\n    print(encoded, decoded.unwrap())\n}\n\nmain()\n"
   },
   {
     "id": "modules03",
@@ -1166,7 +1166,7 @@ window.NYX_TOUR_DATA = [
       "Read `name` with get_string and `version` with get_int, then unwrap known-good fields.",
       "The missing `channel` field must report `is_ok == false`."
     ],
-    "code": "// I AM NOT DONE\n// std/json_lite intentionally extracts flat top-level string and int fields.\n// TODO: request the real `version` key and preserve the missing-field error.\n\nimport \"std/json_lite\"\n\nfn main() {\n    let document = \"{\\\"name\\\":\\\"nyx\\\",\\\"version\\\":4}\"\n    let name = get_string(document, \"name\").unwrap()\n    let version = get_int(document, \"release\").unwrap()\n    let missing = get_string(document, \"channel\")\n\n    assert(name == \"nyx\", \"name must be extracted\")\n    assert(version == 4, \"version must be extracted as an int\")\n    assert(not missing.is_ok, \"the absent field must remain an error\")\n    print(name, version)\n}\n\nmain()\n",
-    "solution": "import \"std/json_lite\"\n\nfn main() {\n    let document = \"{\\\"name\\\":\\\"nyx\\\",\\\"version\\\":4}\"\n    let name = get_string(document, \"name\").unwrap()\n    let version = get_int(document, \"version\").unwrap()\n    let missing = get_string(document, \"channel\")\n\n    assert(name == \"nyx\", \"name must be extracted\")\n    assert(version == 4, \"version must be extracted as an int\")\n    assert(not missing.is_ok, \"the absent field must remain an error\")\n    print(name, version)\n}\n\nmain()\n"
+    "code": "// I AM NOT DONE\n// std/json_lite intentionally extracts flat top-level string and int fields.\n// TODO: request the real `version` key and preserve the missing-field error.\n\nimport \"std/json_lite\"\n\nfn main() {\n    let document = \"{\\\"name\\\":\\\"rove\\\",\\\"version\\\":4}\"\n    let name = get_string(document, \"name\").unwrap()\n    let version = get_int(document, \"release\").unwrap()\n    let missing = get_string(document, \"channel\")\n\n    assert(name == \"rove\", \"name must be extracted\")\n    assert(version == 4, \"version must be extracted as an int\")\n    assert(not missing.is_ok, \"the absent field must remain an error\")\n    print(name, version)\n}\n\nmain()\n",
+    "solution": "import \"std/json_lite\"\n\nfn main() {\n    let document = \"{\\\"name\\\":\\\"rove\\\",\\\"version\\\":4}\"\n    let name = get_string(document, \"name\").unwrap()\n    let version = get_int(document, \"version\").unwrap()\n    let missing = get_string(document, \"channel\")\n\n    assert(name == \"rove\", \"name must be extracted\")\n    assert(version == 4, \"version must be extracted as an int\")\n    assert(not missing.is_ok, \"the absent field must remain an error\")\n    print(name, version)\n}\n\nmain()\n"
   }
 ];

@@ -1,12 +1,12 @@
-# Getting Started with Nyx
+# Getting Started with Rove
 
-Welcome to **Nyx**! This guide walks you from zero to building, testing, and packaging your first project.
+Welcome to **Rove**! This guide walks you from zero to building, testing, and packaging your first project.
 
 ---
 
 ## 1. Installation & Environment Check
 
-Verify that Nyx is properly configured by running:
+Verify that Rove is properly configured by running:
 
 ```bash
 he version
@@ -15,7 +15,7 @@ he version
 Output:
 ```text
 ===================================================================
-⚡ Nyx (he) Core v4.0.0-RELEASE — Enterprise Systems Toolchain
+⚡ Rove (he) Core v4.0.0-RELEASE — Enterprise Systems Toolchain
 ===================================================================
 Detected Host Toolchains & Execution Engines:
   • C++20 Toolchain:      .../clang++.exe
@@ -29,30 +29,30 @@ Detected Host Toolchains & Execution Engines:
 
 ## 2. Creating Your First Project
 
-Use the `nyx new` command to scaffold a standard project:
+Use the `rove new` command to scaffold a standard project:
 
 ```bash
-nyx new my_first_app
+rove new my_first_app
 cd my_first_app
 ```
 
 Your project directory will look like this:
 ```text
 my_first_app/
-├── nyx.toml              # Package configuration
-├── nyx.lock              # Dependency lockfile
+├── rove.toml              # Package configuration
+├── rove.lock              # Dependency lockfile
 ├── .gitignore            # Git ignore rules
 └── src/
-    └── main.nyx          # Application source code
+    └── main.rove          # Application source code
 ```
 
 ---
 
 ## 3. Writing Code & In-File Tests
 
-Open `src/main.nyx` in your editor:
+Open `src/main.rove` in your editor:
 
-```nyx
+```rove
 #target cpp
 
 struct User {
@@ -81,27 +81,27 @@ test "user creation verification" {
 
 ### Fast Type-Check (Zero Build Overhead)
 ```bash
-nyx check
+rove check
 ```
 Output:
 ```text
-[*] Checking semantics & types for: src/main.nyx
+[*] Checking semantics & types for: src/main.rove
 [✓] Check Passed: 0 syntax or semantic errors found.
 ```
 
 ### Running the Application
 ```bash
-nyx run
+rove run
 ```
 Output:
 ```text
-[*] Running [cpp]: src/main.nyx
+[*] Running [cpp]: src/main.rove
 Created user: Umut Age: 25
 ```
 
 ### Executing In-File Unit Tests
 ```bash
-nyx test src/main.nyx
+rove test src/main.rove
 ```
 
 ---
@@ -111,7 +111,7 @@ nyx test src/main.nyx
 To compile an optimized, self-contained native executable:
 
 ```bash
-nyx build --target cpp
+rove build --target cpp
 ```
 
 Your executable will be available at `build/cpp/main.exe` and can be distributed to other machines without requiring Python or Node.js.

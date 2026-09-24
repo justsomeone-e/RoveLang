@@ -1,12 +1,12 @@
 // ==========================================================================
-// Tour of Nyx & WebAssembly Studio Engine
+// Tour of Rove & WebAssembly Studio Engine
 // Client-side execution, interactive 81-step curriculum, and free playground
 // ==========================================================================
 
 (function () {
   'use strict';
 
-  const { evaluateNyx } = NyxPreview;
+  const { evaluateRove } = RovePreview;
 
   const CACHE_VERSION = 'v4_clean_2';
 
@@ -16,9 +16,9 @@
     currentExerciseIndex: 0,
     playgroundTemplateIndex: 0,
     activePanel: 'output',
-    exercises: window.NYX_TOUR_DATA || [],
-    completed: JSON.parse(localStorage.getItem('nyx_tour_completed') || '{}'),
-    userCodeCache: JSON.parse(localStorage.getItem('nyx_tour_code_cache') || '{}'),
+    exercises: window.ROVE_TOUR_DATA || [],
+    completed: JSON.parse(localStorage.getItem('rove_tour_completed') || '{}'),
+    userCodeCache: JSON.parse(localStorage.getItem('rove_tour_code_cache') || '{}'),
     editor: null
   };
 
@@ -78,10 +78,10 @@
   // --- Playground Templates ---
   const PLAYGROUND_TEMPLATES = [
     {
-      title: '01. Hello, Nyx Studio',
+      title: '01. Hello, Rove Studio',
       code: `// A small program you can run immediately in the browser preview
 fn main() {
-    var name: string = "Nyx Studio"
+    var name: string = "Rove Studio"
     print("Hello, " + name)
 }
 
@@ -89,7 +89,7 @@ main()`
     },
     {
       title: '02. Safe Navigation & Coalescing',
-      code: `// Deterministic null safety in Nyx
+      code: `// Deterministic null safety in Rove
 fn main() {
     let present: int? = 100
     let missing: int? = null
@@ -149,22 +149,22 @@ main()`
     },
     cpp: {
       label: 'C++20 / native',
-      command: (file) => `nyx run ${file} --target cpp`,
+      command: (file) => `rove run ${file} --target cpp`,
       note: 'Build with the stable default native target and inspect the generated binary locally.'
     },
     js: {
       label: 'JavaScript / Node',
-      command: (file) => `nyx run ${file} --target js`,
-      note: 'Build and run the JavaScript target with the local Nyx CLI and Node.js.'
+      command: (file) => `rove run ${file} --target js`,
+      note: 'Build and run the JavaScript target with the local Rove CLI and Node.js.'
     },
     wasm: {
       label: 'WebAssembly / bundle',
-      command: (file) => `nyx bundle ${file} --target wasm --output build/wasm`,
+      command: (file) => `rove bundle ${file} --target wasm --output build/wasm`,
       note: 'Use the local bundle command to produce the WASM package and its host bindings.'
     },
     llvm: {
       label: 'LLVM IR / experimental',
-      command: (file) => `nyx run ${file} --target llvm`,
+      command: (file) => `rove run ${file} --target llvm`,
       note: 'LLVM is experimental. Check the target capability contract before relying on the generated artifact.'
     }
   };
@@ -211,7 +211,7 @@ main()`
     if (!el.buildCommand || !el.buildTargetStatus) return;
     const target = selectedTarget();
     const config = TARGETS[target];
-    const filename = (el.editorFilename.innerText || 'scratchpad.nyx').trim();
+    const filename = (el.editorFilename.innerText || 'scratchpad.rove').trim();
     el.buildTargetStatus.innerText = config.label;
     if (config.command) {
       el.buildCommand.innerText = config.command(filename);
@@ -260,12 +260,12 @@ main()`
       return;
     }
 
-    // Register Nyx Highlighting Mode
-    ace.define('ace/mode/nyx_highlight_rules', function (require, exports, module) {
+    // Register Rove Highlighting Mode
+    ace.define('ace/mode/rove_highlight_rules', function (require, exports, module) {
       var oop = require("ace/lib/oop");
       var TextHighlightRules = require("ace/mode/text_highlight_rules").TextHighlightRules;
 
-      var NyxHighlightRules = function () {
+      var RoveHighlightRules = function () {
         var keywords = "let|var|set|const|fn|struct|enum|type|trait|impl|match|if|elif|else|while|for|in|loop|defer|guard|break|continue|return|throw|try|catch|test|assert|print|import|from|self|mut|and|or|not|null|true|false|Ok|Err";
         var types = "int|float|string|bool|char|byte|void|any|Array|Map|Result|Option";
 
@@ -282,17 +282,17 @@ main()`
           ]
         };
       };
-      oop.inherits(NyxHighlightRules, TextHighlightRules);
-      exports.NyxHighlightRules = NyxHighlightRules;
+      oop.inherits(RoveHighlightRules, TextHighlightRules);
+      exports.RoveHighlightRules = RoveHighlightRules;
     });
 
-    ace.define('ace/mode/nyx', function (require, exports, module) {
+    ace.define('ace/mode/rove', function (require, exports, module) {
       var oop = require("ace/lib/oop");
       var TextMode = require("ace/mode/text").Mode;
-      var NyxHighlightRules = require("ace/mode/nyx_highlight_rules").NyxHighlightRules;
+      var RoveHighlightRules = require("ace/mode/rove_highlight_rules").RoveHighlightRules;
 
       var Mode = function () {
-        this.HighlightRules = NyxHighlightRules;
+        this.HighlightRules = RoveHighlightRules;
       };
       oop.inherits(Mode, TextMode);
       exports.Mode = Mode;
@@ -300,7 +300,7 @@ main()`
 
     state.editor = ace.edit("aceEditor");
     state.editor.setTheme("ace/theme/dracula");
-    state.editor.session.setMode("ace/mode/nyx");
+    state.editor.session.setMode("ace/mode/rove");
     state.editor.setOptions({
       enableBasicAutocompletion: true,
       enableLiveAutocompletion: true,
@@ -314,9 +314,9 @@ main()`
       wrap: true
     });
 
-    // Custom Nyx Autocompletion
+    // Custom Rove Autocompletion
     var langTools = ace.require("ace/ext/language_tools");
-    var nyxCompleter = {
+    var roveCompleter = {
       getCompletions: function (editor, session, pos, prefix, callback) {
         var wordList = [
           { caption: "fn", snippet: "fn ${1:name}(${2:params}) -> ${3:void} {\n    $0\n}", meta: "fn" },
@@ -336,7 +336,7 @@ main()`
         callback(null, wordList);
       }
     };
-    langTools.addCompleter(nyxCompleter);
+    langTools.addCompleter(roveCompleter);
 
     // Keyboard commands inside Ace
     state.editor.commands.addCommand({
@@ -379,11 +379,11 @@ main()`
   // --- Initialization ---
   function init() {
     // Purge outdated caches from earlier sessions so starter code is 100% fresh and clean
-    if (localStorage.getItem('nyx_cache_version') !== CACHE_VERSION) {
-      localStorage.removeItem('nyx_tour_code_cache');
-      localStorage.removeItem('nyx_tour_completed');
-      localStorage.removeItem('nyx_tour_last_index');
-      localStorage.setItem('nyx_cache_version', CACHE_VERSION);
+    if (localStorage.getItem('rove_cache_version') !== CACHE_VERSION) {
+      localStorage.removeItem('rove_tour_code_cache');
+      localStorage.removeItem('rove_tour_completed');
+      localStorage.removeItem('rove_tour_last_index');
+      localStorage.setItem('rove_cache_version', CACHE_VERSION);
       state.userCodeCache = {};
       state.completed = {};
     }
@@ -464,7 +464,7 @@ main()`
       const currentCode = getEditorCode();
       if (prevEx && currentCode && currentCode.trim().length > 0) {
         state.userCodeCache[prevEx.id] = currentCode;
-        localStorage.setItem('nyx_tour_code_cache', JSON.stringify(state.userCodeCache));
+        localStorage.setItem('rove_tour_code_cache', JSON.stringify(state.userCodeCache));
       }
     }
 
@@ -475,7 +475,7 @@ main()`
     el.badgeTopic.innerText = ex.topicTitle || ex.topic;
     el.exerciseTitle.innerText = `${ex.name}: ${ex.title}`;
     el.exerciseDesc.innerText = ex.description || '';
-    el.editorFilename.innerText = `${ex.name}.nyx`;
+    el.editorFilename.innerText = `${ex.name}.rove`;
     el.lessonCounter.innerText = `${index + 1} of ${state.exercises.length}`;
 
     const isSolved = Boolean(state.completed[ex.id]);
@@ -484,7 +484,7 @@ main()`
 
     // Compute expected canonical output
     try {
-      const solRes = evaluateNyx(ex.solution);
+      const solRes = evaluateRove(ex.solution);
       const expectedText = (solRes.output || []).join('\n').trim();
       el.expectedOutputBox.innerText = expectedText.length > 0 ? expectedText : '(Exercise verifies assertions without stdout)';
     } catch (e) {
@@ -516,7 +516,7 @@ main()`
   }
 
   function loadLastOrFirstExercise() {
-    const lastSavedIndex = parseInt(localStorage.getItem('nyx_tour_last_index') || '0', 10);
+    const lastSavedIndex = parseInt(localStorage.getItem('rove_tour_last_index') || '0', 10);
     switchExercise(isNaN(lastSavedIndex) ? 0 : Math.min(Math.max(lastSavedIndex, 0), state.exercises.length - 1));
   }
 
@@ -524,6 +524,20 @@ main()`
   // --- Code Execution & Verification Engine ---
   function runPreview(source) {
     return new Promise((resolve, reject) => {
+      // Browsers give file:// documents an opaque (null) origin, so a
+      // relative Worker cannot be constructed when Studio is opened by
+      // double-clicking the HTML file. The evaluator is already loaded on
+      // the page; use it directly in that local-only mode. Hosted pages
+      // keep the Worker so the timeout can terminate unbounded loops.
+      if (window.location.protocol === 'file:') {
+        try {
+          resolve(RovePreview.evaluateRove(source));
+        } catch (error) {
+          reject(error);
+        }
+        return;
+      }
+
       const worker = new Worker('preview-worker.js?v=5.0.3-studio-1');
       const timeout = setTimeout(() => {
         worker.terminate();
@@ -601,7 +615,7 @@ main()`
     if (!ex) return;
 
     try {
-      const solRes = evaluateNyx(ex.solution);
+      const solRes = evaluateRove(ex.solution);
       const userStr = userOutput.join('\n').trim();
       if (solRes.error) {
         logTerminal('This exercise needs the native compiler; the preview cannot evaluate its reference.', 'term-info');
@@ -625,14 +639,14 @@ main()`
         if (userCode.includes('TODO') || userCode.includes('I AM NOT DONE')) {
           reason = `Exercise contains uncompleted TODO comments. Finish the required task before verifying.`;
         } else {
-          reason = 'This exercise has no observable output. Validate it with nyx check / nyx test locally.';
+          reason = 'This exercise has no observable output. Validate it with rove check / rove test locally.';
         }
       }
 
       if (passed) {
         state.completed[ex.id] = true;
-        localStorage.setItem('nyx_tour_completed', JSON.stringify(state.completed));
-        localStorage.setItem('nyx_tour_last_index', state.currentExerciseIndex);
+        localStorage.setItem('rove_tour_completed', JSON.stringify(state.completed));
+        localStorage.setItem('rove_tour_last_index', state.currentExerciseIndex);
 
         el.badgeStatus.innerText = '✓ Solved';
         el.badgeStatus.className = 'badge-status solved';
@@ -702,7 +716,7 @@ main()`
       const template = PLAYGROUND_TEMPLATES[index];
       if (!template) return;
       state.playgroundTemplateIndex = index;
-      el.editorFilename.innerText = 'scratchpad.nyx';
+      el.editorFilename.innerText = 'scratchpad.rove';
       setEditorCode(template.code);
       clearTerminal();
       logTerminal(`[Studio] Loaded example: ${template.title}`, 'term-info');
@@ -755,7 +769,7 @@ main()`
       if (ex && confirm('Reset code to original exercise state?')) {
         setEditorCode(ex.code);
         delete state.userCodeCache[ex.id];
-        localStorage.setItem('nyx_tour_code_cache', JSON.stringify(state.userCodeCache));
+        localStorage.setItem('rove_tour_code_cache', JSON.stringify(state.userCodeCache));
         logTerminal('[Editor] Code reset to default template.', 'term-info');
       }
     });
@@ -843,7 +857,7 @@ main()`
       el.leftPane.style.display = 'none';
 
       const tmpl = PLAYGROUND_TEMPLATES[state.playgroundTemplateIndex];
-      el.editorFilename.innerText = 'scratchpad.nyx';
+      el.editorFilename.innerText = 'scratchpad.rove';
       setEditorCode(tmpl.code);
       updateBuildGuide();
       if (state.editor) setTimeout(() => state.editor.resize(), 100);

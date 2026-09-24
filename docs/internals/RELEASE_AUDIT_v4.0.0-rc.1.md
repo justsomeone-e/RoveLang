@@ -1,4 +1,4 @@
-# Nyx v4.0.0-rc.1 Local Candidate Audit
+# Rove v4.0.0-rc.1 Local Candidate Audit
 
 Date: 2026-09-02
 Current version: `4.0.0-rc.1`
@@ -19,8 +19,8 @@ provenance.
 | :-- | :--: | :-- |
 | Unified framework | PASS | Complete local framework finished with `ALL TEST SUITES PASSED` |
 | Regression battery | PASS | 138/138, zero failures |
-| Native self-host | PASS | Nyx-authored frontend, native stage 2, and byte-identical stage-3 C++ |
-| Typed HIR | PASS | 162 programs, 17 stdlib modules, 194-case Nyx/Python HIR byte parity |
+| Native self-host | PASS | Rove-authored frontend, native stage 2, and byte-identical stage-3 C++ |
+| Typed HIR | PASS | 162 programs, 17 stdlib modules, 194-case Rove/Python HIR byte parity |
 | `cpp` HIR runtime | PASS | 162 emitted and 138 native runtime cases |
 | `js` HIR runtime | PASS | 162 executed, 138 runtime cases, 10 deterministic fixtures |
 | `python` HIR runtime | PASS | 162 compiled, 138 runtime cases, 10 deterministic fixtures |
@@ -52,19 +52,19 @@ tagged workflow itself completes.
 - Canonical Boolean output fixtures now compare lowercase `true`/`false` on
   all three HIR-authoritative backends.
 - C FFI callback parameters emit valid function-pointer declarators.
-- Contextual `Result<T, E>` construction and Nyx i64 literals preserve their
+- Contextual `Result<T, E>` construction and Rove i64 literals preserve their
   exact host-language types.
 - Native HIR type parsing trims generic component whitespace deterministically.
 - The Rust 2021 backend now emits exclusively from canonical typed HIR; its
   beta contract passed the supported corpus and keeps Task, exception, spawn,
   and channel behavior as explicit capability rejections rather than approximations.
-- Installers no longer copy VS Code development `node_modules` into the Nyx
+- Installers no longer copy VS Code development `node_modules` into the Rove
   runtime payload.
 - Installers reject stale native executables that exit successfully without the
-  exact `nyxc <version> (native self-host)` signature, and the installed wrapper
+  exact `rovec <version> (native self-host)` signature, and the installed wrapper
   now passes an LSP initialize/shutdown protocol smoke test.
 - The VS Code extension now runs native executables in a persistent terminal,
-  diagnoses missing C++20 toolchains, prefers the canonical Nyx installation,
+  diagnoses missing C++20 toolchains, prefers the canonical Rove installation,
   exposes repository/documentation/release/roadmap/issue links, and ships as a
   local VSIX.
 - CLI quality/package commands no longer report success on missing files;

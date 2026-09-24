@@ -1,7 +1,7 @@
-# Nyx v4.5.0 and v5.0.0 preparation log
+# Rove v4.5.0 and v5.0.0 preparation log
 
 Updated: September 6, 2026. Initial reviewed base commit: `a49e413`; the working
-tree was dirty. `VERSION` and `nyx.toml` were `4.0.0` when the preparation work
+tree was dirty. `VERSION` and `rove.toml` were `4.0.0` when the preparation work
 began and were later synchronized to `4.5.0`. This record is not evidence of a
 release or a completed v5. Work is ordered
 by dependencies and verifiable exit gates rather than dates.
@@ -17,7 +17,7 @@ decisions, implementation changes, and validation evidence for both releases.
 | Component | Source | Actual state |
 |---|---|---|
 | Typed HIR | `src/ir/model.py`, `types.py`, `serialization.py` | Immutable tree-shaped HIR with schema v1, canonical JSON, and fingerprints; not SSA |
-| Lowering | `src/ir/lowering.py`, `compiler/hir_lowering.nyx` | Python and Nyx frontend paths with a canonical byte-parity gate |
+| Lowering | `src/ir/lowering.py`, `compiler/hir_lowering.rove` | Python and Rove frontend paths with a canonical byte-parity gate |
 | Passes/verifier | `src/ir/passes.py`, `verifier.py` | Deterministic transformations and HIR validation |
 | WASM | `src/codegen/wasm_ir.py` | HIR to a shared instruction graph to WAT and binary; not two independently handwritten codegen paths |
 | Native self-host | `compiler/`, `tests/self_host_suite.py` | Native compiler emits C++; no C/LLVM self-host path yet |
@@ -68,19 +68,19 @@ ABI v2 remain separate v5 decisions.
    obsolete footer assertion was removed; checks for the three active diagrams
    and all version mappings remain. The README design was not changed.
 
-Code: `src/codegen/wasm_ir.py`. Tests: `tests/test_bundle.nyx` and
+Code: `src/codegen/wasm_ir.py`. Tests: `tests/test_bundle.rove` and
 `tests/bundle_suite.py`. The HIR schema, ABI version, and default target were
 unchanged. Numeric-array reads do not imply owned arrays, array assignment,
 string indexing, or full WASM runtime parity. Raw descriptor validation checks
 the linear-memory range; it does not prove allocation ownership. A trap appears
-in JavaScript as `WebAssembly.RuntimeError`, not as a catchable Nyx exception.
+in JavaScript as `WebAssembly.RuntimeError`, not as a catchable Rove exception.
 
 ## v4.5.0: ordered, compatible development
 
 | ID | Priority / dependency | Deliverable | Exit criterion / state |
 |---|---|---|---|
 | 45-IR-1 | P0, first | Numeric-array reads and lazy Boolean WASM lowering | Implemented; bundle runtime regressions passed |
-| 45-IR-2 | P0, after IR-1 | HIR node/type/span/capability inventory | Implemented; string/Iterator indexing type loss fixed, verifier generic/primitive rules tightened, Python/Nyx canonical byte parity preserved |
+| 45-IR-2 | P0, after IR-1 | HIR node/type/span/capability inventory | Implemented; string/Iterator indexing type loss fixed, verifier generic/primitive rules tightened, Python/Rove canonical byte parity preserved |
 | 45-LSP | P1, after symbol/span inventory | Source symbol index, references, prepareRename/rename, semantic tokens | Implemented; `LspSymbolIndex` covers shadowing, UTF-16, function/struct scopes, rename collision checks, and semanticTokens/full delta encoding; `lsp_suite` 7/7 passed |
 | 45-PERF | P1, after correctness is green | Native frontend/codegen time and memory baseline | Implemented; `src/toolchain/compiler_benchmark.py` and `compiler_benchmark.json` record stage time/RSS/memory on a fixed four-source corpus in `build/compiler-benchmark.json` |
 | 45-LIB | P1 | Stdlib string/path/process API inventory and real consumer examples | Distinguish errors from empty values for every added API; require Result and exact C++/JS/Python output; open |
@@ -97,7 +97,7 @@ exit, behavior before/after passes, and rejecting unsupported HIR before output
 is emitted. These must not be marked as fixed without implementation evidence.
 
 For 45-PERF, `tests/bootstrap_typechecker_test.py` recompiles the native test
-program for each semantic case. Its total duration is not direct Nyx frontend
+program for each semantic case. Its total duration is not direct Rove frontend
 latency. Any harness optimization must first separate compilation from case
 execution, then measure single-harness reuse/cache against the same
 acceptance/rejection corpus.
@@ -133,7 +133,7 @@ against the C++ oracle.
 - Input is verified HIR only. Initial coverage is `int`, `float`, `bool`, locals,
   arithmetic/comparison, direct calls, if/while, and return. String/Array/Struct,
   exceptions/Task, and foreign bindings are rejected until implemented.
-- Do not rely on C signed overflow for Nyx signed-i64 wrapping. Use unsigned
+- Do not rely on C signed overflow for Rove signed-i64 wrapping. Use unsigned
   arithmetic and defined signed-conversion helpers; branch explicitly for zero
   division/remainder and minimum-i64 divided by -1.
 - Compile generated C17 with a real C toolchain and compare the same fixture
@@ -161,9 +161,9 @@ to explicit condition/body/step/exit blocks with correct `break` and `continue`
 targets. Array returns, rebinding, nested Arrays, and non-scalar elements remain
 rejected until the ownership and cleanup ABI is defined.
 
-The public CLI now exposes the same path: `nyx build program.nyx --target llvm`
+The public CLI now exposes the same path: `rove build program.rove --target llvm`
 writes `build/llvm/program.ll` and compiles that exact LLVM IR artifact to a
-native executable with the host Clang toolchain. `nyx run ... --target llvm`
+native executable with the host Clang toolchain. `rove run ... --target llvm`
 uses the same direct path. No generated C++ source participates in either command.
 
 - Initial HIR coverage matches 50-C and emits `.ll` without a C++ source hop.
@@ -173,7 +173,7 @@ uses the same direct path. No generated C++ source participates in either comman
 - Locals initially use entry-block alloca/load/store. A custom early SSA system
   is unnecessary. LLVM verification checks branches, terminators, types, and
   returns; SSA conversion is evaluated through measured official passes.
-- Nyx wrapping arithmetic does not use unproven `nsw`/`nuw`. Division/remainder,
+- Rove wrapping arithmetic does not use unproven `nsw`/`nuw`. Division/remainder,
   shift-count bounds, and lazy Boolean expressions require explicit lowering.
 - Fast-math is off by default. Preserve NaN, signed zero, and binary64 fixtures.
   Obtain target triples/data layouts from the target toolchain rather than
@@ -199,9 +199,9 @@ runtime design.
 
 - The OCaml reference frontend is only a frozen grammar to canonical
   HIR/diagnostics validator, not a mandatory replacement production compiler.
-  It reuses the existing Python/Nyx parity corpus for independent parse and
+  It reuses the existing Python/Rove parity corpus for independent parse and
   diagnostic comparisons.
-- Exposing a new backend through native `nyxc` is separate work. A Python-based
+- Exposing a new backend through native `rovec` is separate work. A Python-based
   pilot emitter does not mean the native compiler supports C/LLVM.
 - Preserve Stage1 -> Stage2 -> Stage3 evidence, clean installation, and packaging
   tests. Changing the default backend requires a separate release decision.
@@ -210,7 +210,7 @@ runtime design.
 
 | Surface | v4.5 rule | Migration required for v5 |
 |---|---|---|
-| Nyx source semantics | Preserve the meaning of valid v4 code | For breaking proposals, provide before/after examples, diagnostics, and a conversion guide; never silently reinterpret source |
+| Rove source semantics | Preserve the meaning of valid v4 code | For breaking proposals, provide before/after examples, diagnostics, and a conversion guide; never silently reinterpret source |
 | HIR JSON / plugin API | Preserve schema v1 and canonical parity | Removing fields or changing meaning requires HIR v2, reader-side version checks, and v1 migration fixtures |
 | Internal LIR | Does not yet exist and cannot replace public HIR | If needed, give it a separate internal version/fingerprint; it does not automatically enter the plugin contract |
 | WASM Bundle ABI | Preserve v1 i32/UTF-8 ptr-len/borrow rules | i64 widths and owned Array/Struct returns require ABI v2 plus loader/type migration |
@@ -223,15 +223,15 @@ number is not migration. v5 release readiness requires the selected scope to
 pass all eight backend gates; both C and LLVM do not have to become stable.
 Go/JVM/.NET/Lua are outside this preparation effort.
 
-## Research sources and their effect on Nyx
+## Research sources and their effect on Rove
 
 Checked against official sources on September 6, 2026. The implementation
-decisions below are Nyx design choices, not rules automatically imposed on Nyx
+decisions below are Rove design choices, not rules automatically imposed on Rove
 by the referenced standards.
 
 - [WebAssembly instruction semantics](https://webassembly.github.io/spec/core/exec/instructions.html):
   `unreachable` traps and `if` executes only the selected branch. A load's
-  linear-memory bound does not know the Nyx logical array length, so logical
+  linear-memory bound does not know the Rove logical array length, so logical
   bounds and widened descriptor checks occur before loading. No new WASM 3.0
   feature dependency was introduced.
 - [LLVM add semantics](https://llvm.org/docs/LangRef.html#add-instruction) and
@@ -255,7 +255,7 @@ by the referenced standards.
   compile-time rejection of non-scalar data (`Array`, `Struct`) matched the C++
   oracle exactly.
 - TESTED: `python tests/ir_suite.py`; 162 programs, 18 stdlib modules, 196-case
-  Nyx/Python canonical HIR byte parity, string indexing, and negative
+  Rove/Python canonical HIR byte parity, string indexing, and negative
   `IRVerifier` tests passed, including primitive member access (`HIR0006`) and
   struct generic/optional field validation.
 - TESTED: `python tests/bundle_suite.py`; the new fixture reproduced the old
@@ -266,7 +266,7 @@ by the referenced standards.
   the stale `docs/generated/metrics/metrics.wasm`. The artifacts were regenerated
   through the source command and the next docs-site validation passed.
 - TESTED: the combined battery passed self-host reproducibility, 197-case
-  Python/Nyx canonical HIR parity, the 162-program corpus, C++/JS/Python runtime
+  Python/Rove canonical HIR parity, the 162-program corpus, C++/JS/Python runtime
   and Rust metadata/runtime gates, language/numeric/Maya surfaces, and
   deterministic ZIP/TAR packaging.
 - The second combined run stopped at the pre-existing README footer assertion.
@@ -302,7 +302,7 @@ battery.
 1. Run `git status --short` and inspect changes made after this record.
 2. Continue from this validation record and the 45-IR-2 inventory; do not redesign
    completed array-read or lazy-Boolean work.
-3. If new lowering changes type information, update the Python and Nyx lowerers
+3. If new lowering changes type information, update the Python and Rove lowerers
    together and run HIR byte parity plus self-host validation.
 4. Record each new task ID in this file and in the `CHANGELOG.md` Unreleased
    section. Preserve exact commands, TESTED/REVIEWED/NOT TESTED distinctions,

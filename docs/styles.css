@@ -1,4 +1,4 @@
-/* Tour of Nyx & WebAssembly Studio - Clean Engineering Theme */
+/* Tour of Rove & WebAssembly Studio - Clean Engineering Theme */
 :root {
   --bg-app: #080b11;
   --bg-header: #0c1018;
@@ -974,7 +974,7 @@ body {
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }
 
-/* Nyx Studio visual system: quiet surfaces, explicit hierarchy, no neon effects. */
+/* Rove Studio visual system: quiet surfaces, explicit hierarchy, no neon effects. */
 :root {
   --bg-app: #0b1016;
   --bg-header: #101720;

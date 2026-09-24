@@ -1,11 +1,11 @@
-# Nyx MIR and Bundle ABI v2 draft
+# Rove MIR and Bundle ABI v2 draft
 
 Status: experimental design contract. Bundle ABI v1 remains the stable public
 ABI and is not changed by this document.
 
 ## Logical values and storage
 
-Typed HIR and MIR name logical Nyx types. Physical size, alignment, field
+Typed HIR and MIR name logical Rove types. Physical size, alignment, field
 offsets, enum tags, and payload offsets are computed later by
 `src/mir/layout.py` from an explicit target data layout. Host Python object size
 and alignment are never used as ABI evidence.

@@ -1,30 +1,36 @@
-# Nyx Deep Compiler Architecture and Formal Roadmap
+# Rove Deep Compiler Architecture and Formal Roadmap
 
-Status: implementation roadmap with per-milestone evidence. M0-M3 and the M4
-core foundations are implemented as recorded below; the M4 exit gate, full M5
-backend parity, formal proofs, ABI revisions, and later milestones remain open.
+Status: implementation roadmap with per-milestone evidence. M0-M4 are
+implemented as recorded below; full M5 backend parity, formal proofs, ABI
+revisions, and later milestones remain open.
 
 Audience: compiler contributors deciding what semantic work is safe to build
-next. This is a living architecture and implementation roadmap, not the Nyx
+next. This is a living architecture and implementation roadmap, not the Rove
 language specification and not a claim that the research agenda has been
 formally proved.
 
 ## Current state at a glance
 
-Validation scope for this snapshot: the named targeted suites and the full
-`python -u tests/run_all_tests.py` battery are green after the latest identity,
-generic-instance, dispatch, coroutine, graph-checking, and enum-pattern fixes.
-This is repository regression evidence, not hosted multi-platform release
-evidence.
+Validation scope for this snapshot: the last full
+`python -u tests/run_all_tests.py` battery is recorded for the checked MIR
+foundation release. After the Rust throw/catch and typed `Result<T, E>` slices,
+plus the first C++, Rust, JavaScript, and Python `async` task adapters,
+the M1-M4 targeted suites and the full M5 legalization suite are green. C++,
+LLVM, Wasm, JavaScript, Python, and C17 runtime gates executed locally; every
+Rust artifact passed `rustc` metadata/type checking, while Rust runtime linking
+remains unverified locally. The default `link.exe` is unavailable; an explicit
+bundled `lld-link` attempt also failed because Windows SDK import libraries
+such as `kernel32.lib` are absent.
+This is repository regression evidence, not hosted multi-platform release evidence.
 
 | Milestone | State | Implemented boundary | Current evidence | Exit-gate gap |
 | --- | --- | --- | --- | --- |
 | M0 identities/contracts | Foundation implemented | Stable source/module/definition/type identities, feature manifest, non-flattened parsed module graph | Full battery; focused module/manifest suites also pass | Compatibility linking still flattens the final AST/HIR program |
 | M1 MIR skeleton | Complete | Versioned model, verifier, printer, serialization, pass fingerprints and CLI tooling | Full battery; `tests/mir_suite.py` passes | None for the stated M1 boundary |
 | M2 scalar CFG | Complete | Executable scalar/control-flow MIR and reference interpreter | Full battery; `tests/mir_lowering_suite.py` passes | None for the stated scalar boundary |
-| M3 cleanup semantics | Complete for currently lowered HIR | Shared short-circuit, match/guard, Result propagation, defer and unwind CFG | Full battery; `tests/mir_cleanup_suite.py` passes | New source constructs must prove that no emitter-local lowering remains |
-| M4 memory/ABI | Core implemented; exit gate open | Aggregate places, ownership operations, verifier, layouts and ABI classification | Full battery; `tests/mir_memory_abi_suite.py` passes | Stable-target aggregate parity and complete ownership-bearing layouts |
-| M5 backend migration | In progress | Versioned legalization and bounded executable pilots for all listed targets | Full battery; `tests/mir_legalization_suite.py` passes | Full MIR-surface differential parity, async adapters and remaining aggregate/runtime cases |
+| M3 cleanup semantics | Complete for currently lowered HIR | Shared short-circuit, match/guard, Result propagation, defer/unwind CFG, lexical cleanup for source-owned bindings, and single-consumer temporary transfer/discard | Full battery; `tests/mir_cleanup_suite.py` passes, including overwrite, return, break, continue, throw/catch, call/suspend unwind, loop-binding, pattern-binding, comparison-pattern and ignored-owned-expression cleanup edges | Multi-use/control-flow temporary lifetime elaboration and general partial-move analysis remain M5 work; new source constructs must prove that no emitter-local lowering remains |
+| M4 memory/ABI | Complete | Aggregate places, ownership operations, verifier, layouts and ABI classification | `tests/mir_memory_abi_suite.py` plus executable C++/JavaScript/Python flat and nested value-parity fixtures | None for the stated M4 boundary; ABI v2 remains a later versioned track |
+| M5 backend migration | In progress | Versioned legalization and bounded executable pilots for all listed targets | `tests/mir_legalization_suite.py` passes locally with executable non-Rust gates and explicit Rust metadata-only fallback | Full MIR-surface differential parity, Rust runtime confirmation, remaining target async adapters and aggregate/runtime cases |
 | M6-M8 platform expansion | Not complete | Isolated static-dispatch, generic-instance and coroutine foundations | Full battery; focused dispatch/instance/coroutine suites pass | Vertical language slices, ecosystem work, backend promotion and formal validation |
 | M9-M24 platform scale | Planned; some foundations exist | Optimizer, target model, workspace, registry, tooling, debug, FFI, concurrency, unsafe, instrumentation, editions and supply-chain tracks | No single completion claim; individual evidence is recorded per track below | Each track requires its own implementation, negative, reproducibility and integration gates |
 
@@ -36,7 +42,7 @@ Sections 19-24 are a long-term formal-methods research agenda. They define a
 possible proof direction and trusted boundary; they are not release gates for
 the current executable compiler unless a milestone explicitly adopts one.
 
-Nyx should grow by strengthening a small target-independent semantic core, not
+Rove should grow by strengthening a small target-independent semantic core, not
 by adding keywords or duplicating lowering logic across emitters. The intended
 long-term shape is a language platform whose source semantics, intermediate
 representations, runtime contracts, target legalization, and observable
@@ -44,7 +50,7 @@ behavior are explicit and independently verifiable.
 
 ## 1. Current architectural pressure
 
-Nyx already has a structured Typed HIR and multiple backend implementations.
+Rove already has a structured Typed HIR and multiple backend implementations.
 The current HIR remains source-oriented and tree-shaped rather than a
 control-flow or SSA representation. Backend emitters independently lower many
 of the same constructs, including branching, loops, pattern matching, `defer`,
@@ -65,7 +71,7 @@ Source
   -> AST
   -> name and type resolution
   -> Typed HIR v1
-  -> Nyx MIR
+  -> Rove MIR
   -> target legalization
   -> emitter and runtime adapter
   -> target artifact
@@ -218,7 +224,7 @@ backend-specific frame allocation and destruction
 ```
 
 The shared MIR now owns suspension identity and frame liveness. The remaining
-lifecycle decisions belong in the Nyx Task contract and target legalization,
+lifecycle decisions belong in the Rove Task contract and target legalization,
 not in direct backend syntax generation.
 
 #### A module graph now accompanies the flattened compatibility AST
@@ -308,7 +314,7 @@ keys, but it is not itself a complete incremental compiler.
 
 ## 3. Staged MIR architecture
 
-Nyx should avoid one representation that accepts every high-level and
+Rove should avoid one representation that accepts every high-level and
 low-level construct at once. A staged representation provides explicit
 invariants and smaller verifier surfaces.
 
@@ -551,9 +557,9 @@ Monomorphization keys must include canonical type arguments and relevant
 compile-time parameters. Collection requires recursion/cycle guards and a code
 size budget.
 
-Target-language templates must not become the source of Nyx generic semantics.
+Target-language templates must not become the source of Rove generic semantics.
 C++ and Rust emitters should receive already-resolved concrete instances. JS
-and Python may erase representation details only after Nyx-level checking. JVM
+and Python may erase representation details only after Rove-level checking. JVM
 or .NET reification can be introduced later through target legalization.
 
 ### 7.2 Trait solver
@@ -707,7 +713,7 @@ src/layout/abi.py
 src/layout/verify.py
 ```
 
-Rust or C++ implementation layout must not become Nyx ABI by accident. A future
+Rust or C++ implementation layout must not become Rove ABI by accident. A future
 C-compatible representation should be an explicit ABI attribute backed by a
 versioned RFC and conformance tests.
 
@@ -753,7 +759,7 @@ longer depend on source-emitter shortcuts.
 
 ### 10.1 Backend portfolio beyond the current targets
 
-Nyx should distinguish a semantic backend, an ecosystem adapter, and an
+Rove should distinguish a semantic backend, an ecosystem adapter, and an
 interoperability profile. Producing another file extension is not by itself a
 new useful backend.
 
@@ -773,17 +779,17 @@ Interop profile
 
 | Target | Primary value | Main semantic mismatch | Recommended first form |
 | --- | --- | --- | --- |
-| Go | Services, command-line tools, networking, and Go packages | Nyx lexical `defer`, Task behavior, exceptions, value copies, goroutines, and channels | Generated Go source |
+| Go | Services, command-line tools, networking, and Go packages | Rove lexical `defer`, Task behavior, exceptions, value copies, goroutines, and channels | Generated Go source |
 | C#/.NET | .NET libraries, desktop/server applications, and a rich managed runtime | Value/reference distinction, generics, exception identity, Task cancellation, and disposal | Generated C# source |
 | Java/JVM | Java/Kotlin libraries and the JVM deployment ecosystem | Boxing, erased/reified generic boundaries, class initialization, exceptions, and object identity | Generated Java source |
 
 Go must not receive a direct syntax substitution for `defer`: Go executes
-deferred calls when the surrounding function returns, while Nyx lexical defer
+deferred calls when the surrounding function returns, while Rove lexical defer
 is defined at scope exit. Go goroutines and channels are useful implementation
-mechanisms, but Nyx Task and Channel contracts remain authoritative.
+mechanisms, but Rove Task and Channel contracts remain authoritative.
 
 C# Task exceptions, cancellation, value types, reference types, and disposal
-require an explicit runtime adapter. A Nyx `Result<T, E>` remains an ordinary
+require an explicit runtime adapter. A Rove `Result<T, E>` remains an ordinary
 sum value and must not silently become a .NET exception.
 
 The first JVM backend should emit Java source. Kotlin libraries are accessed
@@ -797,7 +803,7 @@ covered by target-specific tests.
 | Target | Add when | Main blocker | Initial strategy |
 | --- | --- | --- | --- |
 | Lua | Embedded scripting, games, or modding becomes a primary direction | Dynamic tables, number policy, GC identity, errors, and coroutine semantics | Lua source plus a small runtime |
-| Zig | Nyx needs better C-library consumption or freestanding/native tooling | Error unions, comptime, allocation ownership, target ABI, and async differences | Zig source or C ABI adapter |
+| Zig | Rove needs better C-library consumption or freestanding/native tooling | Error unions, comptime, allocation ownership, target ABI, and async differences | Zig source or C ABI adapter |
 | Swift | Apple application and framework integration becomes important | ARC ownership, value semantics, async behavior, module resilience, and platform ABI scope | Swift source and generated C bridge |
 | Ruby | Dynamic scripting and RubyGem integration has demonstrated users | Open classes, reflection, exceptions, block/closure semantics, and object identity | Ruby source or C-extension adapter |
 | Dart | Flutter or Dart server consumers exist | Futures, isolates, GC values, null safety, and FFI ownership | Dart source plus `dart:ffi` bridge |
@@ -808,16 +814,16 @@ source output. Its runtime contract must select an exact Lua version and define
 integer, floating, table, coroutine, error, and garbage-collection boundaries.
 
 Zig is attractive because it has explicit C ABI primitives and C translation
-tooling. That makes it useful for Nyx native interoperability, but it does not
+tooling. That makes it useful for Rove native interoperability, but it does not
 remove the need for exact target triples, flags, ownership, and ABI validation.
 
 Swift should not be described as universally ABI-stable. Swift's published ABI
 stability commitment is platform-specific, historically centered on Apple
-platforms. Nyx should therefore prefer generated Swift source and a C boundary
+platforms. Rove should therefore prefer generated Swift source and a C boundary
 before claiming portable binary interoperability.
 
 BEAM deserves a separate actor-oriented target profile rather than pretending
-that Nyx shared-memory `spawn` and Channel behavior naturally matches Erlang
+that Rove shared-memory `spawn` and Channel behavior naturally matches Erlang
 processes and mailboxes. Erlang processes use isolated mailboxes and selective
 receive; adopting that model would be a semantic feature, not an emitter trick.
 
@@ -827,20 +833,20 @@ receive; adopting that model would be a semantic feature, not an emitter trick.
 | --- | --- | --- |
 | TypeScript | Extend the JavaScript backend's typed output | TypeScript erases types and preserves JavaScript runtime behavior, so a separate runtime backend adds little |
 | Kotlin | Build a JVM ecosystem adapter first | Kotlin and Java interoperate on the JVM; a separate Kotlin emitter would duplicate JVM legalization |
-| React/Vue/Svelte | Keep as generated web adapters | These are consumer frameworks, not independent Nyx semantic targets |
+| React/Vue/Svelte | Keep as generated web adapters | These are consumer frameworks, not independent Rove semantic targets |
 | Objective-C | Reach through Swift/C adapters initially | A dedicated semantic backend provides limited new reach |
 
 TypeScript declarations, source maps, ESM packaging, and typed host adapters
 should therefore be features of the JavaScript/Wasm toolchain rather than a
-second definition of Nyx semantics.
+second definition of Rove semantics.
 
 #### Tier D: reference languages, not immediate output targets
 
 Haxe and Nim are valuable comparison projects for language ergonomics,
 conditional compilation, portable libraries, and multi-target design. Emitting
-Haxe or Nim from Nyx does not immediately unlock a unique runtime or package
+Haxe or Nim from Rove does not immediately unlock a unique runtime or package
 ecosystem comparable to Go, .NET, or JVM, and would insert another compiler
-between Nyx and the final target.
+between Rove and the final target.
 
 They should initially be used for comparative conformance research:
 
@@ -891,7 +897,7 @@ separately versioned contracts:
 
 ```text
 Bundle ABI v1       current compatibility contract
-Bundle ABI v2       richer Nyx host ABI
+Bundle ABI v2       richer Rove host ABI
 WIT component mode  standardized Wasm component integration
 ```
 
@@ -928,7 +934,7 @@ std/dotnet     future .NET adapters
 ```
 
 Target-specific code is acceptable inside controlled adapters. Target branches
-should not spread through ordinary Nyx application code. The compiler should
+should not spread through ordinary Rove application code. The compiler should
 resolve capabilities and select adapters before target emission.
 
 ## 13. Incremental compilation
@@ -968,7 +974,7 @@ exist. Otherwise a fast cache can produce stale or semantically invalid builds.
 
 ### 13.1 Compiler performance plan
 
-Compiler speed must be improved from measurements, not from assumptions. Nyx
+Compiler speed must be improved from measurements, not from assumptions. Rove
 should record cold and warm timings for tokenization, parsing, interface
 collection, name resolution, type checking, HIR/MIR lowering, legalization,
 code generation, and the external native compiler invocation. A benchmark
@@ -986,11 +992,25 @@ The implementation order is:
    deterministic output ordering and diagnostics.
 5. Reuse native object files through an explicitly configured compiler cache
    such as `ccache` or `sccache` when the external toolchain supports it.
-6. Add a persistent compiler process/daemon only after query boundaries and
+6. Emit target runtime support on demand. A generated unit must include only
+   the helper families reachable from its legalized operations and selected
+   capabilities; unused coroutine, Result, channel, HAL, MMIO, filesystem, and
+   process support must not be copied into a scalar program. Keep an explicit
+   full-runtime fallback until every fragment has dependency and parity tests.
+7. Add a persistent compiler process/daemon only after query boundaries and
    cache invalidation are correct; it must not become a second source of
    compiler semantics.
-7. Move the stable frontend path to the native `nyxc` implementation in
+8. Move the stable frontend path to the native `rovec` implementation in
    bounded slices, with differential parity against the reference frontend.
+
+The first demand-driven C++ slice is implemented: a translation unit whose
+only runtime surface is scalar/string `print`, CLI argument capture, and the
+standalone-console guard receives a compact runtime. Any unknown helper,
+aggregate, async function, native/foreign declaration, or advanced runtime type
+falls back to the established full runtime. The exact `"Hello World" |> print`
+probe shrank from roughly eight hundred generated lines to 122 lines and was
+compiled and executed locally. This is a source-size result for one probe, not
+yet a general compile-time benchmark or a completed runtime-fragment graph.
 
 The first warm-build success criterion should be concrete: an unchanged
 project must avoid parsing, type-checking, lowering, and native recompilation
@@ -1014,24 +1034,119 @@ GeneratedFromNodeId
 Required tooling:
 
 ```text
-nyx emit ast
-nyx emit hir
-nyx emit mir
-nyx emit mir --after cleanup
-nyx verify mir
-nyx explain E3001
-nyx explain-backend rust
-nyx compile --save-temps
+rove emit ast
+rove emit hir
+rove emit mir
+rove emit mir --after cleanup
+rove verify mir
+rove explain E3001
+rove explain-backend rust
+rove compile --save-temps
 ```
 
-Generated target locations should map back to Nyx source ranges. Native LLVM
+Generated target locations should map back to Rove source ranges. Native LLVM
 output should eventually emit DWARF or CodeView metadata. JavaScript should
 emit source maps. Diagnostics from generated C++ or other source backends should
 be translated back through a generated-range map.
 
+### 14.1 CLI and toolchain UX
+
+The CLI is a product boundary over compiler services, not a second semantic
+implementation. Commands must call the same parser, resolver, Typed HIR, MIR,
+legalization, package graph, diagnostics, and capability services used by the
+library API. A CLI command may select and present a compiler stage; it may not
+reimplement that stage or silently choose a different semantic fallback.
+
+Intended command surface:
+
+```text
+rove
+|-- new / init
+|-- check
+|-- build / run / clean
+|-- test / bench
+|-- fmt / lint / fix
+|-- doc / debug / profile
+|-- emit
+|   |-- ast
+|   |-- hir
+|   `-- mir [--after <pass>] [--codegen --target <target>]
+|-- inspect
+|   |-- module-graph
+|   |-- types
+|   |-- capabilities
+|   |-- layout
+|   `-- mir
+|-- verify
+|   |-- mir
+|   |-- package
+|   `-- reproducible-build
+|-- explain <diagnostic>
+|-- explain-backend <target>
+|-- prove optimization <pass-or-record>
+|-- targets
+|-- backend
+|   |-- init
+|   |-- verify
+|   |-- test
+|   `-- publish
+|-- package / publish
+|-- self-host
+|-- doctor / version
+`-- lsp / repl / tour
+```
+
+Current status must remain explicit:
+
+| Command family | Status in the current CLI | Required next contract |
+| --- | --- | --- |
+| `new`, `init`, `check`, `build`, `run`, `clean` | Implemented | Workspace graph and incremental-query integration |
+| `test`, `fmt`, `lint`, `doc`, `debug`, `profile` | Implemented bounded tools | Stable machine-readable reports and workspace-wide execution |
+| `targets --json --mir` | Implemented | Resolve and display concrete capability plans, not only support tables |
+| `emit mir [--json] [--codegen]` | Implemented experimental MIR surface | Named pass snapshots, provenance maps, and schema compatibility policy |
+| `verify mir` | Implemented | Package, reproducibility, ABI, and backend-verification entry points |
+| `emit ast`, `emit hir`, `inspect ast|hir|mir|module-graph|layout|types|capabilities` | Implemented read-only inspection v1 | Preserve stable schema envelopes, add named MIR pass snapshots, and replace direct feature checks with resolved capability plans when that resolver exists |
+| `explain` | Implemented diagnostic catalog | Expand catalog coverage while preserving stable diagnostic codes |
+| `explain-backend` | Implemented backend/MIR contract view | Add resolved capability-plan explanations when the resolver exists |
+| `bench compiler`, `bench compiler-invalidation` | Implemented fixed-corpus stage-0 measurements | Add native `rovec`, backend/runtime and reproducible cross-machine benchmark contracts |
+| `fix` | Planned | Machine-applicable edit contracts with preview and conflict handling |
+| `prove optimization` | Planned research tooling | Proof-record schema plus interpreter/differential validation; never a marketing-only success message |
+| `backend init/verify/test/publish` | Planned | Versioned backend SDK, conformance corpus, signing, and registry policy |
+| `package`, `publish` | Planned | Reproducible package format, lockfile integrity, signatures, and registry authorization |
+| `compile --save-temps` | Planned spelling | Preserve source maps and every selected stage without changing compilation semantics |
+
+UX invariants:
+
+- every mutating or networked command has an explicit dry-run or preview where
+  practical, and destructive actions name their exact targets;
+- human output and `--json` output are separate stable contracts;
+- diagnostics retain stable codes, source spans, suggested fixes, and a direct
+  `rove explain <code>` path;
+- `emit`, `inspect`, `verify`, and `prove` are read-only unless an output path is
+  explicitly supplied;
+- target aliases resolve through the canonical target registry and every
+  unsupported capability reports the rejected requirement and available
+  alternatives;
+- command help states backend maturity (`stable`, `beta`, `experimental`) and
+  never presents source emission as semantic parity;
+- exit codes distinguish invalid user source, unavailable toolchains, failed
+  tests, internal compiler errors, and rejected capability plans;
+- shell completion and LSP/editor actions are generated from the same command
+  and diagnostic registries rather than duplicated lists.
+
+CLI exit gate:
+
+```text
+Every documented command maps to one versioned compiler/toolchain service.
+Human and JSON output have golden tests.
+No command bypasses legalization, capability resolution, lockfile validation,
+or the selected diagnostic policy.
+Read-only inspection commands are deterministic for identical compiler inputs.
+```
+
 ## 15. Reference interpreter and observable behavior
 
-Stable semantics should not use the C++ emitter as the sole oracle. Nyx needs a
+Stable semantics should not use the C++ emitter as the sole oracle. Rove needs a
 small, deliberately slow MIR interpreter.
 
 ```text
@@ -1062,7 +1177,7 @@ Trap(reason)
 For deterministic sequential code, one program should have one trace. For I/O
 or concurrency, the semantics may permit a set of traces.
 
-## 16. Nyx semantic constitution
+## 16. Rove semantic constitution
 
 Every operation must be classified as:
 
@@ -1091,16 +1206,16 @@ At minimum, the specification must settle:
 - pointer provenance and invalid addresses;
 - global initialization and module ordering.
 
-Safe Nyx should avoid undefined behavior. A valid safe program should produce a
+Safe Rove should avoid undefined behavior. A valid safe program should produce a
 defined value, structured error, defined trap, or compile-time rejection.
 
 LLVM lowering must avoid unjustified `nsw`, `nuw`, `inbounds`, alias, lifetime,
-and initialization assumptions. Otherwise an apparently safe Nyx operation can
+and initialization assumptions. Otherwise an apparently safe Rove operation can
 become LLVM poison or undefined behavior after optimization.
 
 ## 17. Abstract machine and operational semantics
 
-Nyx should have a target-independent abstract machine:
+Rove should have a target-independent abstract machine:
 
 ```text
 MachineState {
@@ -1148,7 +1263,7 @@ Runtime configuration:
 ```
 
 High-level language features desugar into this core. The formal core, rather
-than generated C++, defines Nyx program meaning.
+than generated C++, defines Rove program meaning.
 
 ```text
 for        -> iterator plus while
@@ -1210,7 +1325,7 @@ E[[tau]] = expressions whose executions produce related results at type tau
 
 For example:
 
-```nyx
+```rove
 fn identity<T>(x: T) -> T = x
 ```
 
@@ -1302,7 +1417,7 @@ transferred to another task.
 
 ## 20. Contextual equivalence and secure compilation
 
-Two source programs are contextually equivalent when no valid Nyx context can
+Two source programs are contextually equivalent when no valid Rove context can
 distinguish them:
 
 ```text
@@ -1315,18 +1430,18 @@ Compiler correctness should preserve observable behavior. A stronger secure
 compilation goal is full abstraction:
 
 ```text
-P ~=Nyx Q
+P ~=Rove Q
 iff
 compile(P) ~=Target compile(Q)
 ```
 
 This prevents a target context from observing representation details that are
-not observable in Nyx, such as hidden object identity, padding, generated
+not observable in Rove, such as hidden object identity, padding, generated
 fields, or raw linear-memory layouts.
 
 Concrete leakage risks include:
 
-- JavaScript object identity exposing a distinction that Nyx value-copy
+- JavaScript object identity exposing a distinction that Rove value-copy
   semantics hide;
 - Python reflection exposing generated storage fields;
 - a C++ host reading padding or an internal discriminant;
@@ -1501,7 +1616,7 @@ large automatic prover
 AI-generated proof            untrusted
 optimization certificate      untrusted
 small proof checker           trusted
-Nyx formal specification      trusted
+Rove formal specification      trusted
 ```
 
 A faulty tactic, optimizer, or AI agent may fail to produce an accepted proof,
@@ -1729,7 +1844,7 @@ Implementation status (2026-09-09): complete for the M1 boundary. The
 experimental implementation lives in `src/mir/`; `tests/mir_suite.py` covers
 construction, malformed CFG rejection, canonical round-tripping, printing,
 fingerprints, pass validation, and CLI subprocess behavior. The original
-semantics-free skeleton remains available as `lower_hir_skeleton`; `nyx emit
+semantics-free skeleton remains available as `lower_hir_skeleton`; `rove emit
 mir` now uses the subsequently completed executable lowering path. The default
 HIR-to-backend route remains unchanged.
 
@@ -1758,7 +1873,7 @@ src/mir/passes.py
 - require typed values, unique block identities, valid branch targets, one
   terminator per block, and retained source spans;
 - provide deterministic textual and canonical serialized forms;
-- add `nyx emit mir` and `nyx verify mir` behind an experimental path;
+- add `rove emit mir` and `rove verify mir` behind an experimental path;
 - fingerprint every pass input and output;
 - keep all current emitters on the existing verified HIR route.
 
@@ -1801,14 +1916,19 @@ Malformed control-flow graphs are rejected before emission.
 
 ### M3: canonical desugaring and cleanup
 
-Implementation status (2026-09-09): complete for the currently typed HIR
+Implementation status (through 2026-09-20): complete for the currently typed HIR
 surface. Short-circuit/value control flow, null coalescing, literal match,
 range iteration, guards, Result propagation, lexical defer chains, and
-try/catch unwind edges are represented canonically in MIR.
-`tests/mir_cleanup_suite.py` checks successful and error exits and verifies that
-required cleanups execute once. Aggregate patterns, collection iteration, and
-projected safe navigation are completed by M4 because they require aggregate
-places and variant payloads.
+try/catch unwind edges are represented canonically in MIR. Potentially throwing
+user calls are identified by a fixed-point HIR call graph. Their call and
+`await` unwind edges enter cleanup trampolines before either a catch destination
+or an unhandled rethrow; a defer that throws does not recursively execute itself. Source-owned
+parameters, locals, collection-loop bindings, catch bindings, and payload
+bindings receive lexical deinit on every initialized exit path.
+`tests/mir_cleanup_suite.py` checks normal, return, break, continue, direct
+throw, interprocedural call-unwind, and pattern/catch exits. Aggregate patterns,
+collection iteration, and projected safe navigation are completed by M4 because
+they require aggregate places and variant payloads.
 
 Purpose: remove repeated semantic lowering from individual emitters.
 
@@ -1821,7 +1941,8 @@ Work:
 - lexical `defer` cleanup chains;
 - `try`/`catch`, normal edges, unwind edges, panic, and trap separation;
 - `for` lowering through a defined iterator protocol;
-- cleanup correctness for return, throw, break, and continue.
+- cleanup correctness for return, throw, break, continue, call unwind, and
+  suspend unwind.
 
 Exit gate:
 
@@ -1833,8 +1954,8 @@ Emitters no longer independently lower these source semantics.
 
 ### M4: aggregates, ownership, memory, and ABI
 
-Implementation status (2026-09-09): the first executable M4 core is
-implemented, but the milestone exit gate remains open. MIR now carries
+Implementation status (through 2026-09-19): the M4 exit gate is closed for the
+declared stable targets (C++20, Node.js ES2022, and Python 3). MIR carries
 struct/enum definitions, aggregate construction,
 field/index/dereference/variant projections, and explicit copy, move, borrow,
 retain, release, deinit, and drop operations. The verifier performs
@@ -1844,6 +1965,9 @@ defines deterministic native-x64, hosted-x64, and wasm32 storage layouts;
 and exposes Bundle ABI v2 only as a draft. `tests/mir_memory_abi_suite.py`
 covers value-copy behavior, aggregate loops, payload enums, move/drop failures,
 layout offsets, calling conventions, and checked C adapter boundaries.
+`tests/mir_legalization_suite.py` executes flat and nested array/struct copy
+isolation, projected mutation, enum-wrapped structs, and array-bearing Result
+behavior against the MIR interpreter on all three stable targets.
 
 Purpose: make value semantics and physical representation explicit.
 
@@ -1895,7 +2019,7 @@ Every migrated backend passes positive, negative, runtime, and parity corpora.
 Fallback to approximate target semantics is impossible.
 ```
 
-Implementation status (2026-09-09):
+Implementation status (through 2026-09-24):
 
 - `src/mir/legalization.py` publishes versioned operation, type, runtime,
   ownership, effect, and ABI profiles in the required migration order;
@@ -1910,50 +2034,217 @@ Implementation status (2026-09-09):
 - `src/mir/codegen_cpp.py`, `src/mir/codegen_llvm.py`, and
   `src/mir/codegen_wasm.py`, `src/mir/codegen_rust.py`,
   `src/mir/codegen_javascript.py`, `src/mir/codegen_python.py`, plus
-  `src/mir/codegen_c17.py` are real consumers of legalized MIR. The C++
-  and LLVM shared pilot scope is scalar values,
+  `src/mir/codegen_c17.py` are real consumers of legalized MIR. LLVM's generated
+  internal types and helper symbols now use `rove_` names; the separately
+  versioned Bundle ABI v1 identities are unchanged. The C++
+  and LLVM shared pilot scope begins with scalar values,
   explicit CFG control flow, calls, assertions, wrapping `int64` arithmetic,
   division traps, strings, floats, and canonical `print` output. The C++ pilot
   additionally legalizes arrays, checked index projections, structs, fields,
   optionals, payload enums, `Result`, lexical cleanup CFG, direct caught throws,
   and interprocedural call-unwind edges. A dedicated user-throw carrier keeps
-  language exceptions distinct from runtime traps;
+  language exceptions distinct from runtime traps. LLVM additionally legalizes
+  acyclic nominal structs with scalar or nested-struct fields, by-value
+  construction/copy/return, chained field projection, and projected mutation
+  using named LLVM types, `insertvalue`, and typed `getelementptr`. Its first
+  ownership-bearing aggregate slice covers
+  recursively nested `Array<int|bool|float|string|acyclic-struct>` through
+  typed `{data, length}` descriptors with allocation, bounds-checked indexing,
+  `len`, deep copy on MIR copy
+  operands, by-value calls/returns, and move-preserving descriptor transfer.
+  Nested-array and struct-array clones recursively clone each element rather
+  than copying descriptor bytes, so values such as `Array<Array<int>>` and
+  `Array<StructWithArray>` remain isolated across
+  aggregate construction, assignment, calls, returns, and tagged payloads.
+  The `float`/`f64` array slice uses binary64 elements in the same descriptor
+  and clone/destroy path. Its executable fixture covers copy isolation,
+  projected mutation, indexing, `len`, nested arrays, and array-bearing
+  struct, enum, and Result values across admitted backends. Optional float
+  arrays remain rejected by LLVM legalization until their representation is
+  specified.
+  Nominal structs may contain admitted array descriptors and recursively clone
+  ownership-bearing fields while preserving scalar/string fields. Recursive
+  by-value and recursive array/struct cycles remain rejected by legalization.
+  Nominal-struct display uses `TypeName(field1, field2, ...)` in declaration
+  order, recursively applying the existing scalar/array/tagged display rules.
+  The MIR interpreter, C++, LLVM, Rust, JavaScript, Python, and C17 now use this
+  display contract for direct structs, arrays of structs, and struct payloads
+  in enum and Result values. The C17 executable gate also covers primitive
+  arrays, empty enum variants, and multi-primitive enum payloads. C++, Rust,
+  JavaScript, Python, and C17 also implement
+  `to_string(Struct)` with the same form. Rust's generated `RoveDisplay`
+  implementations pass metadata/type checks on this host; executable Rust
+  parity remains unverified here. C17 shares one typed display path between
+  `print` and `to_string`, with an owned capture buffer tracked by its existing
+  allocation runtime. Wasm still rejects `print` of nominal structs; LLVM
+  still rejects `to_string(Struct)`. The MIR interpreter, C++, LLVM, Python,
+  C17, and Rust emitters now follow the existing source scalar-text contract:
+  integral floats omit
+  `.0`, either zero sign prints as `0`, and shortest round-tripping decimals
+  use fixed notation for magnitudes in `[1e-6, 1e21)`. Scientific exponents
+  omit padding and retain `+` for positive exponents. C++ uses `to_chars`;
+  C17 and LLVM select the first decimal precision that round-trips through
+  binary64. The local C++/C17/LLVM/JavaScript/Python runtime gate covers an
+  explicit contract oracle, boundary bit patterns, and 512 seeded binary64
+  patterns against the MIR interpreter. The tested `print` paths include LLVM;
+  `to_string` and nested aggregate coverage apply only to admitted backends.
+  Rust passed generated-code metadata/type checking, but executable Rust float
+  parity is unverified on this Windows host. The seeded runtime gate is
+  evidence on the tested standard libraries, not a cross-platform proof.
+  Legalization rejects unsupported display shapes before backend emission.
+  C++'s tagged payload printer now dispatches the MIR types present in the
+  module, including recursively nested struct arrays, and reports an unsupported
+  runtime value instead of silently printing `<payload>`.
+  Explicit
+  non-unwinding MIR `DeinitStatement` and `DropTerminator` operations release
+  array storage and recursively destroy ownership-bearing struct fields. Source
+  lowering now inserts `DeinitStatement` for ownership-bearing source parameters
+  and lexical bindings on normal fallthrough, return, break, continue, throw,
+  catch, collection-loop and pattern-binding exits. It also deinitializes an old
+  whole-local or projected field/index value after the replacement expression is
+  evaluated and before the assignment overwrites it. Projected replacement is an
+  atomic MIR contract: projected `DeinitStatement` must be immediately followed
+  by assignment to the same place (`MIR0805` otherwise). Deferred expressions run
+  before lexical deinit so they may still observe live bindings. Ownership-bearing
+  compiler temporaries with a direct single consumer transfer through `MoveOperand`;
+  ignored owned expression results receive explicit deinit. Branch-specific
+  cleanup now covers safe-navigation/null-coalescing bases, Result propagation
+  values and discriminant tags, match-statement subjects/tags, and match-expression
+  subjects. An ownership-bearing null-coalescing fallback transfers its temporary
+  into the join result instead of leaving a hidden copied allocation. Collection
+  and projected-base temporaries are attached to the surrounding lexical cleanup
+  frame. Match-statement and match-expression comparison patterns now keep
+  ownership-bearing temporaries live through equality and deinitialize them
+  immediately afterward; match-statement pattern calls also keep owned subjects
+  and tags in the unwind cleanup frame. The M3 structural gate checks all three
+  comparison paths and the caught-throw edge. Statement-match `_` and named
+  fallback arms now parse without lambda ambiguity; named arms retain the
+  subject type, move an owned temporary into the binding (or copy a source
+  local), and clean up the binding on exit. Both HIR and source checking require
+  a fallback arm to be final. Legacy `"_"` remains an `IRLiteral` in Typed HIR
+  v1 for byte compatibility, while MIR treats it as a fallback. Comparison
+  patterns must have a subject-compatible type; an `int` pattern against a
+  `float` subject receives an explicit MIR cast. Mixed `int`/`float` binary operands
+  are likewise converted before their MIR operation. LLVM legalization rejects
+  mismatched operands before emission, and C17/Rust lower the `int`-to-`float`
+  cast. The fixture exercises these paths, a tagged-Result
+  fallback and an exhaustive named arm returning a value through the MIR
+  interpreter and executable C++/JavaScript/Python gates; Rust passes
+  source/metadata checks on this Windows host. The integral-valued float
+  display discrepancy is corrected in the interpreter/C++/LLVM/Python/C17
+  paths. Rust's normalization passes metadata/type checking but still needs
+  executable confirmation. A
+  directly-awaited temporary `Task<T>` is now closed on both its resume
+  and suspend-unwind paths, while a named task stays live for repeated awaits
+  until its lexical cleanup. This does not yet claim complete lifetime
+  elaboration for every multi-use/control-flow-joined temporary. Projected moves
+  now fail with stable `MIR0806` instead of silently treating a field move as a
+  whole-root move; general place-sensitive partial moves remain future work.
+  Unwind-capable drop terminators and arena reclamation also remain open.
+  A bounded tagged-value ABI (`{tag, four i64 payload slots}`) covers
+  primitive/string `Result` and nominal-enum construction, copying,
+  discriminant switches, payload projection, calls, returns, and canonical
+  `Tag(payload)` display. Up to four primitive/string, supported array, or
+  acyclic nominal-struct payloads share the fixed slots; aggregate payloads are
+  boxed behind typed pointers. Type-specific clone/destroy helpers deep-copy all
+  boxes in the active variant at MIR copy boundaries, release every payload and
+  box during deinit/drop, and leave scalar alternatives on the same ABI. Payload
+  extraction clones from a borrowed tag, so matching a value cannot alias or
+  consume the original. Primitive arrays use canonical
+  `[item, ...]` display both directly and inside `Tag([item, ...])`. Moved
+  ownership-bearing arguments to LLVM `print` and `len` are destroyed after the
+  builtin consumes them instead of leaking a compiler temporary. LLVM `len`
+  accepts strings as well as admitted arrays, closing executable parity for the
+  shared nested struct-enum and `Result<Array<int>, string>` fixture. Direct,
+  array-element, enum-payload, and Result-payload nominal-struct display now
+  matches the MIR interpreter's positional `TypeName(...)` form in an
+  executable LLVM fixture.
+  Recursive array display for bool/string elements now uses the same Rove
+  formatting in the MIR interpreter and Python MIR runtime as in LLVM and
+  JavaScript; a direct and tagged nested-array fixture checks executable
+  parity across those four paths.
+  LLVM-specific contract checks now reject invalid
+  scalar operator/type pairs, unsupported casts, recursive by-value structs,
+  malformed `len` calls, non-printable aggregates, and invalid field/index
+  projections before emitter dispatch;
+- the C++ async adapter consumes canonical suspend and suspend-unwind edges
+  through a shared lazy `task<T>` state. Execution occurs once on first await,
+  repeated awaits replay the stored value or exception, and only `user_throw`
+  enters a Rove catch path;
 - the C++ ownership mapping covers borrow/dereference, copy/move, deinit, and
   non-unwinding drop. Explicit MIR retain/release operations map to C++ RAII
   copy/move/destruction instead of emitting a second reference-counting layer;
-- the Rust ownership mapping now lowers copy to `Clone`, move to
-  `std::mem::take`, retain/release to Rust value semantics, and explicit deinit
+- the Rust ownership mapping now lowers copy to `Clone`, move to typed
+  `std::mem::replace` (including non-`Default` `Result<T, E>` values),
+  retain/release to Rust value semantics, and explicit deinit
   and non-unwinding drop without introducing a second reference-counting layer.
-  Borrow/dereference uses a typed `NyxPtr<T>` carrier that preserves the MIR
-  mutable-borrow check instead of exposing an unchecked raw pointer surface;
+  Borrow/dereference uses a typed `RovePtr<T>` carrier that preserves the MIR
+  mutable-borrow check instead of exposing an unchecked raw pointer surface.
+  User `throw` and call-unwind edges use an explicit `RoveCallResult<T>` carrier;
+  caught Rove throws are routed to the MIR error destination while unrelated
+  Rust panics remain outside the language exception path. Source-language
+  `Result<T, E>` values use native typed Rust results, including canonical
+  tagged display (including nested arrays), discriminant/payload access, and safe re-homing when the
+  unused inferred branch is temporarily `any`. The first Rust async adapter
+  consumes canonical `SuspendTerminator` edges through a lazy memoized
+  `RoveTask<T>` carrier, preserving repeated-await results and routing task
+  throws through explicit suspend-unwind destinations;
+- every migrated backend now consumes explicit non-unwinding MIR deinit/drop
+  operations for its admitted value surface. C++, Rust, and LLVM use their
+  native/destructor adapters; JavaScript and Python clear host references; C17
+  clears the value while its tracked allocator retains process-exit ownership;
+  Wasm clears local descriptors and legalized projected field/index storage
+  while its current bump arena retains module-lifetime ownership. This is
+  operation parity, not a claim of equivalent reclamation timing;
 - the first Wasm slice accepts pure `int`/`bool` functions, user calls, and
-  dispatcher-based CFG. It emits both WAT and binary Wasm while rejecting
-  strings, host calls, casts, and unsupported heap values at legalization.
-  The aggregate slice supports `Array<int>`, `Array<bool>`, `Array<string>`, and
-  `Array<struct>` through a wasm32
+  dispatcher-based CFG. It emits both WAT and binary Wasm; the later bounded
+  aggregate runtime described below admits specific strings, casts, and heap
+  values while unrelated host calls and unsupported heap shapes remain rejected
+  at legalization.
+  String `+` allocates a fresh UTF-8 descriptor and copies both byte ranges;
+  equality and ordering compare descriptor contents byte by byte, so equal
+  strings in distinct allocations compare equal. The executable gate covers
+  copied fields, concatenation, empty strings, prefixes, and UTF-8 ordering.
+  Wasm legalization checks operand and result types for scalar binary/unary
+  operations before emitter dispatch and reports `MIRG1010` for an unsupported
+  pair. These allocations follow the pilot's existing module-lifetime arena.
+  Scalar `float`/`f64` now lowers to Wasm `f64` for arithmetic, comparisons,
+  unary sign, and signed `int`-to-`float` conversion. Executable parity checks
+  include mixed `int`/`float` expressions and numeric `match` patterns,
+  large integer rounding, signed zero, division by zero, and NaN.
+  Float remainder remains rejected with `MIRG1010` until its `fmod` semantics
+  has a runtime adapter.
+  The aggregate slice supports `Array<int>`, `Array<bool>`, `Array<float>`,
+  `Array<string>`, and `Array<struct>` through a wasm32
   `{data, length, capacity}` descriptor, deep copy, move clearing,
   bounds-checked index reads/writes, descriptor-aware immutable UTF-8 string
   elements, inline layout-sized struct elements, detached element copies, and
-  `len`. Nested int, bool, string, and nominal-struct arrays additionally deep-clone every inner
-  descriptor and data allocation and accept checked multi-index reads/writes; other aggregate element types
-  remain rejected before emitter dispatch. Structs with int, byte-sized bool,
+  `len`. Float elements use binary64 loads and stores, with byte-exact copies.
+  Nested int, bool, float, string, and nominal-struct arrays additionally deep-clone every inner
+  descriptor and data allocation and accept checked multi-index reads/writes;
+  an inner array read first resolves the checked element address, then makes a
+  detached copy. Other aggregate element types remain rejected before emitter
+  dispatch. An explicitly typed empty literal such as
+  `let values: Array<float> = []` now receives its concrete element type in
+  Typed HIR, before MIR lowering; the Python and self-hosted Rove HIR paths
+  pass the same parity case. Structs with int, byte-sized bool, binary64 float,
   and immutable UTF-8 string fields use deterministic wasm32 field offsets,
   width-correct `i32.store8`/`i32.load8_u` bool access, descriptor-aware field
   construction/assignment, byte-level value copies, and checked field selection.
   Nested nominal structs are stored inline and chained field projections use
   layout-derived offsets while preserving outer value-copy isolation. Nominal enums with int payloads or one
-  bool/immutable string/nominal-struct payload keep their canonical named MIR tags while Wasm
+  bool/float/immutable string/nominal-struct payload keep their canonical named MIR tags while Wasm
   legalization maps them to deterministic `i32` discriminants and stores
-  payloads at layout-defined offsets. Results with int, bool, string, or
+  payloads at layout-defined offsets. Results with int, bool, float, string, or
   nominal-struct payloads share the same tagged representation and are verified on both `Ok` and `Err`
   control-flow paths.
   When typed-HIR inference temporarily introduces `any` on the unused Result
   branch, Wasm cast legalization re-homes the tag and payload into the target
   layout rather than treating unequal layouts as the same pointer.
   WebAssembly-native masked shifts now match the canonical signed-i64 rule.
-  Checked division/remainder helpers preserve Nyx's
+  Checked division/remainder helpers preserve Rove's
   divide-by-zero trap and signed `MIN / -1` wrapping contract;
-- `nyx emit mir <file> --codegen --target cpp|llvm|wasm|rust|js|python|c` exposes the
+- `rove emit mir <file> --codegen --target cpp|llvm|wasm|rust|js|python|c` exposes the
   textual pilot artifacts without changing the default Typed HIR compilation
   route;
 - C++ and LLVM pilot output is compiled and executed against both the MIR
@@ -1966,51 +2257,91 @@ Implementation status (2026-09-09):
   dispatcher. Generated source is compiled and executed by `rustc` against the
   MIR interpreter and the shared numeric corpus. Its first aggregate slice maps
   arrays to `Vec<T>`, structs to generated nominal Rust types, nullable values
-  to `Option<T>`, and Nyx copy boundaries to explicit clones. Payload enums are
-  emitted as native Rust enums with typed variant extraction;
-- the Node.js ES2022 pilot preserves Nyx `int` as 64-bit `BigInt` rather than
+  to `Option<T>`, source results to `Result<T, E>`, and Rove copy boundaries to
+  explicit clones. Payload enums and results use typed variant extraction.
+  Rust async functions lower to lazy shared tasks whose result or user throw is
+  evaluated once and replayed on subsequent awaits;
+- the Node.js ES2022 pilot preserves Rove `int` as 64-bit `BigInt` rather than
   lossy JavaScript `number`, including wrapping arithmetic, signed division,
   remainder, shifts, scalar CFG, user calls, and canonical `print` formatting.
   Its aggregate slice uses checked array/field projections and explicit deep
-  copies so host object aliasing cannot violate Nyx value semantics; tagged
-  payload objects preserve enum, Option, and Result discriminants;
+  copies so host object aliasing cannot violate Rove value semantics; tagged
+  payload objects preserve enum, Option, and Result discriminants and use the
+  canonical `Tag(payload)` display form, including nested numeric arrays. Async
+  functions return lazy memoized `RoveTask` objects rather than eager host
+  promises, so repeated awaits replay one result and suspend-unwind catches only
+  Rove user throws;
 - the Python 3 pilot explicitly normalizes arbitrary-precision Python integers
-  to Nyx signed i64 after arithmetic, preserves truncating signed division and
+  to Rove signed i64 after arithmetic, preserves truncating signed division and
   remainder, and executes scalar CFG, user calls, and canonical output. Arrays,
   structs, optionals, projected mutation, iteration, and copies execute against
-  the MIR interpreter with `deepcopy` at Nyx copy boundaries. Tagged payload
-  dictionaries preserve enum, Option, and Result discriminants;
-- the JavaScript and Python pilots lower interprocedural user `throw`/`catch`
-  through dedicated carriers, preserving lexical cleanup output while leaving
-  runtime errors outside the language catch path;
+  the MIR interpreter with `deepcopy` at Rove copy boundaries. Tagged payload
+  dictionaries preserve enum, Option, and Result discriminants. A lazy
+  canonical formatter renders those dictionaries as `Tag(payload)` instead of
+  leaking the host representation. A lazy memoized Python task carrier consumes the same suspend and suspend-unwind MIR
+  edges while preserving host exceptions outside Rove catch blocks;
+- the C++, Rust, JavaScript, and Python pilots lower interprocedural user
+  `throw`/`catch` and supported suspend-unwind through dedicated carriers and
+  canonical cleanup trampolines, preserving lexical cleanup output while
+  leaving host runtime failures outside the language catch path;
+- the experimental Rust, JavaScript, and Python MIR Task adapters now emit
+  `RoveTask` names consistently. The local M5 legalization suite passed after
+  this naming change; Rust was type-checked as metadata only because runtime
+  linking is unavailable on this Windows host. This does not close the M5
+  semantic-parity gate;
+- a direct `throw` now transfers its evaluated value into a temporary outside
+  lexical drop frames before `defer` and deinit run. This prevents a local
+  `string` throw from reading a moved value after cleanup. The M3 cleanup suite
+  and M5 interpreter/C++/JavaScript/Python parity checks pass for a caught
+  owned-local throw; generated Rust passes metadata/type checking. General
+  multi-use temporary lifetime analysis and drop-unwind edges remain open;
+- owned operands of calls, array literals, and non-short-circuit binary
+  expressions now remain in the lexical cleanup frame while later operands are
+  evaluated left to right. A later throw deinitializes earlier temporaries;
+  Result `?` also closes earlier call arguments before early return. Once all
+  operands are ready, the pending cleanup is removed and the consuming operation
+  receives each move. The M3 cleanup suite checks the unwind/early-return edges,
+  and M5 interpreter/C++/JavaScript/Python parity fixtures pass; Rust generated
+  code passes metadata/type checking. This covers ordered operand evaluation,
+  not general temporary-lifetime elaboration;
 - the C17 pilot uses explicit unsigned-bit conversion for defined signed-i64
   wrapping, masks shifts, handles the signed division edge, tracks temporary
   concatenated strings, and compiles real scalar CFG with Clang in C17 mode.
-  Its aggregate slice emits acyclic nominal C structs with int, bool, string,
+  Its aggregate slice emits acyclic nominal C structs with int, bool, float, string,
   and recursively nested nominal-struct fields, including construction,
   by-value copies, field reads, and projected field assignment. Declarations
   are dependency ordered and recursive by-value layouts are rejected. Direct
-  arrays of int, bool, and string plus recursively nested arrays of primitives
+  arrays of int, bool, float/f64, and string plus recursively nested arrays of primitives
   or supported structs are legal struct fields; generated
   recursive clone helpers preserve their value isolation through struct copies,
   arrays of structs, function boundaries, and boxed tagged payloads. Natural
   nested generic closers such as `Array<Array<int>>` are parsed contextually
   without changing expression-level right-shift semantics;
-  Arrays of int, bool, string, and supported nominal structs, including nested
+  Arrays of int, bool, float/f64, string, and supported nominal structs, including nested
   combinations of those array types, use explicit
   `{data, length}` representations, tracked allocation, deep value copies,
   checked constant/dynamic index reads and writes, and `len`. Tagged enum,
   Option, and Result values preserve their discriminants. Enum variants may
-  carry multiple indexed int, bool, and immutable string payloads, or one
+  carry multiple indexed int, bool, float/f64, and immutable string payloads, or one
   supported array/nominal-struct payload. Multiple ownership-bearing payloads
-  remain rejected until their clone/drop layout is explicit;
-- drop unwind edges, remaining recursive Wasm aggregate combinations,
-  ownership-bearing multi-payload layouts, and broader target runtime surfaces remain
+  remain rejected until their clone/drop layout is explicit. C17 now renders
+  admitted arrays, structs, and tagged payloads recursively through typed
+  `rove_print_value_*` helpers for both stdout and captured `to_string` output;
+  its generated internal types and helpers use
+  the Rove name while the established `__nyx_top_level` entry identity remains
+  unchanged;
+- remaining multi-use/control-flow compiler-temporary lifetime elaboration, general
+  place-sensitive partial-move/drop analysis, drop unwind edges, per-allocation
+  reclamation for arena-backed targets,
+  remaining recursive Wasm aggregate combinations,
+  Wasm nominal-struct printing, LLVM nominal-struct `to_string`, and broader
+  target runtime surfaces remain
   open M5 work. Every migration-order target now has a bounded executable pilot;
-  none of those pilots imply full backend parity. `may_suspend` is intentionally
-  rejected by every migrated target with `MIRG1011` until each target has an
-  explicit adapter for the shared coroutine frame/suspend contract; emitters
-  may not improvise async semantics independently.
+  none of those pilots imply full backend parity. C++, Rust, JavaScript, and
+  Python have bounded lazy, memoized Task adapters for the shared
+  coroutine-frame/suspend contract. LLVM, Wasm, and C17 still reject
+  `may_suspend` with `MIRG1011`; emitters may not improvise async semantics
+  independently.
 
 Therefore M5 infrastructure, the broad C++ slice, LLVM scalar path, and first
 executable Wasm, Rust, JavaScript, Python, and C17 slices are implemented. The M5 exit gate
@@ -2102,7 +2433,7 @@ Work:
 - require a target legalization profile and runtime adapter before an emitter;
 - use a concrete acceptance application for every new backend;
 - add translation validation for critical MIR optimizations;
-- begin formalizing the scalar/control-flow Nyx Core;
+- begin formalizing the scalar/control-flow Rove Core;
 - extract or implement a trusted reference interpreter and MIR verifier;
 - require clean platform CI, reproducible artifacts, checksums, SBOM, and
   provenance before maturity promotion.
@@ -2147,7 +2478,7 @@ architecture, operating_system, environment, ABI, endian, pointer_width,
 cpu_features, object_format, linker, sysroot, libc, freestanding
 ```
 
-`nyx build --target` must resolve a canonical target triple, select a layout,
+`rove build --target` must resolve a canonical target triple, select a layout,
 legalization profile, runtime, linker and artifact naming policy. Hosted,
 WASI and freestanding targets must be separate profiles; a native C++ emitter
 alone is not evidence of embedded support.
@@ -2178,7 +2509,7 @@ the resolver must not silently replace threaded semantics with a single-thread
 approximation. A scalar implementation of SIMD may be an automatic fallback
 only when the observable semantics are proven equivalent. Every selected
 provider, adapter, fallback reason and target assumption must be recorded in
-the plan and available to diagnostics (`nyx explain`).
+the plan and available to diagnostics (`rove explain`).
 
 No emitter may re-decide capability selection. If no permitted provider can
 satisfy the request, compilation must stop with a stable capability error.
@@ -2187,7 +2518,7 @@ fallbacks, adapter contracts, plan serialization and target reproducibility.
 
 ### M11: build system and workspaces
 
-Define the build graph for `nyx build`, multi-package workspaces, build scripts,
+Define the build graph for `rove build`, multi-package workspaces, build scripts,
 feature flags, debug/release profiles, target-specific dependencies, artifact
 caches and deterministic parallel scheduling. The graph must distinguish
 source, interface, implementation and generated-artifact fingerprints and must
@@ -2196,7 +2527,7 @@ never execute an untrusted build script without an explicit capability policy.
 ### M12: package platform
 
 Extend the existing lockfile, offline cache and checksum foundations into a
-registry protocol with `nyx publish`, `nyx search`, `nyx update` and `nyx audit`.
+registry protocol with `rove publish`, `rove search`, `rove update` and `rove audit`.
 The contract includes namespaces, ownership, yanked/deprecated versions,
 private registries, signed metadata, source and binary caches, resolver
 backtracking, and reproducible package archives. Registry metadata changes
@@ -2206,8 +2537,8 @@ must be integrity-checked just like package contents.
 
 Promote the existing LSP and editor contract into a versioned tooling surface:
 completion, hover, diagnostics, semantic tokens, go-to-definition, references,
-rename, inlay hints, code actions, formatter, linter, `nyx fix`, `nyx doc`,
-`nyx test` and `nyx bench`. Diagnostics must preserve stable codes, spans,
+rename, inlay hints, code actions, formatter, linter, `rove fix`, `rove doc`,
+`rove test` and `rove bench`. Diagnostics must preserve stable codes, spans,
 notes, expected/found types and machine-readable fix-its.
 
 ### M14: debugger and profiler
@@ -2229,7 +2560,7 @@ parsing a header is not proof that its ABI is safe.
 
 Specify atomics, `Relaxed`, `Acquire`, `Release`, `AcqRel` and `SeqCst`
 ordering, synchronization edges, happens-before, data-race definition and
-visibility. Define the Nyx equivalents of `Send`/`Sync` for tasks, channels and
+visibility. Define the Rove equivalents of `Send`/`Sync` for tasks, channels and
 shared values. The reference interpreter and MIR verifier must agree on the
 observable subset before target adapters are admitted.
 
@@ -2259,7 +2590,7 @@ and translation validation.
 ### M20: compatibility and editions
 
 Introduce versioned language editions in the manifest, deprecation diagnostics,
-edition-aware parsing and a `nyx migrate --edition` tool. Old editions must
+edition-aware parsing and a `rove migrate --edition` tool. Old editions must
 remain buildable under their documented rules while new editions can evolve
 without silently changing existing source meaning.
 
@@ -2288,7 +2619,7 @@ without a complete freestanding runtime and board-level acceptance fixture.
 
 Expose structured JSON diagnostics, fix-its, compiler state and proof/checker
 results for human and machine clients. An AI may propose code, an optimization
-or a proof, but the Nyx parser, HIR verifier, MIR verifier and translation
+or a proof, but the Rove parser, HIR verifier, MIR verifier and translation
 validator remain authoritative:
 
 ```text
@@ -2310,7 +2641,7 @@ documented exit gate before it can be promoted.
 - Preserved module graph and public interface fingerprints.
 - Exact type identity separated from assignment compatibility.
 - MIR model, printer, serialization, and verifier.
-- `nyx emit mir` and `nyx verify mir`.
+- `rove emit mir` and `rove verify mir`.
 
 ### v5.2: control flow and cleanup
 
@@ -2368,7 +2699,7 @@ documented exit gate before it can be promoted.
 - Expanded portable and host standard libraries.
 - Go source-backend pilot.
 - C#/.NET and Java/JVM backend RFCs.
-- Initial formal Nyx Core and executable reference semantics.
+- Initial formal Rove Core and executable reference semantics.
 
 ## 32. Formalization maturity levels
 
@@ -2446,7 +2777,7 @@ No new public keyword is required for this sequence.
 
 ## 35. Final principle
 
-Nyx should not measure language maturity by keyword count or backend count.
+Rove should not measure language maturity by keyword count or backend count.
 Maturity should mean:
 
 ```text
@@ -2458,12 +2789,12 @@ The evidence can progress from tests to executable validation and eventually
 to machine-checked proofs.
 ```
 
-The long-term differentiator is not merely that Nyx can emit many languages.
+The long-term differentiator is not merely that Rove can emit many languages.
 It is that high-level, approachable syntax can lower into a small, precise,
 observable, and increasingly verifiable semantic core across all targets.
 
 Formal verification proves conformance to a specification; it does not prove
-that humans chose the intended specification. Nyx should therefore maintain
+that humans chose the intended specification. Rove should therefore maintain
 three mutually checked sources of truth:
 
 ```text

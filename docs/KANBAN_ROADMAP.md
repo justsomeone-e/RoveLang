@@ -1,4 +1,4 @@
-# Nyx Historical Kanban (Archived)
+# Rove Historical Kanban (Archived)
 
 This document preserves the role of the original pre-v4 planning board, but it
 is no longer an active task list. Its lexer, parser, C++ code generation,
@@ -13,5 +13,5 @@ The only current sources of truth are:
 - [`internals/RELEASE_AUDIT_v4.0.0-rc.1.md`](internals/RELEASE_AUDIT_v4.0.0-rc.1.md)
   for the RC1 release blockers.
 
-Nyx source files use the `.nyx` extension. The v4 canonical hosted target IDs
+Rove source files use the `.rove` extension. The v4 canonical hosted target IDs
 are `cpp`, `js`, `python`, `rust`, `wasm`, `react`, and `asm`.

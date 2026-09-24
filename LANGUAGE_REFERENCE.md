@@ -1,15 +1,15 @@
-# Nyx v4 Language Reference
+# Rove v4 Language Reference
 
 This document describes the `v4.0.0-rc.2` (`Bodhi`) source-language contract.
-Nyx source files use the `.nyx` extension and are built with the `nyx` CLI.
+Rove source files use the `.rove` extension and are built with the `rove` CLI.
 Backend availability is a capability decision, not a change to language syntax.
 
 ## 1. Bindings and assignment
 
-```nyx
+```rove
 var attempts: int = 0       // mutable binding
 let limit: int = 3          // immutable binding
-const APP_NAME = "Nyx"      // immutable binding
+const APP_NAME = "Rove"      // immutable binding
 
 set attempts = attempts + 1
 ```
@@ -21,7 +21,7 @@ assignment form; `target = value` remains equivalent for source compatibility.
 Array and positional struct destructuring declarations bind several names while
 evaluating the initializer exactly once:
 
-```nyx
+```rove
 let [left, right] = read_pair()
 
 struct Point { x: int, y: int }
@@ -34,7 +34,7 @@ checked bounds path. A struct pattern must name a declared struct and provide
 one position for every field in declaration order. Nested and `..rest` patterns
 are not part of this first contract.
 
-```nyx
+```rove
 struct Counter { value: int }
 
 let counter = Counter(0)
@@ -67,7 +67,10 @@ accepted in its directly negated decimal or hexadecimal spelling.
 `float` is IEEE-754 binary64. Division by zero produces the corresponding
 infinity or NaN; `%` uses a truncating remainder with the dividend's sign.
 Canonical text uses `nan`, `inf`, `-inf`, normalized exponents such as `1e-7`,
-and renders negative zero as `0`.
+and renders negative zero as `0`. Finite values use a shortest round-tripping
+decimal without a redundant `.0`. Nonzero magnitudes from `1e-6` (inclusive)
+to `1e21` (exclusive) use fixed notation; other magnitudes use scientific
+notation with an explicit `+` for positive exponents and no exponent padding.
 
 An `int` widens to `float` by IEEE-754 binary64 conversion when required by an
 operator, parameter, field, or return type. The conversion can round integers
@@ -79,10 +82,10 @@ The full numeric and scalar-text contract is declared by `cpp`, `js`, and
 `python`. The beta `wasm` ABI remains explicitly `wasm32` and does not claim
 signed-i64 conformance until its numeric ABI is revised.
 
-```nyx
+```rove
 let answer: int = 42
 let ratio: float = 0.5
-let title: string = "Nyx"
+let title: string = "Rove"
 let maybe_name: string? = null
 let values: Array<int> = [1, 2, 3]
 ```
@@ -90,17 +93,17 @@ let values: Array<int> = [1, 2, 3]
 Strings are Unicode values. Literals support common escapes, embedded `\0`,
 four-hex-digit Unicode escapes such as `\u0301`, and interpolation:
 
-```nyx
+```rove
 let city = "İstanbul"
 print($"hello, {city} 🌙")
 ```
 
-Nyx does not normalize Unicode automatically; NFC and NFD spellings remain
+Rove does not normalize Unicode automatically; NFC and NFD spellings remain
 distinct byte sequences.
 
 ## 3. Functions
 
-```nyx
+```rove
 fn add(a: int, b: int) -> int {
     return a + b
 }
@@ -131,7 +134,7 @@ argument is filled with that default value at the call site, so the default is
 re-evaluated on every call. Only trailing parameters may be omitted; a required
 parameter before an omitted one is an arity error.
 
-```nyx
+```rove
 fn greet(name: string = "world", times: int = 1) {
     var count: int = 0
     while count < times {
@@ -141,8 +144,8 @@ fn greet(name: string = "world", times: int = 1) {
 }
 
 greet()                 // name = "world", times = 1
-greet("nyx")            // name = "nyx",  times = 1
-greet("nyx", 3)         // name = "nyx",  times = 3
+greet("rove")            // name = "rove",  times = 1
+greet("rove", 3)         // name = "rove",  times = 3
 ```
 
 A default value whose type does not match its declared parameter type is a
@@ -150,7 +153,7 @@ compile-time error, as is omitting a parameter that has no default.
 
 ## 4. Async tasks
 
-```nyx
+```rove
 async fn compute() -> int {
     return 42
 }
@@ -175,7 +178,7 @@ changing its behavior.
 
 ## 5. Control flow
 
-```nyx
+```rove
 if score >= 90 {
     print("A")
 } else if score >= 80 {
@@ -206,7 +209,7 @@ using C++/JavaScript/Python truthiness.
 
 `match` can also produce a value without a `return` in every arm:
 
-```nyx
+```rove
 fn http_label(code: int) -> string = match code {
     200 => "ok",
     404 => "missing",
@@ -218,14 +221,14 @@ The final `_` fallback is mandatory and arm values must share a compatible
 type. Maya's first value-match form accepts literals. The subject is evaluated
 exactly once, including calls and other side-effecting expressions:
 
-```nyx
+```rove
 let label = match read_status() { 200 => "ok", _ => "other" }
 ```
 
 `guard` expresses an early-exit precondition, while `defer` runs an expression
 when the current scope exits:
 
-```nyx
+```rove
 fn save(value: string?) {
     guard value != null else { return }
     defer print("save finished")
@@ -235,7 +238,7 @@ fn save(value: string?) {
 
 ## 6. Structs, traits, and implementations
 
-```nyx
+```rove
 struct Point {
     x: int,
     y: int
@@ -265,7 +268,7 @@ must be a declared struct.
 
 ## 7. Errors and cleanup
 
-```nyx
+```rove
 fn parse_port(value: int) -> int {
     if value < 1 { throw "port must be positive" }
     return value
@@ -278,14 +281,14 @@ try {
 }
 ```
 
-`throw` converts its value to the canonical Nyx string representation for the
+`throw` converts its value to the canonical Rove string representation for the
 current exception boundary. `try`/`catch`/`throw` are available on `cpp`,
 `js`, and `python`; unsupported targets fail during capability validation.
 
 For recoverable domain errors that are part of an API, prefer `Result<T, E>` and
 pattern matching:
 
-```nyx
+```rove
 let result: Result<int, string> = Ok(42)
 
 match result {
@@ -295,9 +298,13 @@ match result {
 }
 ```
 
+Statement `match` keeps `"_"` as a legacy wildcard for source compatibility;
+use `_` in new code. Comparison patterns must match the subject type, except
+that an `int` pattern may widen to a `float` subject.
+
 ## 8. Pipelines and null safety
 
-```nyx
+```rove
 fn doubled(value: int) -> int { return value * 2 }
 
 let result = 21 |> doubled
@@ -309,20 +316,20 @@ absence and `??` supplies a fallback.
 
 ## 9. Modules
 
-```nyx
+```rove
 import "./helper"
 import "std/math"
 import { sqrt, clamp } from "std/math"
 ```
 
-Local modules use `.nyx` files. Standard-library availability is target-specific
-and can be inspected with `nyx targets --json`.
+Local modules use `.rove` files. Standard-library availability is target-specific
+and can be inspected with `rove targets --json`.
 
 Local packages can be locked without a registry:
 
 ```text
-nyx add physics --path ../physics
-nyx install
+rove add physics --path ../physics
+rove install
 ```
 
 The lockfile records canonical relative paths and source-content checksums;
@@ -330,12 +337,12 @@ recursive dependency cycles are rejected.
 
 For WebAssembly browser programs, `std/web` provides opaque `WebElement`,
 `WebEvent`, and `WebListener` handles plus DOM, event, animation-frame, and
-Canvas 2D functions. These calls require the generated `nyx_host_v1` adapter
+Canvas 2D functions. These calls require the generated `rove_host_v1` adapter
 and are rejected on non-WASM targets.
 
 ## 10. Tests and unsafe boundaries
 
-```nyx
+```rove
 test "addition" {
     assert(add(2, 3) == 5, "addition must be exact")
 }
@@ -351,13 +358,13 @@ Raw memory operations must remain inside an explicit `unsafe` boundary.
 ## 11. CLI
 
 ```text
-nyx check main.nyx
-nyx run main.nyx --target cpp
-nyx build main.nyx --target js
-nyx bundle main.nyx --output dist --package --react --vue --svelte
-nyx test main.nyx
-nyx self-host verify
-nyx targets --json
+rove check main.rove
+rove run main.rove --target cpp
+rove build main.rove --target js
+rove bundle main.rove --output dist --package --react --vue --svelte
+rove test main.rove
+rove self-host verify
+rove targets --json
 ```
 
 The canonical stable hosted backends are `cpp` (C++20/native), `js`

@@ -1,8 +1,8 @@
-# Nyx Syntax Rosetta Stone & Cheat Sheet
+# Rove Syntax Rosetta Stone & Cheat Sheet
 
-Compare Nyx directly against Python, Rust, Go, TypeScript, and C++20.
+Compare Rove directly against Python, Rust, Go, TypeScript, and C++20.
 
-| Feature | Nyx | Python 3 | Rust | Go | C++20 |
+| Feature | Rove | Python 3 | Rust | Go | C++20 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Variable** | `var x: int = 10;` | `x: int = 10` | `let x: i32 = 10;` | `var x int = 10` | `int x = 10;` |
 | **Immutable** | `const K: int = 5;` | `K = 5` | `const K: i32 = 5;` | `const K = 5` | `constexpr int K = 5;` |

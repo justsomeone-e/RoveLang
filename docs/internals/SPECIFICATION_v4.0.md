@@ -1,12 +1,12 @@
-# Nyx v4.0 — Formal Language & Compiler Specification
+# Rove v4.0 — Formal Language & Compiler Specification
 
 ## 1. Architecture Overview
 
-Nyx is a statically analyzed, multi-target programming language with deterministic
+Rove is a statically analyzed, multi-target programming language with deterministic
 type inference, structured diagnostics, and native code-generation targets.
 
 ```text
-              Nyx Source (*.nyx)
+              Rove Source (*.rove)
                             │
                      [ 1. Lexer ] ─── Tokens
                             │
@@ -29,7 +29,7 @@ type inference, structured diagnostics, and native code-generation targets.
 ## 2. Core Grammar & Syntax
 
 ### 2.1 Variables & Declarations
-```nyx
+```rove
 var x: int = 10         // Explicit type annotation
 var y = 20.5            // Inferred float
 let $silver = 8700      // Scoped immutable variable with optional $ sigil
@@ -37,7 +37,7 @@ const PI = 3.14159      // Constant declaration
 ```
 
 ### 2.2 Functions & Return Types
-```nyx
+```rove
 fn add(a: int, b: int) -> int {
     return a + b
 }
@@ -46,7 +46,7 @@ fn square(value: int) -> int = value * value
 ```
 
 ### 2.3 Structs & Data Modeling
-```nyx
+```rove
 struct Target {
     name: string,
     freq: int,
@@ -57,13 +57,13 @@ var t = Target("Altin", 5000, 95.0)
 ```
 
 ### 2.4 Optionals & Safe Navigation
-```nyx
+```rove
 var user: User? = null
 var city = user?.address?.city ?? "Default City"
 ```
 
 ### 2.5 Result & Pattern Matching
-```nyx
+```rove
 var res = Ok(1337)
 match res {
     Ok(val) => print("Success:", val),
@@ -74,7 +74,7 @@ match res {
 
 Value-producing conditionals and literal matches are expressions:
 
-```nyx
+```rove
 fn sign(value: int) -> int = if value < 0 { -1 } else if value == 0 { 0 } else { 1 }
 
 fn status(code: int) -> string = match code {
@@ -86,7 +86,7 @@ fn status(code: int) -> string = match code {
 
 ### 2.6 Unsafe Memory Primitives
 Raw memory operations (`addr`, `peek`, `memdump`) are strictly constrained inside `unsafe { ... }` blocks:
-```nyx
+```rove
 var val = 42
 unsafe {
     var ptr = addr(val)
@@ -118,7 +118,7 @@ All compile-time syntax and semantic errors produce rustc-style source-located d
 
 ---
 
-## 4. Package Management (`nyx.toml` & `nyx.lock`)
+## 4. Package Management (`rove.toml` & `rove.lock`)
 
 ```toml
 [package]
@@ -136,11 +136,11 @@ output_type = "exe"
 ```
 
 CLI Commands:
-* `nyx init [name]`
-* `nyx add <package> [@version]`
-* `nyx remove <package>`
-* `nyx install` (manifest validation and deterministic lockfile refresh; no remote registry fetch in RC1)
-* `nyx pkg`
-* `nyx test [file.nyx]`
-* `nyx build [file.nyx]`
-* `nyx run [file.nyx]`
+* `rove init [name]`
+* `rove add <package> [@version]`
+* `rove remove <package>`
+* `rove install` (manifest validation and deterministic lockfile refresh; no remote registry fetch in RC1)
+* `rove pkg`
+* `rove test [file.rove]`
+* `rove build [file.rove]`
+* `rove run [file.rove]`

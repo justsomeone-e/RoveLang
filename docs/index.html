@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nyx — From source to something useful</title>
-  <meta name="description" content="Nyx v5.0.3 Daydream is the current stable systems toolchain maintenance release: native applications, direct LLVM IR, JavaScript, Python, Rust, and WebAssembly from one Typed HIR.">
+  <title>Rove — From source to something useful</title>
+  <meta name="description" content="Rove v5.0.3 Daydream is the current stable systems toolchain maintenance release: native applications, direct LLVM IR, JavaScript, Python, Rust, and WebAssembly from one Typed HIR.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -615,13 +615,13 @@
 
   <header class="site-nav" id="site-nav">
     <div class="nav-inner">
-      <a class="wordmark" href="#" aria-label="Nyx home">nyx<span class="dot">.</span></a>
+      <a class="wordmark" href="#" aria-label="Rove home">rove<span class="dot">.</span></a>
       <nav aria-label="Main navigation">
         <a href="#applications">Applications</a>
         <a href="#targets">Targets</a>
         <a href="#release">v5.0.3</a>
         <a href="studio.html">Studio</a>
-        <a href="https://github.com/justsomeone-e/nyx" class="nav-gh">GitHub ↗</a>
+        <a href="https://github.com/justsomeone-e/rove" class="nav-gh">GitHub ↗</a>
       </nav>
     </div>
   </header>
@@ -633,7 +633,7 @@
       <div class="hero-main">
       <div class="eyebrow">
         <span class="status-dot" aria-hidden="true"></span>
-        NYX / THE V5 LINE
+        ROVE / THE V5 LINE
       </div>
       <h1 class="hero-title">
         Write the logic.<br>
@@ -645,12 +645,12 @@
         </p>
         <div class="hero-actions">
           <a class="btn-primary" href="#applications">Try a real application ↘</a>
-          <a class="btn-text" href="studio.html">Open Nyx Studio ↗</a>
-          <a class="btn-text" href="https://github.com/justsomeone-e/nyx/blob/main/GETTING_STARTED.md">Build locally ↗</a>
+          <a class="btn-text" href="studio.html">Open Rove Studio ↗</a>
+          <a class="btn-text" href="https://github.com/justsomeone-e/rove/blob/main/GETTING_STARTED.md">Build locally ↗</a>
         </div>
       </div>
       <div class="pipeline" aria-label="Compilation pipeline" id="pipeline">
-        <span class="pip-step" id="ps0">NYX SOURCE</span>
+        <span class="pip-step" id="ps0">ROVE SOURCE</span>
         <span class="pip-arrow" aria-hidden="true"></span>
         <span class="pip-step" id="ps1">TYPED HIR v1</span>
         <span class="pip-arrow" aria-hidden="true"></span>
@@ -659,7 +659,7 @@
         <span class="pip-step" id="ps3">JS / PYTHON / WASM</span>
       </div>
     </div>
-    <aside class="hero-proof" aria-label="Nyx release snapshot">
+    <aside class="hero-proof" aria-label="Rove release snapshot">
       <div class="proof-topline">
         <span>RELEASE CHANNEL</span>
         <span class="proof-state">STABLE</span>
@@ -682,17 +682,17 @@
     <section class="section wrap" id="applications" aria-labelledby="app-title">
       <div class="sec-label reveal">01 / RUN THE RESULT</div>
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:32px;margin-bottom:48px" class="reveal d1">
-        <h2 class="sec-title" id="app-title" style="margin-bottom:0">Your data.<br>Nyx doing the work.</h2>
+        <h2 class="sec-title" id="app-title" style="margin-bottom:0">Your data.<br>Rove doing the work.</h2>
         <span class="mono-tag" style="padding-top:8px;white-space:nowrap">LIVE APPLICATION</span>
       </div>
       <p class="sec-intro reveal d2">
-        Paste request latencies from a test run. Find the slow requests, check your budget, and take a report with you. All calculations run in a compiled Nyx WASM module on your device.
+        Paste request latencies from a test run. Find the slow requests, check your budget, and take a report with you. All calculations run in a compiled Rove WASM module on your device.
       </p>
       <div class="analyzer-wrap reveal d3">
         <div class="pane">
           <div class="pane-hdr">
             <h3>Latency report</h3>
-            <span class="mono-tag">.nyx → .wasm</span>
+            <span class="mono-tag">.rove → .wasm</span>
           </div>
           <form id="analysisForm">
             <div class="form-group">
@@ -731,7 +731,7 @@
           </div>
           <div id="distribution" class="distribution" aria-label="Sample counts by latency range"></div>
           <div class="result-footer">
-            <span class="result-status" id="executionTime">Nyx / WebAssembly</span>
+            <span class="result-status" id="executionTime">Rove / WebAssembly</span>
             <button class="btn-ghost" id="downloadButton" disabled>Download JSON ↓</button>
           </div>
         </section>
@@ -740,11 +740,11 @@
         <summary>See the source. Reproduce the result.</summary>
         <div class="src-grid">
           <div>
-            <p>The shared <code>metrics.nyx</code> module implements the calculations. JavaScript validates input, calls the generated ABI wrapper and renders the result.</p>
-            <a href="generated/metrics/metrics.nyx">Read Nyx source ↗</a><br><br>
+            <p>The shared <code>metrics.rove</code> module implements the calculations. JavaScript validates input, calls the generated ABI wrapper and renders the result.</p>
+            <a href="generated/metrics/metrics.rove">Read Rove source ↗</a><br><br>
             <a href="generated/metrics/metrics.d.ts">Read generated TypeScript types ↗</a>
           </div>
-          <pre><code>python src/cli.py bundle examples/metrics/metrics.nyx \
+          <pre><code>python src/cli.py bundle examples/metrics/metrics.rove \
   --output docs/generated/metrics --package
 python -m http.server 8080 --directory docs</code></pre>
         </div>
@@ -767,7 +767,7 @@ python -m http.server 8080 --directory docs</code></pre>
           <span class="proj-num">02</span>
           <h3>JavaScript &amp; Python integration</h3>
           <p>Import compiled metrics functions into Node or Python. Typed foreign imports also cover native platform APIs.</p>
-          <code class="proj-code">Nyx logic → importable host modules</code>
+          <code class="proj-code">Rove logic → importable host modules</code>
           <span class="proj-link">Run integrations ↗</span>
         </a>
         <a class="proj-card" href="demos/pong.html">
@@ -814,12 +814,12 @@ python -m http.server 8080 --directory docs</code></pre>
         <span class="mono-tag">STABLE RELEASE</span>
       </div>
       <h2 class="sec-title reveal d1" id="release-title" style="margin-bottom:16px">v5.0.3 Daydream is current.</h2>
-      <p class="sec-intro reveal d2">Nyx v5.0.3 is the current stable Daydream maintenance release. It fixes duplicate browser preview execution, separates Studio and Tour state, and preserves C++20, JavaScript, Python, Typed HIR v1, and Bundle ABI v1 contracts while keeping direct LLVM IR generation explicitly experimental.</p>
+      <p class="sec-intro reveal d2">Rove v5.0.3 is the current stable Daydream maintenance release. It fixes duplicate browser preview execution, separates Studio and Tour state, and preserves C++20, JavaScript, Python, Typed HIR v1, and Bundle ABI v1 contracts while keeping direct LLVM IR generation explicitly experimental.</p>
       <div class="release-grid reveal d3">
         <div class="r-item"><span class="r-num">01</span><h3>Direct LLVM IR pipeline</h3><p>Native scalar arithmetic, IEEE double, structured control flow, and Clang compilation without C++ hops.</p></div>
         <div class="r-item"><span class="r-num">02</span><h3>LLVM aggregate types</h3><p>Value-semantic structs, stack-owned scalar arrays, bounds verification, element copy semantics, and for-loop iteration.</p></div>
         <div class="r-item"><span class="r-num">03</span><h3>C17 scalar backend</h3><p>Portable ISO C17 emission, wrapping signed integer arithmetic, safe division aborts, and strict conformance.</p></div>
-        <div class="r-item"><span class="r-num">04</span><h3>Toolchain integration</h3><p>Direct <code>nyx build -t llvm</code> and <code>nyx run -t llvm</code> compiling to native binaries via host Clang.</p></div>
+        <div class="r-item"><span class="r-num">04</span><h3>Toolchain integration</h3><p>Direct <code>rove build -t llvm</code> and <code>rove run -t llvm</code> compiling to native binaries via host Clang.</p></div>
         <div class="r-item"><span class="r-num">05</span><h3>Preserved stable contracts</h3><p>C++20 remains the default native path; JavaScript and Python remain stable, while WASM, Rust, React, ASM keep their declared maturity levels.</p></div>
         <div class="r-item"><span class="r-num">06</span><h3>Canonical compiler model</h3><p>All public backend paths continue through checked Typed HIR and reject unsupported constructs instead of silently falling back.</p></div>
         <div class="r-item"><span class="r-num">07</span><h3>Native self-hosting</h3><p>The reproducible Stage1 → Stage2 → Stage3 compiler path remains part of the release verification contract.</p></div>
@@ -828,7 +828,7 @@ python -m http.server 8080 --directory docs</code></pre>
       </div>
       <div class="release-footer reveal d4">
         <p>LLVM and C17 are included for experimentation, not promoted to stable backends. Go, JVM, .NET, Lua, and retiring the C++ bootstrap path remain future work.</p>
-        <a class="btn-primary" href="https://github.com/justsomeone-e/nyx/releases/tag/v5.0.3" style="flex-shrink:0">Download v5.0.3 ↗</a>
+        <a class="btn-primary" href="https://github.com/justsomeone-e/rove/releases/tag/v5.0.3" style="flex-shrink:0">Download v5.0.3 ↗</a>
       </div>
     </section>
 
@@ -836,7 +836,7 @@ python -m http.server 8080 --directory docs</code></pre>
     <section class="cta-section wrap" aria-label="Get started">
       <h2 class="reveal">Build something.<br>Then look under the hood.</h2>
       <div class="cta-actions reveal d1">
-        <a class="btn-primary" href="https://github.com/justsomeone-e/nyx/blob/main/INSTALLATION.md">Install the toolchain ↗</a>
+        <a class="btn-primary" href="https://github.com/justsomeone-e/rove/blob/main/INSTALLATION.md">Install the toolchain ↗</a>
         <a class="btn-text" href="#">Explore the language tour →</a>
       </div>
     </section>
@@ -844,10 +844,10 @@ python -m http.server 8080 --directory docs</code></pre>
 
   <footer class="site-footer">
     <div class="wrap footer-inner">
-      <a class="wordmark" href="#" style="color:var(--text-dim)">nyx<span class="dot">.</span></a>
+      <a class="wordmark" href="#" style="color:var(--text-dim)">rove<span class="dot">.</span></a>
       <div class="footer-meta">
         <span>Source available · Apache-2.0</span>
-        <a href="https://github.com/justsomeone-e/nyx">GitHub ↗</a>
+        <a href="https://github.com/justsomeone-e/rove">GitHub ↗</a>
       </div>
     </div>
   </footer>
@@ -1109,7 +1109,7 @@ python -m http.server 8080 --directory docs</code></pre>
   dlBtn.addEventListener('click', () => {
     if (!lastResult) return;
     const blob = new Blob([JSON.stringify(lastResult, null, 2)], { type: 'application/json' });
-    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'nyx-report.json' });
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'rove-report.json' });
     a.click();
   });
 })();

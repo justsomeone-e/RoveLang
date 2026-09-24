@@ -1,8 +1,8 @@
-# Nyx v4 Nirvana, v4.5 Ivory, v5 Daydream, and Backend Roadmap
+# Rove v4 Nirvana, v4.5 Ivory, v5 Daydream, and Backend Roadmap
 
-This document is the release-planning source of truth for the Nyx compiler. Backend
+This document is the release-planning source of truth for the Rove compiler. Backend
 capabilities exposed by the compiler remain machine-readable through
-`nyx targets --json`.
+`rove targets --json`.
 
 The dated implementation changelog, ordered v4.5/v5 milestones, lowering
 research, migration design, and current validation are maintained in
@@ -27,7 +27,7 @@ research, migration design, and current validation are maintained in
 ## Compiler architecture
 
 ```text
-Nyx source
+Rove source
   -> frontend (lexer, parser, type checker)
   -> canonical typed HIR v1
   -> verified deterministic passes
@@ -69,17 +69,17 @@ runtime parity, and cross-platform Gate 8 evidence are intentionally incomplete.
 
 Completed:
 
-1. The Nyx-authored lexer, parser, type checker, typed-HIR lowerer, and HIR C++
-   emitter build into the standalone native `nyxc` compiler.
-2. Python and Nyx frontends have exact accepted/rejected corpus and canonical
+1. The Rove-authored lexer, parser, type checker, typed-HIR lowerer, and HIR C++
+   emitter build into the standalone native `rovec` compiler.
+2. Python and Rove frontends have exact accepted/rejected corpus and canonical
    HIR parity.
 3. Stage 1 builds stage 2; stage 2 emits byte-identical stage-3 C++ from the
    same compiler sources and compiles a native fixture.
 4. Native-first installers route `check`, `emit-cpp`, `compile`, and
-   version queries to `nyxc` without Python.
+   version queries to `rovec` without Python.
 
-`nyx targets --json` uses the optional Python orchestration layer to report the
-full backend registry. The standalone `nyxc` compiler emits C++ only.
+`rove targets --json` uses the optional Python orchestration layer to report the
+full backend registry. The standalone `rovec` compiler emits C++ only.
 
 Python remains intentionally available for three roles: recreating stage 1
 from zero, optional legacy/orchestration commands, and the `python` target runtime.
@@ -141,16 +141,16 @@ backend against it.
 
 ## OCaml reference frontend
 
-`nyx-ocaml` is a post-RC1 verification track, not a rewrite of the production
+`rove-ocaml` is a post-RC1 verification track, not a rewrite of the production
 compiler. It will:
 
-- parse the frozen Nyx grammar independently;
+- parse the frozen Rove grammar independently;
 - emit canonical HIR JSON;
 - compare HIR fingerprints and structured diagnostics with the primary
   frontend;
 - contain no backend, package manager, or runtime implementation.
 
-This gives Nyx a second implementation capable of detecting shared assumptions
+This gives Rove a second implementation capable of detecting shared assumptions
 without delaying the HIR migration or self-hosting chain.
 
 ## Nirvana release gate
@@ -162,7 +162,7 @@ without delaying the HIR migration or self-hosting chain.
   to `4.0.0`; create the matching tag only after final-revision validation.
 - Keep `nyx_host_v1`, Bundle ABI v1, generated TypeScript types, and npm exports
   under direct conformance tests.
-- Keep the pure-Nyx browser Pong fixture free of handwritten application logic
+- Keep the pure-Rove browser Pong fixture free of handwritten application logic
   in JavaScript; the generated adapter is the only host bridge.
 - Verify recursive local dependency locks are path-normalized, cycle-safe, and
   content-addressed.
@@ -217,7 +217,7 @@ priorities for planning; they are not claims of implemented functionality.
 ## v5.0.0 Daydream delivered scope
 
 Daydream delivers the C17 scalar pilot, direct LLVM scalar and aggregate pilot,
-canonical compiler API integration, and `nyx build`/`nyx run` LLVM workflows.
+canonical compiler API integration, and `rove build`/`rove run` LLVM workflows.
 The LLVM runtime/ownership surface, complete standard-library lowering, and a
 direct native self-host emitter remain post-v5 experimental work; see the
 [v5 lowering design](V4_5_V5_PREPARATION.md). C++20 remains the default backend

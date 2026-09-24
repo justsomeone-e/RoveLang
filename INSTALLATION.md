@@ -1,13 +1,13 @@
-# 📦 Nyx Installation Guide
+# 📦 Rove Installation Guide
 
-This guide walks you through installing and configuring Nyx across Windows, Linux, and macOS.
+This guide walks you through installing and configuring Rove across Windows, Linux, and macOS.
 
 ---
 
 ## 1. Prerequisites
 
-The release binary `nyxc` performs native `check`, `emit-cpp`, `compile`, and
-target discovery without Python. The unified `nyx` command uses Python 3.10+
+The release binary `rovec` performs native `check`, `emit-cpp`, `compile`, and
+target discovery without Python. The unified `rove` command uses Python 3.10+
 for orchestration features such as the REPL, formatter, package manager, and
 language server. To compile native executables (`cpp`), install a modern C++20
 compiler (`clang++`, `g++`, or MSVC `cl`).
@@ -26,12 +26,12 @@ compiler (`clang++`, `g++`, or MSVC `cl`).
 ### Windows (PowerShell)
 Run in an elevated or standard PowerShell terminal:
 ```powershell
-irm https://raw.githubusercontent.com/justsomeone-e/nyx/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/justsomeone-e/rove/main/install.ps1 | iex
 ```
-This downloads the toolchain to `~/.nyx` and appends `~/.nyx/bin` to your User
-`PATH`. GitHub Releases provide the standalone compiler as `nyxc.exe`; the
-installer creates `nyx.cmd` as the unified Windows command. A separate
-`nyx.exe` release asset is therefore not expected.
+This downloads the toolchain to `~/.rove` and appends `~/.rove/bin` to your User
+`PATH`. GitHub Releases provide the standalone compiler as `rovec.exe`; the
+installer creates `rove.cmd` as the unified Windows command. A separate
+`rove.exe` release asset is therefore not expected.
 
 The VS Code extension is optional. If PowerShell blocks an `npm.ps1` shim, the
 installer prefers `npm.cmd`/`npm.exe`; an editor-install failure no longer
@@ -39,7 +39,7 @@ prevents the core compiler from being installed.
 
 ### Linux / macOS (Bash)
 ```bash
-curl -fsSL https://raw.githubusercontent.com/justsomeone-e/nyx/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/justsomeone-e/rove/main/install.sh | bash
 ```
 
 ---
@@ -48,8 +48,8 @@ curl -fsSL https://raw.githubusercontent.com/justsomeone-e/nyx/main/install.sh |
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/justsomeone-e/nyx.git
-   cd nyx
+   git clone https://github.com/justsomeone-e/rove.git
+   cd rove
    ```
 
 2. Verify host diagnostics:
@@ -62,9 +62,9 @@ curl -fsSL https://raw.githubusercontent.com/justsomeone-e/nyx/main/install.sh |
      python3 src/cli.py doctor
      ```
 
-3. Add Nyx to your `PATH`:
-   * **Windows**: Add `%USERPROFILE%\.nyx\bin` to your User `PATH`.
-   * **Linux / macOS**: Add `export PATH="$PATH:$HOME/.nyx/bin"` in `~/.bashrc` or `~/.zshrc`.
+3. Add Rove to your `PATH`:
+   * **Windows**: Add `%USERPROFILE%\.rove\bin` to your User `PATH`.
+   * **Linux / macOS**: Add `export PATH="$PATH:$HOME/.rove/bin"` in `~/.bashrc` or `~/.zshrc`.
 
 ---
 
@@ -72,6 +72,6 @@ curl -fsSL https://raw.githubusercontent.com/justsomeone-e/nyx/main/install.sh |
 
 Run:
 ```bash
-nyx doctor
+rove doctor
 ```
 Output should indicate detected compilers and runtimes with green checkmarks `[✓]`.

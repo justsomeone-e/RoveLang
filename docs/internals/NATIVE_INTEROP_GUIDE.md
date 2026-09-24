@@ -1,13 +1,13 @@
-# Nyx — Native Interoperability & FFI Guide
+# Rove — Native Interoperability & FFI Guide
 
 > [!IMPORTANT]
 > Native bindings (`#native`) allow direct integration with platform-specific C++, JavaScript, and Rust libraries. They are distinct from the standard cross-platform language library and are target-dependent.
 
 Application code should prefer typed-HIR foreign imports when a library can be
 called directly. `#native` remains the escape hatch for ABI adapters and code
-that cannot be represented by Nyx yet.
+that cannot be represented by Rove yet.
 
-```nyx
+```rove
 #target cpp
 import cpp "std::filesystem" from "<filesystem>" as fs
 
@@ -19,7 +19,7 @@ fn main() {
 The first supported integrations are C++ namespaces, Node.js modules,
 and Python modules. Every import requires an alias and is target-gated:
 
-```nyx
+```rove
 import js "node:os" as os
 import python "platform" as platform
 ```
@@ -32,9 +32,9 @@ the typed `std/web` module. Host imports and general foreign modules therefore
 have deliberately separate contracts.
 
 Foreign calls use versioned data-only binding manifests for argument and return
-types. Nyx ships contracts for `std::filesystem`, `node:os`, `node:fs`, Python
+types. Rove ships contracts for `std::filesystem`, `node:os`, `node:fs`, Python
 `platform`, and Python `os`. A project can extend the catalog with a
-`nyx.bindings.json` file at its root:
+`rove.bindings.json` file at its root:
 
 ```json
 {
@@ -60,7 +60,7 @@ remain available as explicitly dynamic foreign APIs.
 
 The `#native` block embeds platform-specific code directly into the transpiled output:
 
-```nyx
+```rove
 #target cpp
 
 #native cpp {
@@ -68,7 +68,7 @@ The `#native` block embeds platform-specific code directly into the transpiled o
     double native_sin(double x) { return std::sin(x); }
 }
 
-// Raw native text is opaque to the Nyx frontend. Declare the typed call
+// Raw native text is opaque to the Rove frontend. Declare the typed call
 // boundary explicitly so checking and HIR lowering do not guess C++ syntax.
 extern "C++" fn native_sin(x: float) -> float
 
@@ -79,8 +79,8 @@ fn calculate_wave(deg: float) -> float {
 ```
 
 `#native cpp { ... }` is the C++ spelling of `#native raw { ... }`. Native
-function bodies are intentionally not parsed as Nyx declarations; every symbol
-called from Nyx must therefore have an explicit `extern "C++" fn` signature.
+function bodies are intentionally not parsed as Rove declarations; every symbol
+called from Rove must therefore have an explicit `extern "C++" fn` signature.
 
 ---
 
@@ -94,7 +94,7 @@ When targeting `cpp`, native blocks have direct access to:
 
 ### 2.2 JavaScript / Node.js (`js` — Gate 8 / Stable)
 When targeting `js`, native blocks can access the Node.js or Browser runtime:
-```nyx
+```rove
 #target js
 
 #native js {
@@ -107,7 +107,7 @@ When targeting `js`, native blocks can access the Node.js or Browser runtime:
 
 ### 2.3 Rust 2021 (`rust` — Gate 6 / Active Conformance)
 When targeting `rust`, native blocks integrate with `std` and external crates:
-```nyx
+```rove
 #target rust
 
 #native rust {
@@ -122,9 +122,9 @@ When targeting `rust`, native blocks integrate with `std` and external crates:
 
 ## 3. Unsafe Memory Operations & Direct Pointer Access
 
-Low-level operations that bypass Nyx's memory safety guarantees must be enclosed in an `unsafe { ... }` block:
+Low-level operations that bypass Rove's memory safety guarantees must be enclosed in an `unsafe { ... }` block:
 
-```nyx
+```rove
 fn inspect_raw_memory(target: int) {
     unsafe {
         var p = addr(target)

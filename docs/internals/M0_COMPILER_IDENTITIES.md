@@ -3,7 +3,7 @@
 Status: internal identity foundation implemented on 2026-09-14. Public Typed
 HIR v1 symbols and serialization remain unchanged.
 
-Nyx currently carries many names as strings. That is sufficient for the v5
+Rove currently carries many names as strings. That is sufficient for the v5
 compiler, but it cannot safely support incremental compilation, multiple
 frontends, package-scale semantic queries, or a new MIR. M0 therefore reserves
 the following identity roles before any new IR is implemented.

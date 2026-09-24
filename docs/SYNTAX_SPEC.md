@@ -1,16 +1,16 @@
-# Nyx v4 Syntax and Semantic Contract
+# Rove v4 Syntax and Semantic Contract
 
 Status: `v4.0.0` (`Nirvana`) stable source contract, effective when the v4.0.0
 release is published. Backend support remains defined by capability metadata.
 
-This file defines the compatibility boundary for Nyx source. The readable
+This file defines the compatibility boundary for Rove source. The readable
 examples live in [`../LANGUAGE_REFERENCE.md`](../LANGUAGE_REFERENCE.md). The
 machine-readable keyword and target contracts live in
 `src/core/language_surface.py` and `src/core/backend_capabilities.py`.
 
 ## 1. Source and lexical rules
 
-- Source files use UTF-8 and the `.nyx` extension.
+- Source files use UTF-8 and the `.rove` extension.
 - Whitespace separates tokens but is otherwise insignificant.
 - A semicolon is optional after a complete statement.
 - `//` starts a line comment and `///` starts a documentation comment.
@@ -26,7 +26,7 @@ function declarations use only `fn`.
 ## 2. Grammar outline
 
 The following EBNF is a compact compatibility outline. Parser conformance is
-proved by exact Python/Nyx AST parity tests.
+proved by exact Python/Rove AST parity tests.
 
 ```ebnf
 program          = { item | statement } EOF ;
@@ -100,7 +100,7 @@ functions use the separate `extern "WASM:<namespace>"` contract already used by
 `std/web`; they are not general `import wasm` modules. A C++ import also
 requires its header:
 
-```nyx
+```rove
 import cpp "std::filesystem" from "<filesystem>" as fs
 import js "node:os" as os
 import python "platform" as platform
@@ -208,7 +208,7 @@ future, a Promise, and a reusable wrapper around one `asyncio.Task`.
 ## 6. Exception contract
 
 - `throw expression` transfers control to the nearest matching `catch`.
-- The caught value uses Nyx's canonical string conversion at the exception
+- The caught value uses Rove's canonical string conversion at the exception
   boundary.
 - An uncaught error terminates the top-level task/program with failure.
 - Exceptions cross `Task<T>` at `await`; they are not converted to success
@@ -234,7 +234,7 @@ Unsupported behavior must be rejected through the versioned capability registry.
 ## 8. Compatibility rule
 
 After RC1, existing valid v4 source cannot change meaning within the v4 line.
-New syntax must be additive, have exact Python/Nyx frontend parity, lower to
+New syntax must be additive, have exact Python/Rove frontend parity, lower to
 target-neutral HIR, and either pass runtime parity on every declaring backend or
 be rejected by an explicit capability gate.
 
@@ -248,5 +248,5 @@ syntax RFC.
 
 New syntax must introduce a distinct, testable semantic operation. Alias
 keywords that only duplicate an existing spelling are rejected. Every accepted
-syntax RFC requires Python/Nyx frontend parity, type-checker coverage, canonical
+syntax RFC requires Python/Rove frontend parity, type-checker coverage, canonical
 HIR lowering, structured negative diagnostics, and backend capability tests.

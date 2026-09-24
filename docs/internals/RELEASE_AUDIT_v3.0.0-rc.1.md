@@ -1,4 +1,4 @@
-# Nyx v3.0.0-rc.1 Release Audit
+# Rove v3.0.0-rc.1 Release Audit
 
 Audit date: 2026-08-29
 
@@ -40,7 +40,7 @@ required immediately before tagging.
 
 | ID | Blocker | Required closure |
 |---|---|---|
-| STABLE-02 | Native C++ is reproducible, but bootstrap HIR parity is not yet proven | Nyx-authored lowering produces the same canonical HIR fingerprints as stage 0 |
+| STABLE-02 | Native C++ is reproducible, but bootstrap HIR parity is not yet proven | Rove-authored lowering produces the same canonical HIR fingerprints as stage 0 |
 | STABLE-03 | Normal installation requires Python | Distributed native compiler handles ordinary builds without Python |
 | STABLE-04 | Compatibility policy is unpublished | Freeze HIR, compiler/plugin API, and Bundle ABI compatibility rules |
 | STABLE-05 | No RC soak evidence | Close all release-blocking RC defects before stable |
