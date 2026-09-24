@@ -8,19 +8,19 @@ import tempfile
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLI_PATH = os.path.join(ROOT_DIR, "src", "cli.py")
-SOURCE_PATH = os.path.join(ROOT_DIR, "tests", "test_bundle.nyx")
+SOURCE_PATH = os.path.join(ROOT_DIR, "tests", "test_bundle.rove")
 
 
 def run_bundle_suite() -> bool:
     print("=" * 70)
-    print("NYX BUNDLE TYPED-IR / WASM ABI CONFORMANCE")
+    print("ROVE BUNDLE TYPED-IR / WASM ABI CONFORMANCE")
     print("=" * 70)
     node = shutil.which("node")
     if not node:
         print("[!] Node.js not found. Bundle runtime conformance cannot run.")
         return False
 
-    with tempfile.TemporaryDirectory(prefix="nyx_bundle_ir_") as output_dir:
+    with tempfile.TemporaryDirectory(prefix="rove_bundle_ir_") as output_dir:
         bundle = subprocess.run(
             [sys.executable, CLI_PATH, "bundle", SOURCE_PATH, "--output", output_dir, "--react", "--vue", "--svelte", "--package"],
             cwd=ROOT_DIR,
@@ -69,14 +69,14 @@ def run_bundle_suite() -> bool:
         build_dir = os.path.join(build_workspace, "build", "wasm")
         for extension in (".wat", ".wasm", ".mjs", ".d.ts"):
             assert os.path.isfile(os.path.join(build_dir, "test_bundle" + extension)), (
-                f"nyx build --target wasm did not emit {extension}"
+                f"rove build --target wasm did not emit {extension}"
             )
         assert not os.path.exists(os.path.join(build_dir, "test_bundle.react.tsx"))
 
-        wasi_source = os.path.join(output_dir, "wasi_hello.nyx")
+        wasi_source = os.path.join(output_dir, "wasi_hello.rove")
         wasi_output = os.path.join(output_dir, "wasi_bundle")
         with open(wasi_source, "w", encoding="utf-8", newline="\n") as source_file:
-            source_file.write('fn main() { print("hello", "Nyx WASI") }\n')
+            source_file.write('fn main() { print("hello", "Rove WASI") }\n')
         wasi_bundle = subprocess.run(
             [sys.executable, CLI_PATH, "bundle", wasi_source, "--output", wasi_output, "--wasi"],
             cwd=ROOT_DIR,
@@ -107,7 +107,7 @@ def run_bundle_suite() -> bool:
                 "} } };\n"
                 "({ instance } = await WebAssembly.instantiate(bytes, imports));\n"
                 "instance.exports._start();\n"
-                "if (output !== 'hello Nyx WASI\\n') throw new Error(JSON.stringify(output));\n"
+                "if (output !== 'hello Rove WASI\\n') throw new Error(JSON.stringify(output));\n"
             )
         wasi_runtime = subprocess.run(
             [node, wasi_runner_path, wasi_wasm_path],
@@ -119,7 +119,7 @@ def run_bundle_suite() -> bool:
         )
         assert wasi_runtime.returncode == 0, wasi_runtime.stderr or wasi_runtime.stdout
 
-        struct_source = os.path.join(output_dir, "struct_abi.nyx")
+        struct_source = os.path.join(output_dir, "struct_abi.rove")
         struct_output = os.path.join(output_dir, "struct_bundle")
         with open(struct_source, "w", encoding="utf-8", newline="\n") as source_file:
             source_file.write(
@@ -151,8 +151,8 @@ def run_bundle_suite() -> bool:
                 "-e",
                 (
                     "import {pathToFileURL} from 'node:url'; "
-                    f"const {{initNyxModule}}=await import(pathToFileURL({json.dumps(struct_module)}).href); "
-                    "const api=await initNyxModule(); "
+                    f"const {{initRoveModule}}=await import(pathToFileURL({json.dumps(struct_module)}).href); "
+                    "const api=await initRoveModule(); "
                     "if(api.score({x:7,y:0.5,active:true})!==7.5)throw new Error('struct true'); "
                     "if(api.score({x:7,y:0.5,active:false})!==0)throw new Error('struct false');"
                 ),
@@ -165,7 +165,7 @@ def run_bundle_suite() -> bool:
         )
         assert struct_runtime.returncode == 0, struct_runtime.stderr or struct_runtime.stdout
 
-        alternate_source = os.path.join(output_dir, "alternate.nyx")
+        alternate_source = os.path.join(output_dir, "alternate.rove")
         alternate_output = os.path.join(output_dir, "alternate_bundle")
         with open(alternate_source, "w", encoding="utf-8") as source_file:
             source_file.write(
@@ -184,7 +184,7 @@ def run_bundle_suite() -> bool:
         assert alternate.returncode == 0, alternate.stderr or alternate.stdout
         alternate_wasm_path = os.path.join(alternate_output, "alternate.wasm")
 
-        host_source = os.path.join(output_dir, "host_import.nyx")
+        host_source = os.path.join(output_dir, "host_import.rove")
         host_output = os.path.join(output_dir, "host_import_bundle")
         with open(host_source, "w", encoding="utf-8") as source_file:
             source_file.write(
@@ -207,7 +207,7 @@ def run_bundle_suite() -> bool:
             ("struct_index", "struct Point { x: int }\nfn at(p: Point, index: int) -> int { return p[index]; }", "cannot be indexed"),
             ("struct_write", "struct Point { x: int }\nfn write(p: Point) -> void { set p.x = 3; }", "Bundle assignment currently requires"),
         ):
-            rejected_source = os.path.join(output_dir, name + ".nyx")
+            rejected_source = os.path.join(output_dir, name + ".rove")
             rejected_output = os.path.join(output_dir, name + "_bundle")
             with open(rejected_source, "w", encoding="utf-8") as source_file:
                 source_file.write(source + "\n")
@@ -219,7 +219,7 @@ def run_bundle_suite() -> bool:
             assert diagnostic in (rejected.stdout + rejected.stderr), rejected.stdout + rejected.stderr
             assert not os.path.exists(rejected_output), f"failed {name} left partial artifacts"
 
-        partial_source = os.path.join(output_dir, "partial_return.nyx")
+        partial_source = os.path.join(output_dir, "partial_return.rove")
         partial_output = os.path.join(output_dir, "partial_return_bundle")
         with open(partial_source, "w", encoding="utf-8") as source_file:
             source_file.write(
@@ -252,9 +252,10 @@ def run_bundle_suite() -> bool:
                 "const bytes = fs.readFileSync(wasmPath);\n"
                 "if (!WebAssembly.validate(bytes)) throw new Error('invalid WebAssembly binary');\n"
                 "const generated = await import(pathToFileURL(modulePath));\n"
-                "const api = await generated.initNyxModule(wasmPath);\n"
+                "if (generated.initNyxModule !== generated.initRoveModule || generated.createNyxModule !== generated.createRoveModule) throw new Error('legacy bundle aliases changed');\n"
+                "const api = await generated.initRoveModule(wasmPath);\n"
                 "const unicodeInput = 'İstanbul 🌙 çığ ğüşö\\u0000é';\n"
-                "const expected = `Hello from Nyx WebAssembly, ${unicodeInput}!`;\n"
+                "const expected = `Hello from Rove WebAssembly, ${unicodeInput}!`;\n"
                 "if (api.add_numbers(15, 27) !== 42) throw new Error('numeric lowering failed');\n"
                 "if (api.next_counter() !== 1 || api.next_counter() !== 2) throw new Error('WASM mutable global failed');\n"
                 "if (api.is_positive(1) !== true || api.is_positive(0) !== false) throw new Error('boolean ABI failed');\n"
@@ -286,33 +287,33 @@ def run_bundle_suite() -> bool:
                 "const mutableFloats = new Float64Array([1.5, 2.5, 3.5]);\n"
                 "api.set_float_at(mutableFloats, 0, 42.125);\n"
                 "if (mutableFloats[0] !== 42.125) throw new Error('set_float_at failed');\n"
-                "if (!api.char_matches('Nyx', 0, 'N') || !api.char_matches('Nyx', 2, 'x') || api.char_matches('Nyx', 1, 'z')) throw new Error('char_matches failed');\n"
+                "if (!api.char_matches('Rove', 0, 'R') || !api.char_matches('Rove', 3, 'e') || api.char_matches('Rove', 1, 'z')) throw new Error('char_matches failed');\n"
                 "if (api.char_slice('hello', 0) !== 'h' || api.char_slice('hello', 4) !== 'o') throw new Error('char_slice failed');\n"
                 "let trappedSet = false; try { api.set_int_at(mutableInts, 10, 5); } catch (e) { if (e instanceof WebAssembly.RuntimeError) trappedSet = true; }\n"
                 "if (!trappedSet) throw new Error('set_int_at out of bounds did not trap');\n"
                 "let trappedChar = false; try { api.char_slice('abc', 5); } catch (e) { if (e instanceof WebAssembly.RuntimeError) trappedChar = true; }\n"
                 "if (!trappedChar) throw new Error('char_slice out of bounds did not trap');\n"
                 "if (api.string_length('İstanbul') !== 9) throw new Error('string method lowering failed');\n"
-                "if (api.choose_label(true, 'Nyx') !== 'enabled: Nyx' || api.choose_label(false, 'Nyx') !== 'disabled: Nyx') throw new Error('string conditional lowering failed');\n"
+                "if (api.choose_label(true, 'Rove') !== 'enabled: Rove' || api.choose_label(false, 'Rove') !== 'disabled: Rove') throw new Error('string conditional lowering failed');\n"
                 "if (api.greet_developer(unicodeInput) !== expected) throw new Error('UTF-8 string lowering failed');\n"
                 "if (api.echo_via_call(unicodeInput) !== unicodeInput) throw new Error('internal string parameter call failed');\n"
                 "if (api.literal_via_call() !== 'internal UTF-8: İstanbul 🌙') throw new Error('internal string literal call failed');\n"
                 "for (let i = 0; i < 100000; i++) {\n"
-                "  if (api.greet_developer('x') !== 'Hello from Nyx WebAssembly, x!') {\n"
+                "  if (api.greet_developer('x') !== 'Hello from Rove WebAssembly, x!') {\n"
                 "    throw new Error(`stress mismatch at ${i}`);\n"
                 "  }\n"
                 "}\n"
-                "const alternateApi = await generated.initNyxModule(alternateWasmPath);\n"
+                "const alternateApi = await generated.initRoveModule(alternateWasmPath);\n"
                 "if (alternateApi.add_numbers(10, 3) !== 7) throw new Error('alternate instance mismatch');\n"
                 "if (api.add_numbers(10, 3) !== 13) throw new Error('module instances share mutable state');\n"
                 "if (generated.add_numbers(10, 3) !== 7) throw new Error('default API did not select latest init');\n"
-                "const isolatedA = await generated.createNyxModule(wasmPath);\n"
-                "const isolatedB = await generated.createNyxModule(wasmPath);\n"
-                "if (isolatedA === isolatedB) throw new Error('createNyxModule reused a cached API');\n"
+                "const isolatedA = await generated.createRoveModule(wasmPath);\n"
+                "const isolatedB = await generated.createRoveModule(wasmPath);\n"
+                "if (isolatedA === isolatedB) throw new Error('createRoveModule reused a cached API');\n"
                 "if (isolatedA.next_counter() !== 1 || isolatedB.next_counter() !== 1) throw new Error('WASM globals leaked across instances');\n"
                 "const hostGenerated = await import(pathToFileURL(hostModulePath));\n"
                 "let hostMemory;\n"
-                "const hostApi = await hostGenerated.createNyxModule(hostWasmPath, { imports: { test_host: {\n"
+                "const hostApi = await hostGenerated.createRoveModule(hostWasmPath, { imports: { test_host: {\n"
                 "  host_add: (a, b) => a + b,\n"
                 "  host_text_len: (ptr, len) => { if (!hostMemory) return len; return new Uint8Array(hostMemory.buffer, ptr, len).length; },\n"
                 "} } });\n"

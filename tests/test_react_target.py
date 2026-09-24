@@ -22,8 +22,8 @@ fn reset() {
 
 print("Initial load complete")
 """
-    tokens = Lexer(src, "test.nyx").tokenize()
-    ast = Parser(tokens, "test.nyx").parse()
+    tokens = Lexer(src, "test.rove").tokenize()
+    ast = Parser(tokens, "test.rove").parse()
     tsx = UniversalCodeGen(ast).gen_react()
     print("--- GENERATED REACT 19 TSX ---")
     print(tsx)

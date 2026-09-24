@@ -1,7 +1,7 @@
-"""Python Host for Nyx Module.
+"""Python Host for Rove Module.
 
-Demonstrates compiling and embedding a Nyx data transformation module
-directly inside Python 3 using Nyx's Python HIR backend.
+Demonstrates compiling and embedding a Rove data transformation module
+directly inside Python 3 using Rove's Python HIR backend.
 """
 
 import os
@@ -12,8 +12,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent.parent
 
-def build_nyx_python_module():
-    src_path = HERE / "transformer.nyx"
+def build_rove_python_module():
+    src_path = HERE / "transformer.rove"
     out_dir = HERE / "py_build"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_file = out_dir / "transformer.py"
@@ -27,7 +27,7 @@ def build_nyx_python_module():
     res = subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True, text=True)
     if res.returncode != 0:
         print(res.stderr or res.stdout)
-        raise RuntimeError("Failed to build Nyx python module")
+        raise RuntimeError("Failed to build Rove python module")
     
     # Copy from build/python to our local dir if needed
     src_built = REPO_ROOT / "build" / "python" / "transformer.py"
@@ -36,12 +36,12 @@ def build_nyx_python_module():
     return out_dir
 
 def main():
-    print("[*] Building Nyx module for Python target...")
-    build_dir = build_nyx_python_module()
+    print("[*] Building Rove module for Python target...")
+    build_dir = build_rove_python_module()
     sys.path.insert(0, str(build_dir))
     
     import transformer
-    print("[+] Successfully imported Nyx module into Python runtime!")
+    print("[+] Successfully imported Rove module into Python runtime!")
     
     # 1. Float sum
     floats = [10.5, 20.25, 30.25, 40.0]
