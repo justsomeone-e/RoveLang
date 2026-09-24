@@ -12,10 +12,10 @@ from .codegen_cpp import MIRCodegenError
 from .legalization import legalize_mir
 from .model import (
     AggregateRValue, AssertTerminator, AssignStatement, BinaryRValue, CallTerminator,
-    CastRValue, ConstOperand, ConstantIndexProjection, CopyOperand, DiscriminantRValue, FieldProjection,
-    GotoTerminator, IndexProjection, MIRFunction, MIRModule, MIRStructDef,
+    CastRValue, ConstOperand, ConstantIndexProjection, CopyOperand, DeinitStatement, DiscriminantRValue, FieldProjection,
+    DropTerminator, GotoTerminator, IndexProjection, MIRFunction, MIRModule, MIRStructDef,
     MoveOperand, NopStatement, Operand, PayloadRValue, Place, ReturnTerminator,
-    StorageDeadStatement, StorageLiveStatement, SwitchIntTerminator,
+    StorageDeadStatement, StorageLiveStatement, SuspendTerminator, SwitchIntTerminator,
     SwitchValueTerminator, ThrowTerminator, UnaryRValue, UnreachableTerminator, UseRValue,
 )
 from .types import MIRType
@@ -23,14 +23,40 @@ from .types import MIRType
 
 _RUNTIME = r'''import copy
 import math
+import sys
 
 NYX_I64_MASK = (1 << 64) - 1
 NYX_I64_SIGN = 1 << 63
 
-class NyxUserThrow(Exception):
+class RoveUserThrow(Exception):
     def __init__(self, value):
         super().__init__(value)
         self.value = value
+
+class RoveTask:
+    def __init__(self, run):
+        self.run = run
+        self.done = False
+        self.value = None
+        self.error = None
+
+    def __deepcopy__(self, memo):
+        return self
+
+    def await_result(self):
+        if not self.done:
+            run = self.run
+            self.run = None
+            if run is None:
+                raise RuntimeError("attempted to await an uninitialized Rove task")
+            try:
+                self.value = run()
+            except BaseException as error:
+                self.error = error
+            self.done = True
+        if self.error is not None:
+            raise self.error
+        return nyx_clone(self.value)
 
 def nyx_i64(value):
     value = int(value) & NYX_I64_MASK
@@ -86,20 +112,52 @@ def nyx_field(value, name):
 def nyx_set_field(value, name, item):
     value["fields"][name] = item
 
-def nyx_display(value):
+def rove_f64_to_string(value):
+    if math.isnan(value):
+        return "nan"
+    if math.isinf(value):
+        return "-inf" if value < 0 else "inf"
+    if value == 0.0:
+        return "0"
+    text = repr(value)
+    negative = text.startswith("-")
+    if negative:
+        text = text[1:]
+    mantissa, marker, exponent_text = text.partition("e")
+    exponent = int(exponent_text) if marker else 0
+    dot = mantissa.find(".")
+    decimal = (len(mantissa) if dot < 0 else dot) + exponent
+    digits = mantissa.replace(".", "")
+    first = len(digits) - len(digits.lstrip("0"))
+    decimal -= first
+    digits = digits[first:].rstrip("0")
+    if -6 < decimal <= 21:
+        if decimal <= 0:
+            result = "0." + "0" * -decimal + digits
+        elif decimal >= len(digits):
+            result = digits + "0" * (decimal - len(digits))
+        else:
+            result = digits[:decimal] + "." + digits[decimal:]
+    else:
+        result = digits[0] + ("." + digits[1:] if len(digits) > 1 else "")
+        result += "e" + ("+" if decimal > 0 else "") + str(decimal - 1)
+    return ("-" if negative else "") + result
+
+def rove_display(value):
     if value is True:
         return "true"
     if value is False:
         return "false"
+    if isinstance(value, dict) and isinstance(value.get("tag"), str) and isinstance(value.get("payload"), list):
+        payload = ", ".join(rove_display(item) for item in value["payload"])
+        return f'{value["tag"]}({payload})'
+    if isinstance(value, list):
+        return "[" + ", ".join(rove_display(item) for item in value) + "]"
+    if isinstance(value, dict) and "__type__" in value and "fields" in value:
+        fields = ", ".join(rove_display(item) for item in value["fields"].values())
+        return f'{value["__type__"]}({fields})'
     if isinstance(value, float):
-        if math.isnan(value):
-            return "nan"
-        if value == math.inf:
-            return "inf"
-        if value == -math.inf:
-            return "-inf"
-        if value == 0.0:
-            return "0"
+        return rove_f64_to_string(value)
     return str(value)'''
 
 
@@ -132,19 +190,30 @@ class _PythonEmitter:
         self.local_types: dict[int, MIRType] = {}
 
     def emit(self) -> str:
-        parts = ["# Experimental Nyx legalized MIR -> Python 3 output.", _RUNTIME, ""]
+        parts = ["# Experimental Rove legalized MIR -> Python 3 output.", _RUNTIME, ""]
         parts.extend(self._function(function) + "\n" for function in self.module.functions)
         by_name = {function.name: function for function in self.module.functions}
         entry = by_name.get("main") or by_name.get("__nyx_top_level")
         if entry is not None:
-            parts.extend(("if __name__ == \"__main__\":", f"    {self.function_names[entry.symbol]}()"))
+            parts.append("if __name__ == \"__main__\":")
+            if entry.is_async:
+                parts.extend((
+                    "    try:",
+                    f"        {self.function_names[entry.symbol]}().await_result()",
+                    "    except RoveUserThrow as error:",
+                    "        print(error.value, file=sys.stderr)",
+                    "        raise SystemExit(1)",
+                ))
+            else:
+                parts.append(f"    {self.function_names[entry.symbol]}()")
         return "\n".join(parts).rstrip() + "\n"
 
     def _function(self, function: MIRFunction) -> str:
         self.current = function
         self.local_types = {local.id: local.type for local in function.locals}
         parameters = ", ".join(f"l{local}" for local in function.parameters)
-        lines = [f"def {self.function_names[function.symbol]}({parameters}):"]
+        signature = f"def {self.function_names[function.symbol]}({parameters}):"
+        lines: list[str] = []
         parameter_ids = set(function.parameters)
         for local in function.locals:
             if local.id in parameter_ids or local.type.name in ("void", "any"):
@@ -160,9 +229,15 @@ class _PythonEmitter:
             body.extend(self._terminator(block.terminator))
             lines.extend(f"            {line}" for line in (body or ["pass"]))
         lines.extend(("        else:", "            raise RuntimeError(\"invalid MIR block\")"))
+        if function.is_async:
+            rendered_lines = [signature, "    def rove_run():"]
+            rendered_lines.extend(f"    {line}" for line in lines)
+            rendered_lines.append("    return RoveTask(rove_run)")
+        else:
+            rendered_lines = [signature, *lines]
         self.current = None
         self.local_types = {}
-        return "\n".join(lines)
+        return "\n".join(rendered_lines)
 
     def _statement(self, value: object) -> list[str]:
         if isinstance(value, AssignStatement):
@@ -171,6 +246,8 @@ class _PythonEmitter:
             return [self._assign_place(value.place, self._rvalue(value.value))]
         if isinstance(value, (StorageLiveStatement, StorageDeadStatement, NopStatement)):
             return []
+        if isinstance(value, DeinitStatement):
+            return [self._assign_place(value.place, "None")]
         raise MIRCodegenError(f"illegal statement reached Python emitter: {type(value).__name__}")
 
     def _terminator(self, value: object) -> list[str]:
@@ -200,7 +277,7 @@ class _PythonEmitter:
             arguments = ", ".join(self._operand(argument) for argument in value.arguments)
             if value.function == "builtin::print":
                 displays = ", ".join(
-                    f"nyx_display({self._operand(argument)})" for argument in value.arguments
+                    f"rove_display({self._operand(argument)})" for argument in value.arguments
                 )
                 line = f"print({displays})" if displays else "print()"
             elif value.function == "builtin::len":
@@ -210,7 +287,7 @@ class _PythonEmitter:
             elif value.function == "builtin::to_string":
                 if len(value.arguments) != 1 or value.destination is None:
                     raise MIRCodegenError("builtin::to_string requires one argument and a destination")
-                line = f"{self._place(value.destination)} = nyx_display({self._operand(value.arguments[0])})"
+                line = f"{self._place(value.destination)} = rove_display({self._operand(value.arguments[0])})"
             elif value.function in self.function_names:
                 call = f"{self.function_names[value.function]}({arguments})"
                 callee = self.functions[value.function]
@@ -227,25 +304,45 @@ class _PythonEmitter:
                 return [
                     "try:",
                     f"    {line}",
-                    "except NyxUserThrow as error:",
+                    "except RoveUserThrow as error:",
                     f"    {self._place(value.error_destination)} = error.value",
                     f"    pc = {value.unwind}",
                     "    continue",
                 ] + self._goto(value.target)
             return [line] + self._goto(value.target)
+        if isinstance(value, SuspendTerminator):
+            task = self._operand(value.task)
+            lines = ["try:", f"    {self._assign_place(value.destination, f'{task}.await_result()')}"]
+            if value.unwind is not None:
+                if value.error_destination is None:
+                    raise MIRCodegenError("Python MIR suspend unwind requires an error destination")
+                lines.extend((
+                    "except RoveUserThrow as error:",
+                    f"    {self._assign_place(value.error_destination, 'error.value')}",
+                    f"    pc = {value.unwind}",
+                    "    continue",
+                ))
+            else:
+                lines.extend(("except RoveUserThrow:", "    raise"))
+            lines.extend(self._goto(value.resume))
+            return lines
         if isinstance(value, AssertTerminator):
             expected = self._bool(value.expected)
             return [
                 f"if bool({self._operand(value.condition)}) is not {expected}:",
                 f"    raise RuntimeError({json.dumps(value.message, ensure_ascii=False)})",
             ] + self._goto(value.target)
+        if isinstance(value, DropTerminator):
+            if value.unwind is not None:
+                raise MIRCodegenError("Python MIR drop unwind edge was not legalized")
+            return [self._assign_place(value.place, "None")] + self._goto(value.target)
         if isinstance(value, ThrowTerminator):
             rendered = self._operand(value.value)
             if value.target is not None and value.destination is not None:
-                return [self._assign_place(value.destination, f"nyx_display({rendered})")] + self._goto(
+                return [self._assign_place(value.destination, f"rove_display({rendered})")] + self._goto(
                     value.target
                 )
-            return [f"raise NyxUserThrow(nyx_display({rendered}))"]
+            return [f"raise RoveUserThrow(rove_display({rendered}))"]
         if isinstance(value, ReturnTerminator):
             assert self.current is not None
             result = self.current.locals[self.current.return_local].type
@@ -274,7 +371,7 @@ class _PythonEmitter:
             if value.type.name == "bool":
                 return f"bool({operand})"
             if value.type.name == "string":
-                return f"nyx_display({operand})"
+                return f"rove_display({operand})"
             return operand
         if isinstance(value, AggregateRValue):
             operands = [self._operand(operand) for operand in value.operands]
@@ -317,7 +414,7 @@ class _PythonEmitter:
         if value.op in ("==", "!=", "<", "<=", ">", ">="):
             return f"({left} {value.op} {right})"
         if value.op == "+" and (left_type.name == "string" or right_type.name == "string"):
-            return f"nyx_display({left}) + nyx_display({right})"
+            return f"rove_display({left}) + rove_display({right})"
         if left_type.name in ("float", "f64") or right_type.name in ("float", "f64"):
             if value.op in ("+", "-", "*"):
                 return f"({left} {value.op} {right})"

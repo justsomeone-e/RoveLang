@@ -1,0 +1,154 @@
+fn replace_value() {
+    var value: string = "first"
+    defer print("replace-defer", value)
+    set value = "second"
+}
+
+fn return_value(value: string) -> string {
+    defer print("return-defer", value)
+    var local: string = "returned"
+    return local
+}
+
+fn loop_values(values: Array<string>) {
+    for value in values {
+        defer print("loop-defer", value)
+        if value == "skip" { continue }
+        if value == "stop" { break }
+        print("loop-body", value)
+    }
+}
+
+fn catch_value() {
+    try {
+        var doomed: string = "try-local"
+        defer print("throw-defer", doomed)
+        throw "boom"
+    } catch err {
+        print("caught", err)
+    }
+}
+
+fn explode() {
+    throw "call-boom"
+}
+
+fn throw_owned_value() {
+    try {
+        let message: string = "owned-boom"
+        defer print("throw-value-defer", message)
+        throw message
+    } catch err {
+        print("owned-caught", err)
+    }
+}
+
+fn make_argument_values() -> Array<int> {
+    return [1, 2]
+}
+
+fn fail_argument() -> int {
+    throw "arg-fail"
+    return 0
+}
+
+fn consume_argument(values: Array<int>, number: int) -> void {
+    print("arg-consumed", len(values), number)
+}
+
+fn argument_unwind() {
+    try {
+        consume_argument(make_argument_values(), fail_argument())
+    } catch err {
+        print("arg-caught", err)
+    }
+    consume_argument(make_argument_values(), 3)
+}
+
+fn checked_argument(ok: bool) -> Result<int, string> {
+    if ok { return Ok(3) }
+    return Err("argument-error")
+}
+
+fn consume_result_argument(values: Array<int>, number: int) -> Result<int, string> {
+    return Ok(len(values) + number)
+}
+
+fn propagate_result_argument(ok: bool) -> Result<int, string> {
+    return consume_result_argument(make_argument_values(), checked_argument(ok)?)
+}
+
+fn make_operand_text() -> string { return "left" }
+
+fn fail_operand_text() -> string {
+    throw "operand-fail"
+    return ""
+}
+
+fn ordered_operand_unwind() {
+    try {
+        print(make_operand_text() + fail_operand_text())
+    } catch err {
+        print("binary-caught", err)
+    }
+    try {
+        let values: Array<string> = [make_operand_text(), fail_operand_text()]
+    } catch err {
+        print("array-caught", err)
+    }
+}
+
+fn call_unwind() {
+    try {
+        var owned: string = "call-local"
+        defer print("call-defer", owned)
+        explode()
+    } catch err {
+        print("call-caught", err)
+    }
+}
+
+fn relay_unwind() {
+    explode()
+}
+
+fn unhandled_unwind(value: string) {
+    defer print("unhandled-defer", value)
+    relay_unwind()
+}
+
+fn match_value(result: Result<int, string>) {
+    match result {
+        Ok(value) => print("ok", value),
+        Err(message) => print("err", message)
+    }
+}
+
+fn ignored_owned() -> Array<string> {
+    return ["ignored"]
+}
+
+fn discard_temporary() {
+    ignored_owned()
+}
+
+fn coalesce_owned_fallback() {
+    var maybe: Array<int>? = null
+    let values = maybe ?? [4, 5]
+    print(values[0], len(values))
+}
+
+fn main() {
+    replace_value()
+    print(return_value("argument"))
+    loop_values(["keep", "skip", "stop", "never"])
+    catch_value()
+    throw_owned_value()
+    argument_unwind()
+    print(propagate_result_argument(false), propagate_result_argument(true))
+    ordered_operand_unwind()
+    call_unwind()
+    match_value(Err("bad"))
+    discard_temporary()
+    coalesce_owned_fallback()
+}

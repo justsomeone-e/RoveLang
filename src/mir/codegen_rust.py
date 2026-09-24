@@ -8,6 +8,7 @@ import re
 from dataclasses import replace
 
 from .codegen_cpp import MIRCodegenError
+from .effects import infer_module_effects
 from .legalization import legalize_mir
 from .model import (
     AggregateRValue,
@@ -41,8 +42,10 @@ from .model import (
     ReturnTerminator,
     StorageDeadStatement,
     StorageLiveStatement,
+    SuspendTerminator,
     SwitchIntTerminator,
     SwitchValueTerminator,
+    ThrowTerminator,
     UnaryRValue,
     UnreachableTerminator,
     UseRValue,
@@ -50,39 +53,149 @@ from .model import (
 from .types import MIRType
 
 
-_RUNTIME = r'''trait NyxDisplay {
-    fn nyx_display(&self) -> String;
+_RUNTIME = r'''trait RoveDisplay {
+    fn rove_display(&self) -> String;
 }
 
-impl NyxDisplay for i64 { fn nyx_display(&self) -> String { self.to_string() } }
-impl NyxDisplay for bool {
-    fn nyx_display(&self) -> String {
+impl RoveDisplay for i64 { fn rove_display(&self) -> String { self.to_string() } }
+impl RoveDisplay for bool {
+    fn rove_display(&self) -> String {
         if *self { "true".to_string() } else { "false".to_string() }
     }
 }
-impl NyxDisplay for f64 {
-    fn nyx_display(&self) -> String {
+impl RoveDisplay for f64 {
+    fn rove_display(&self) -> String {
         if self.is_nan() { return "nan".to_string(); }
         if *self == f64::INFINITY { return "inf".to_string(); }
         if *self == f64::NEG_INFINITY { return "-inf".to_string(); }
         if *self == 0.0 { return "0".to_string(); }
-        self.to_string()
+        let text = self.to_string();
+        let (negative, body) = if let Some(body) = text.strip_prefix('-') {
+            (true, body)
+        } else {
+            (false, text.as_str())
+        };
+        let (mantissa, exponent) = if let Some(marker) = body.find(|c: char| c == 'e' || c == 'E') {
+            (&body[..marker], body[marker + 1..].parse::<i32>().expect("Rove float exponent"))
+        } else {
+            (body, 0)
+        };
+        let dot = mantissa.find('.').unwrap_or(mantissa.len());
+        let digits = mantissa.replace('.', "");
+        let first = digits.len() - digits.trim_start_matches('0').len();
+        let decimal = dot as i32 + exponent - first as i32;
+        let digits = digits[first..].trim_end_matches('0');
+        let rendered = if decimal > -6 && decimal <= 21 {
+            if decimal <= 0 {
+                format!("0.{}{}", "0".repeat((-decimal) as usize), digits)
+            } else if decimal as usize >= digits.len() {
+                format!("{}{}", digits, "0".repeat(decimal as usize - digits.len()))
+            } else {
+                format!("{}.{}", &digits[..decimal as usize], &digits[decimal as usize..])
+            }
+        } else {
+            let fraction = if digits.len() > 1 { format!(".{}", &digits[1..]) }
+                           else { String::new() };
+            let exponent = decimal - 1;
+            format!("{}{}e{}{}", &digits[..1], fraction,
+                    if exponent >= 0 { "+" } else { "" }, exponent)
+        };
+        if negative { format!("-{rendered}") } else { rendered }
     }
 }
-impl NyxDisplay for String { fn nyx_display(&self) -> String { self.clone() } }
+impl RoveDisplay for String { fn rove_display(&self) -> String { self.clone() } }
+impl<T: RoveDisplay> RoveDisplay for Vec<T> {
+    fn rove_display(&self) -> String {
+        let payload = self.iter().map(RoveDisplay::rove_display).collect::<Vec<_>>().join(", ");
+        format!("[{}]", payload)
+    }
+}
+impl<T: RoveDisplay, E: RoveDisplay> RoveDisplay for Result<T, E> {
+    fn rove_display(&self) -> String {
+        match self {
+            Ok(value) => format!("Ok({})", value.rove_display()),
+            Err(error) => format!("Err({})", error.rove_display()),
+        }
+    }
+}
+impl<T: RoveDisplay> RoveDisplay for Option<T> {
+    fn rove_display(&self) -> String {
+        match self {
+            Some(value) => value.rove_display(),
+            None => "null".to_string(),
+        }
+    }
+}
 
-struct NyxPtr<T> {
+#[derive(Clone, Debug)]
+struct RoveUserThrow {
+    message: String,
+}
+
+type RoveCallResult<T> = Result<T, RoveUserThrow>;
+
+enum RoveTaskState<T> {
+    Pending(Option<Box<dyn FnOnce() -> RoveCallResult<T>>>),
+    Ready(RoveCallResult<T>),
+}
+
+#[derive(Clone)]
+struct RoveTask<T> {
+    state: std::rc::Rc<std::cell::RefCell<RoveTaskState<T>>>,
+}
+
+impl<T> Default for RoveTask<T> {
+    fn default() -> Self {
+        Self {
+            state: std::rc::Rc::new(std::cell::RefCell::new(
+                RoveTaskState::Pending(None),
+            )),
+        }
+    }
+}
+
+impl<T: Clone + 'static> RoveTask<T> {
+    fn new<F>(run: F) -> Self
+    where
+        F: FnOnce() -> RoveCallResult<T> + 'static,
+    {
+        Self {
+            state: std::rc::Rc::new(std::cell::RefCell::new(
+                RoveTaskState::Pending(Some(Box::new(run))),
+            )),
+        }
+    }
+
+    fn await_result(&self) -> RoveCallResult<T> {
+        let pending = {
+            let mut state = self.state.borrow_mut();
+            match &mut *state {
+                RoveTaskState::Ready(result) => return result.clone(),
+                RoveTaskState::Pending(run) => run.take(),
+            }
+        };
+        let result = pending
+            .expect("attempted to await an uninitialized Rove task")();
+        *self.state.borrow_mut() = RoveTaskState::Ready(result.clone());
+        result
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+struct RoveAny;
+
+struct RovePtr<T> {
     ptr: *mut T,
     mutable: bool,
 }
 
-impl<T> Copy for NyxPtr<T> {}
-impl<T> Clone for NyxPtr<T> { fn clone(&self) -> Self { *self } }
-impl<T> Default for NyxPtr<T> {
+impl<T> Copy for RovePtr<T> {}
+impl<T> Clone for RovePtr<T> { fn clone(&self) -> Self { *self } }
+impl<T> Default for RovePtr<T> {
     fn default() -> Self { Self { ptr: std::ptr::null_mut(), mutable: false } }
 }
 
-impl<T> NyxPtr<T> {
+impl<T> RovePtr<T> {
     fn borrow(value: &T) -> Self {
         Self { ptr: value as *const T as *mut T, mutable: false }
     }
@@ -92,35 +205,35 @@ impl<T> NyxPtr<T> {
     }
 
     unsafe fn read(&self) -> &T {
-        if self.ptr.is_null() { panic!("null Nyx MIR pointer dereference"); }
+        if self.ptr.is_null() { panic!("null Rove MIR pointer dereference"); }
         unsafe { &*self.ptr }
     }
 
     unsafe fn write(&mut self) -> &mut T {
-        if self.ptr.is_null() { panic!("null Nyx MIR pointer dereference"); }
-        if !self.mutable { panic!("assignment through immutable Nyx MIR borrow"); }
+        if self.ptr.is_null() { panic!("null Rove MIR pointer dereference"); }
+        if !self.mutable { panic!("assignment through immutable Rove MIR borrow"); }
         unsafe { &mut *self.ptr }
     }
 }
 
-fn nyx_display<T: NyxDisplay + ?Sized>(value: &T) -> String { value.nyx_display() }
+fn rove_display<T: RoveDisplay + ?Sized>(value: &T) -> String { value.rove_display() }
 
-fn nyx_i64_div(left: i64, right: i64) -> i64 {
+fn rove_i64_div(left: i64, right: i64) -> i64 {
     if right == 0 { panic!("division by zero"); }
     if left == i64::MIN && right == -1 { i64::MIN } else { left / right }
 }
 
-fn nyx_i64_rem(left: i64, right: i64) -> i64 {
+fn rove_i64_rem(left: i64, right: i64) -> i64 {
     if right == 0 { panic!("remainder by zero"); }
     if left == i64::MIN && right == -1 { 0 } else { left % right }
 }
 
-fn nyx_index<T>(values: &[T], index: i64) -> &T {
+fn rove_index<T>(values: &[T], index: i64) -> &T {
     if index < 0 || index as usize >= values.len() { panic!("array index out of bounds"); }
     &values[index as usize]
 }
 
-fn nyx_index_mut<T>(values: &mut [T], index: i64) -> &mut T {
+fn rove_index_mut<T>(values: &mut [T], index: i64) -> &mut T {
     if index < 0 || index as usize >= values.len() { panic!("array index out of bounds"); }
     &mut values[index as usize]
 }'''
@@ -135,9 +248,10 @@ def _identifier(value: str) -> str:
 
 class _RustEmitter:
     def __init__(self, module: MIRModule):
-        self.module = module
+        self.module = infer_module_effects(module)
+        module = self.module
         self.function_names = {
-            function.symbol: f"nyx_fn_{_identifier(function.name)}"
+            function.symbol: f"rove_fn_{_identifier(function.name)}"
             for function in module.functions
         }
         self.function_names.update({
@@ -160,9 +274,10 @@ class _RustEmitter:
         self.local_types: dict[int, MIRType] = {}
 
     def emit(self) -> str:
+        self.display_names = self._collect_display_names()
         parts = [
-            "// Experimental Nyx legalized MIR -> Rust 2021 output.",
-            "#![allow(dead_code, unused_assignments, unused_mut, unreachable_code)]",
+            "// Experimental Rove legalized MIR -> Rust 2021 output.",
+            "#![allow(dead_code, nonstandard_style, unused_assignments, unused_mut, unused_parens, unused_variables, unreachable_code)]",
             "",
             _RUNTIME,
             "",
@@ -174,14 +289,28 @@ class _RustEmitter:
         return "\n".join(parts).rstrip() + "\n"
 
     def _struct_definition(self, definition: MIRStructDef) -> str:
-        lines = ["#[derive(Clone, Debug, Default, PartialEq)]", f"struct NyxType_{_identifier(definition.name)} {{"]
+        type_name = f"RoveType_{_identifier(definition.name)}"
+        lines = ["#[derive(Clone, Debug, Default, PartialEq)]", f"struct {type_name} {{"]
         for field in definition.fields:
             lines.append(f"    {_identifier(field.name)}: {self._type(field.type)},")
         lines.append("}")
+        if definition.name in self.display_names:
+            fields = ", ".join(
+                f"self.{_identifier(field.name)}.rove_display()"
+                for field in definition.fields
+            )
+            lines.extend((
+                f"impl RoveDisplay for {type_name} {{",
+                "    fn rove_display(&self) -> String {",
+                f"        let fields: Vec<String> = vec![{fields}];",
+                f"        format!({json.dumps(definition.name + '({})')}, fields.join(\", \"))",
+                "    }",
+                "}",
+            ))
         return "\n".join(lines)
 
     def _enum_definition(self, definition: MIREnumDef) -> str:
-        type_name = f"NyxType_{_identifier(definition.name)}"
+        type_name = f"RoveType_{_identifier(definition.name)}"
         lines = ["#[derive(Clone, Debug, PartialEq)]", f"enum {type_name} {{"]
         for variant in definition.variants:
             payload = ", ".join(self._type(item) for item in variant.payload_types)
@@ -197,13 +326,94 @@ class _RustEmitter:
                 f"    fn default() -> Self {{ Self::{_identifier(first.name)}{suffix} }}",
                 "}",
             ))
+        if definition.name in self.display_names:
+            lines.extend((
+                f"impl RoveDisplay for {type_name} {{",
+                "    fn rove_display(&self) -> String {",
+                "        match self {",
+            ))
+            for variant in definition.variants:
+                bindings = [f"value{index}" for index in range(len(variant.payload_types))]
+                pattern = f"Self::{_identifier(variant.name)}"
+                if bindings:
+                    pattern += f"({', '.join(bindings)})"
+                    values = ", ".join(
+                        f"{binding}.rove_display()" for binding in bindings
+                    )
+                    lines.append(
+                        f"            {pattern} => format!("
+                        f"{json.dumps(variant.name + '({})')}, "
+                        f"[{values}].join(\", \")),"
+                    )
+                else:
+                    lines.append(
+                        f"            {pattern} => "
+                        f"{json.dumps(variant.name + '()')}.to_string(),"
+                    )
+            lines.extend(("        }", "    }", "}"))
         return "\n".join(lines)
+
+    def _collect_display_names(self) -> set[str]:
+        names: set[str] = set()
+        visited: set[str] = set()
+
+        def visit(value_type: MIRType) -> None:
+            key = value_type.canonical()
+            if key in visited:
+                return
+            visited.add(key)
+            for argument in value_type.arguments:
+                visit(argument)
+            definition = self.structs.get(value_type.name)
+            if definition is not None:
+                names.add(definition.name)
+                for field in definition.fields:
+                    visit(field.type)
+            definition_enum = self.enums.get(value_type.name)
+            if definition_enum is not None:
+                names.add(definition_enum.name)
+                for variant in definition_enum.variants:
+                    for payload in variant.payload_types:
+                        visit(payload)
+
+        previous_types = self.local_types
+        for function in self.module.functions:
+            self.local_types = {local.id: local.type for local in function.locals}
+            for block in function.blocks:
+                terminator = block.terminator
+                if isinstance(terminator, CallTerminator) and terminator.function in {
+                    "builtin::print", "builtin::to_string",
+                }:
+                    for argument in terminator.arguments:
+                        visit(self._operand_type(argument))
+                elif isinstance(terminator, ThrowTerminator):
+                    visit(self._operand_type(terminator.value))
+        self.local_types = previous_types
+        return names
 
     def _entry_point(self) -> str:
         by_name = {function.name: function for function in self.module.functions}
         entry = by_name.get("main") or by_name.get("__nyx_top_level")
         if entry is None:
             return "fn main() {}"
+        if entry.is_async:
+            return (
+                "fn main() {\n"
+                f"    if let Err(thrown) = {self.function_names[entry.symbol]}().await_result() {{\n"
+                "        eprintln!(\"{}\", thrown.message);\n"
+                "        std::process::exit(1);\n"
+                "    }\n"
+                "}"
+            )
+        if self._may_throw(entry):
+            return (
+                "fn main() {\n"
+                f"    if let Err(thrown) = {self.function_names[entry.symbol]}() {{\n"
+                "        eprintln!(\"{}\", thrown.message);\n"
+                "        std::process::exit(1);\n"
+                "    }\n"
+                "}"
+            )
         return f"fn main() {{ {self.function_names[entry.symbol]}(); }}"
 
     def _function(self, function: MIRFunction) -> str:
@@ -214,8 +424,14 @@ class _RustEmitter:
             for local in function.parameters
         )
         return_type = self._type(function.locals[function.return_local].type, function)
-        suffix = "" if return_type == "()" else f" -> {return_type}"
-        lines = [f"fn {self.function_names[function.symbol]}({parameters}){suffix} {{"]
+        if function.is_async:
+            suffix = f" -> RoveTask<{return_type}>"
+        elif self._may_throw(function):
+            suffix = f" -> RoveCallResult<{return_type}>"
+        else:
+            suffix = "" if return_type == "()" else f" -> {return_type}"
+        signature = f"fn {self.function_names[function.symbol]}({parameters}){suffix} {{"
+        lines: list[str] = []
         parameter_ids = set(function.parameters)
         for local in function.locals:
             rendered = self._type(local.type, function)
@@ -229,10 +445,16 @@ class _RustEmitter:
                 lines.extend(f"                {line}" for line in self._statement(statement))
             lines.extend(f"                {line}" for line in self._terminator(block.terminator))
             lines.append("            }")
-        lines.extend(("            _ => unreachable!(\"invalid MIR block\"),", "        }", "    }", "}"))
+        lines.extend(("            _ => unreachable!(\"invalid MIR block\"),", "        }", "    }"))
+        if function.is_async:
+            rendered_lines = [signature, "    RoveTask::new(move || {"]
+            rendered_lines.extend(f"    {line}" for line in lines)
+            rendered_lines.extend(("    })", "}"))
+        else:
+            rendered_lines = [signature, *lines, "}"]
         self.current = None
         self.local_types = {}
-        return "\n".join(lines)
+        return "\n".join(rendered_lines)
 
     def _statement(self, statement: object) -> list[str]:
         if isinstance(statement, AssignStatement):
@@ -287,7 +509,7 @@ class _RustEmitter:
             arguments = ", ".join(self._operand(argument) for argument in value.arguments)
             if value.function == "builtin::print":
                 displays = ", ".join(
-                    f"nyx_display(&{self._operand(argument)})" for argument in value.arguments
+                    f"rove_display(&{self._operand(argument)})" for argument in value.arguments
                 )
                 line = "println!();" if not displays else f"println!(\"{{}}\", [{displays}].join(\" \"));"
             elif value.function == "builtin::len":
@@ -297,18 +519,51 @@ class _RustEmitter:
             elif value.function == "builtin::to_string":
                 if len(value.arguments) != 1 or value.destination is None:
                     raise MIRCodegenError("builtin::to_string requires one argument and a destination")
-                line = f"{self._place(value.destination)} = nyx_display(&{self._operand(value.arguments[0])});"
+                line = f"{self._place(value.destination)} = rove_display(&{self._operand(value.arguments[0])});"
             elif value.function in self.function_names:
                 call = f"{self.function_names[value.function]}({arguments})"
                 callee = self.functions[value.function]
                 result = self._type(callee.locals[callee.return_local].type, callee)
+                if self._may_throw(callee) and not callee.is_async:
+                    if value.unwind is not None:
+                        if value.error_destination is None:
+                            raise MIRCodegenError("Rust MIR call unwind requires an error destination")
+                        lines = [f"match {call} {{", "    Ok(rove_value) => {"]
+                        if value.destination is not None and result != "()":
+                            lines.append(f"        {self._assign_place(value.destination, 'rove_value')}")
+                        lines.extend(f"        {item}" for item in self._goto(value.target))
+                        lines.extend(("    }", "    Err(rove_throw) => {"))
+                        lines.append(
+                            f"        {self._assign_place(value.error_destination, 'rove_throw.message')}"
+                        )
+                        lines.extend(f"        {item}" for item in self._goto(value.unwind))
+                        lines.extend(("    }", "}"))
+                        return lines
+                    call = f"{call}?"
                 if value.destination is not None and result != "()":
-                    line = f"l{value.destination.local} = {call};"
+                    line = self._assign_place(value.destination, call)
                 else:
                     line = f"{call};"
             else:
                 raise MIRCodegenError(f"illegal runtime call reached Rust emitter: {value.function}")
             return [line] + self._goto(value.target)
+        if isinstance(value, SuspendTerminator):
+            task = self._operand(value.task)
+            lines = [f"match {task}.await_result() {{", "    Ok(rove_value) => {"]
+            lines.append(f"        {self._assign_place(value.destination, 'rove_value')}")
+            lines.extend(f"        {item}" for item in self._goto(value.resume))
+            lines.extend(("    }", "    Err(rove_throw) => {"))
+            if value.unwind is not None:
+                if value.error_destination is None:
+                    raise MIRCodegenError("Rust MIR suspend unwind requires an error destination")
+                lines.append(
+                    f"        {self._assign_place(value.error_destination, 'rove_throw.message')}"
+                )
+                lines.extend(f"        {item}" for item in self._goto(value.unwind))
+            else:
+                lines.append("        return Err(rove_throw);")
+            lines.extend(("    }", "}"))
+            return lines
         if isinstance(value, AssertTerminator):
             condition = self._operand(value.condition)
             expected = "true" if value.expected else "false"
@@ -319,9 +574,23 @@ class _RustEmitter:
             if value.unwind is not None:
                 raise MIRCodegenError("Rust MIR drop unwind edge was not legalized")
             return [f"drop({self._take_place(value.place)});"] + self._goto(value.target)
+        if isinstance(value, ThrowTerminator):
+            thrown = self._operand(value.value)
+            if value.target is not None:
+                if value.destination is None:
+                    raise MIRCodegenError("Rust MIR caught throw requires a destination")
+                return [
+                    self._assign_place(value.destination, thrown),
+                    *self._goto(value.target),
+                ]
+            return [
+                f"return Err(RoveUserThrow {{ message: rove_display(&{thrown}) }});"
+            ]
         if isinstance(value, ReturnTerminator):
             assert self.current is not None
             result = self._type(self.current.locals[self.current.return_local].type, self.current)
+            if self.current.is_async or self._may_throw(self.current):
+                return ["return Ok(());"] if result == "()" else ["return Ok(l0);"]
             return ["return;"] if result == "()" else ["return l0;"]
         if isinstance(value, UnreachableTerminator):
             return ["unreachable!(\"reached unreachable MIR terminator\");"]
@@ -331,6 +600,10 @@ class _RustEmitter:
     def _goto(target: int) -> list[str]:
         return [f"pc = {target};", "continue;"]
 
+    @staticmethod
+    def _may_throw(function: MIRFunction) -> bool:
+        return "may_throw" in function.effects
+
     def _rvalue(self, value: object) -> str:
         if isinstance(value, UseRValue):
             return self._operand(value.operand)
@@ -338,6 +611,22 @@ class _RustEmitter:
             return self._binary(value)
         if isinstance(value, CastRValue):
             operand = self._operand(value.operand)
+            source_type = self._operand_type(value.operand)
+            if (
+                value.kind == "implicit"
+                and source_type.name == "int"
+                and value.type.name in ("float", "f64")
+                and not source_type.optional
+                and not value.type.optional
+            ):
+                return f"({operand} as f64)"
+            if (
+                source_type.name == "Result"
+                and value.type.name == "Result"
+                and len(source_type.arguments) == 2
+                and len(value.type.arguments) == 2
+            ):
+                return self._result_cast(operand, source_type, value.type)
             if value.kind == "optional-unwrap":
                 return f"({operand}).expect(\"optional unwrap failed\")"
             if value.type.optional:
@@ -350,18 +639,29 @@ class _RustEmitter:
             if value.kind == "struct":
                 fields = value.fields or tuple(str(index) for index in range(len(operands)))
                 body = ", ".join(f"{_identifier(name)}: {operand}" for name, operand in zip(fields, operands))
-                return f"NyxType_{_identifier(value.name)} {{ {body} }}"
+                return f"RoveType_{_identifier(value.name)} {{ {body} }}"
             if value.kind == "enum":
                 suffix = f"({', '.join(operands)})" if operands else ""
-                return f"NyxType_{_identifier(value.type.name)}::{_identifier(value.name)}{suffix}"
+                return f"RoveType_{_identifier(value.type.name)}::{_identifier(value.name)}{suffix}"
+            if value.kind == "result":
+                if len(operands) != 1 or value.name not in ("Ok", "Err"):
+                    raise MIRCodegenError(
+                        f"Rust Result aggregate requires one Ok/Err payload, got '{value.name}'"
+                    )
+                return f"{value.name}({operands[0]})"
             raise MIRCodegenError(f"unsupported Rust aggregate kind '{value.kind}'")
         if isinstance(value, DiscriminantRValue):
             operand_type = self._operand_type(value.operand)
+            if operand_type.name == "Result" and len(operand_type.arguments) == 2:
+                return (
+                    "match &" + self._operand(value.operand)
+                    + " { Ok(_) => String::from(\"Ok\"), Err(_) => String::from(\"Err\") }"
+                )
             definition = self.enums.get(operand_type.name)
             if definition is None:
                 raise MIRCodegenError(f"Rust discriminant requires a known enum, got '{operand_type}'")
             arms = []
-            type_name = f"NyxType_{_identifier(definition.name)}"
+            type_name = f"RoveType_{_identifier(definition.name)}"
             for variant in definition.variants:
                 pattern = "(..)" if variant.payload_types else ""
                 arms.append(
@@ -370,18 +670,30 @@ class _RustEmitter:
             return "match &" + self._operand(value.operand) + " { " + ", ".join(arms) + " }"
         if isinstance(value, PayloadRValue):
             operand_type = self._operand_type(value.operand)
+            if operand_type.name == "Result" and len(operand_type.arguments) == 2:
+                ok_type, err_type = operand_type.arguments
+                arms = []
+                if ok_type == value.type:
+                    arms.append("Ok(rove_payload) => rove_payload")
+                else:
+                    arms.append("Ok(_) => panic!(\"Result payload variant mismatch\")")
+                if err_type == value.type:
+                    arms.append("Err(rove_payload) => rove_payload")
+                else:
+                    arms.append("Err(_) => panic!(\"Result payload variant mismatch\")")
+                return "match " + self._operand(value.operand) + " { " + ", ".join(arms) + " }"
             definition = self.enums.get(operand_type.name)
             if definition is None:
                 raise MIRCodegenError(f"Rust payload requires a known enum, got '{operand_type}'")
-            type_name = f"NyxType_{_identifier(definition.name)}"
+            type_name = f"RoveType_{_identifier(definition.name)}"
             arms = []
             for variant in definition.variants:
                 if value.index >= len(variant.payload_types) or variant.payload_types[value.index] != value.type:
                     continue
                 bindings = ["_" for _ in variant.payload_types]
-                bindings[value.index] = "nyx_payload"
+                bindings[value.index] = "rove_payload"
                 arms.append(
-                    f"{type_name}::{_identifier(variant.name)}({', '.join(bindings)}) => nyx_payload"
+                    f"{type_name}::{_identifier(variant.name)}({', '.join(bindings)}) => rove_payload"
                 )
             if not arms:
                 raise MIRCodegenError(
@@ -398,9 +710,9 @@ class _RustEmitter:
             )
             if value.mutable:
                 argument = rendered if projected_reference else f"&mut {rendered}"
-                return f"NyxPtr::borrow_mut({argument})"
+                return f"RovePtr::borrow_mut({argument})"
             argument = rendered if projected_reference else f"&{rendered}"
-            return f"NyxPtr::borrow({argument})"
+            return f"RovePtr::borrow({argument})"
         if isinstance(value, UnaryRValue):
             operand = self._operand(value.operand)
             if value.op in ("!", "not"):
@@ -434,9 +746,9 @@ class _RustEmitter:
         if value.op in integer_operations:
             return f"({left}).{integer_operations[value.op]}({right})"
         if value.op == "/":
-            return f"nyx_i64_div({left}, {right})"
+            return f"rove_i64_div({left}, {right})"
         if value.op == "%":
-            return f"nyx_i64_rem({left}, {right})"
+            return f"rove_i64_rem({left}, {right})"
         if value.op == "<<":
             return f"({left}).wrapping_shl(({right} as u32) & 63)"
         if value.op == ">>":
@@ -444,6 +756,29 @@ class _RustEmitter:
         if value.op in ("&", "|", "^"):
             return f"({left} {value.op} {right})"
         raise MIRCodegenError(f"unsupported Rust binary operation '{value.op}'")
+
+    def _result_cast(self, operand: str, source: MIRType, target: MIRType) -> str:
+        source_ok, source_err = source.arguments
+        target_ok, target_err = target.arguments
+        ok_value = self._result_branch_cast("rove_ok", source_ok, target_ok, "Ok")
+        err_value = self._result_branch_cast("rove_err", source_err, target_err, "Err")
+        return (
+            f"match {operand} {{ "
+            f"Ok(rove_ok) => Ok({ok_value}), "
+            f"Err(rove_err) => Err({err_value}) }}"
+        )
+
+    @staticmethod
+    def _result_branch_cast(binding: str, source: MIRType, target: MIRType, tag: str) -> str:
+        if source == target:
+            return binding
+        if source.name == "any":
+            return f"panic!(\"invalid {tag} branch selected during Result re-homing\")"
+        if target.name == "any":
+            return "RoveAny"
+        raise MIRCodegenError(
+            f"Rust MIR Result cast cannot convert '{source}' to '{target}'"
+        )
 
     def _operand(self, value: Operand) -> str:
         if isinstance(value, ConstOperand):
@@ -496,11 +831,21 @@ class _RustEmitter:
         if value.optional:
             return f"Option<{_RustEmitter._type(replace(value, optional=False), function)}>"
         if value.pointer:
-            return f"NyxPtr<{_RustEmitter._type(replace(value, pointer=False), function)}>"
+            return f"RovePtr<{_RustEmitter._type(replace(value, pointer=False), function)}>"
         if value.name == "Array" and len(value.arguments) == 1:
             return f"Vec<{_RustEmitter._type(value.arguments[0], function)}>"
-        mapping = {"void": "()", "bool": "bool", "int": "i64", "float": "f64", "f64": "f64", "string": "String"}
-        rendered = mapping.get(value.name, f"NyxType_{_identifier(value.name)}")
+        if value.name == "Task" and len(value.arguments) == 1:
+            return f"RoveTask<{_RustEmitter._type(value.arguments[0], function)}>"
+        if value.name == "Result" and len(value.arguments) == 2:
+            return (
+                f"Result<{_RustEmitter._type(value.arguments[0], function)}, "
+                f"{_RustEmitter._type(value.arguments[1], function)}>"
+            )
+        mapping = {
+            "void": "()", "any": "RoveAny", "bool": "bool", "int": "i64",
+            "float": "f64", "f64": "f64", "string": "String",
+        }
+        rendered = mapping.get(value.name, f"RoveType_{_identifier(value.name)}")
         if value.arguments:
             raise MIRCodegenError(f"unsupported Rust MIR type '{value}'")
         return rendered
@@ -513,6 +858,10 @@ class _RustEmitter:
             return "Default::default()"
         if value.name == "Array":
             return "Vec::new()"
+        if value.name == "Task":
+            return "Default::default()"
+        if value.name == "Result" and len(value.arguments) == 2:
+            return "Ok(Default::default())"
         return {"bool": "false", "int": "0", "float": "0.0", "f64": "0.0", "string": "String::new()"}.get(value.name, "Default::default()")
 
     def _place(self, place: Place, *, mutable: bool = False) -> str:
@@ -527,12 +876,12 @@ class _RustEmitter:
                 rendered = f"({rendered}).{_identifier(projection.name)}"
                 value_type = self._field_type(value_type, projection.name)
             elif isinstance(projection, ConstantIndexProjection):
-                helper = "nyx_index_mut" if mutable else "nyx_index"
+                helper = "rove_index_mut" if mutable else "rove_index"
                 borrow = "&mut " if mutable else "&"
                 rendered = f"{helper}({borrow}{rendered}, {projection.index})"
                 value_type = self._index_type(value_type)
             elif isinstance(projection, IndexProjection):
-                helper = "nyx_index_mut" if mutable else "nyx_index"
+                helper = "rove_index_mut" if mutable else "rove_index"
                 borrow = "&mut " if mutable else "&"
                 rendered = f"{helper}({borrow}{rendered}, l{projection.local})"
                 value_type = self._index_type(value_type)
@@ -555,11 +904,12 @@ class _RustEmitter:
 
     def _take_place(self, place: Place) -> str:
         rendered = self._place(place, mutable=True)
+        replacement = self._default(self._place_type(place))
         if place.projections and isinstance(
             place.projections[-1], (DerefProjection, IndexProjection, ConstantIndexProjection)
         ):
-            return f"std::mem::take({rendered})"
-        return f"std::mem::take(&mut {rendered})"
+            return f"std::mem::replace({rendered}, {replacement})"
+        return f"std::mem::replace(&mut {rendered}, {replacement})"
 
     def _place_type(self, place: Place) -> MIRType:
         value_type = self.local_types[place.local]

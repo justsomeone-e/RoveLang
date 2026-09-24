@@ -20,7 +20,9 @@ from .model import (
     ConstOperand,
     ConstantIndexProjection,
     CopyOperand,
+    DeinitStatement,
     DiscriminantRValue,
+    DropTerminator,
     FieldProjection,
     GotoTerminator,
     IndexProjection,
@@ -83,7 +85,7 @@ class _WasmEmitter:
         self.tag_locals: dict[int, dict[str, int]] = {}
 
     def lower(self) -> ModuleIR:
-        functions = self._integer_runtime() + self._array_runtime() + [
+        functions = self._integer_runtime() + self._array_runtime() + self._string_runtime() + [
             self._function(function) for function in self.module.functions
         ]
         heap_start = max(2048, (self.next_data_offset + 7) & ~7)
@@ -116,6 +118,91 @@ class _WasmEmitter:
             ], export=False,
         )
         return [divide, remainder]
+
+    @staticmethod
+    def _string_runtime() -> list[FunctionIR]:
+        compare = FunctionIR(
+            "rove_string_compare", [("left", I32), ("right", I32)], I32,
+            locals=[
+                ("left_data", I32), ("right_data", I32),
+                ("left_length", I32), ("right_length", I32), ("index", I32),
+                ("difference", I32),
+            ],
+            body=[
+                Instruction("local.get", "left"), Instruction("i32.load"),
+                Instruction("local.set", "left_data"),
+                Instruction("local.get", "right"), Instruction("i32.load"),
+                Instruction("local.set", "right_data"),
+                Instruction("local.get", "left"), Instruction("i32.const", 4),
+                Instruction("i32.add"), Instruction("i32.load"),
+                Instruction("local.set", "left_length"),
+                Instruction("local.get", "right"), Instruction("i32.const", 4),
+                Instruction("i32.add"), Instruction("i32.load"),
+                Instruction("local.set", "right_length"),
+                Instruction("block", "rove_compare_done"),
+                Instruction("loop", "rove_compare_next"),
+                Instruction("local.get", "index"), Instruction("local.get", "left_length"),
+                Instruction("i32.ge_s"), Instruction("br_if", "rove_compare_done"),
+                Instruction("local.get", "index"), Instruction("local.get", "right_length"),
+                Instruction("i32.ge_s"), Instruction("br_if", "rove_compare_done"),
+                Instruction("local.get", "left_data"), Instruction("local.get", "index"),
+                Instruction("i32.add"), Instruction("i32.load8_u"),
+                Instruction("local.get", "right_data"), Instruction("local.get", "index"),
+                Instruction("i32.add"), Instruction("i32.load8_u"),
+                Instruction("i32.sub"), Instruction("local.tee", "difference"),
+                Instruction("if"), Instruction("local.get", "difference"),
+                Instruction("return"), Instruction("end"),
+                Instruction("local.get", "index"), Instruction("i32.const", 1),
+                Instruction("i32.add"), Instruction("local.set", "index"),
+                Instruction("br", "rove_compare_next"),
+                Instruction("end"), Instruction("end"),
+                Instruction("local.get", "left_length"),
+                Instruction("local.get", "right_length"), Instruction("i32.sub"),
+                Instruction("return"),
+            ],
+            export=False,
+        )
+        concat = FunctionIR(
+            "rove_string_concat", [("left", I32), ("right", I32)], I32,
+            locals=[
+                ("left_length", I32), ("right_length", I32),
+                ("total", I32), ("descriptor", I32), ("data", I32),
+            ],
+            body=[
+                Instruction("local.get", "left"), Instruction("i32.const", 4),
+                Instruction("i32.add"), Instruction("i32.load"),
+                Instruction("local.set", "left_length"),
+                Instruction("local.get", "right"), Instruction("i32.const", 4),
+                Instruction("i32.add"), Instruction("i32.load"),
+                Instruction("local.set", "right_length"),
+                Instruction("local.get", "left_length"), Instruction("local.get", "right_length"),
+                Instruction("i32.add"), Instruction("local.tee", "total"),
+                Instruction("i32.const", 0), Instruction("i32.lt_s"),
+                Instruction("if"), Instruction("unreachable"), Instruction("end"),
+                Instruction("i32.const", 12), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.set", "descriptor"),
+                Instruction("local.get", "total"), Instruction("call", "__nyx_mir_alloc"),
+                Instruction("local.set", "data"),
+                Instruction("local.get", "descriptor"), Instruction("local.get", "data"),
+                Instruction("i32.store"),
+                Instruction("local.get", "descriptor"), Instruction("i32.const", 4),
+                Instruction("i32.add"), Instruction("local.get", "total"),
+                Instruction("i32.store"),
+                Instruction("local.get", "descriptor"), Instruction("i32.const", 8),
+                Instruction("i32.add"), Instruction("local.get", "total"),
+                Instruction("i32.store"),
+                Instruction("local.get", "data"), Instruction("local.get", "left"),
+                Instruction("i32.load"), Instruction("local.get", "left_length"),
+                Instruction("memory.copy"),
+                Instruction("local.get", "data"), Instruction("local.get", "left_length"),
+                Instruction("i32.add"), Instruction("local.get", "right"),
+                Instruction("i32.load"), Instruction("local.get", "right_length"),
+                Instruction("memory.copy"),
+                Instruction("local.get", "descriptor"), Instruction("return"),
+            ],
+            export=False,
+        )
+        return [compare, concat]
 
     @staticmethod
     def _array_runtime() -> list[FunctionIR]:
@@ -614,11 +701,19 @@ class _WasmEmitter:
                     for projection in statement.place.projections
                 ):
                     body.extend(self._array_place(statement.place))
-                    body.extend(self._rvalue(statement.value))
                     parent_type = self._place_type(Place(
                         statement.place.local, statement.place.projections[:-1]
                     ))
                     element_type = parent_type.arguments[0]
+                    if element_type.name in ("float", "f64"):
+                        body.extend((
+                            Instruction("i32.const", 8),
+                            Instruction("call", "__nyx_mir_array_get_blob"),
+                        ))
+                        body.extend(self._rvalue(statement.value))
+                        body.append(Instruction("f64.store"))
+                        return
+                    body.extend(self._rvalue(statement.value))
                     if element_type.name in self.structs:
                         body.append(Instruction("i32.const", self.layouts.layout_of(element_type).size))
                         helper = "__nyx_mir_array_set_blob"
@@ -649,6 +744,9 @@ class _WasmEmitter:
             body.append(Instruction("local.set", self.local_names[statement.place.local]))
             return
         if isinstance(statement, (StorageLiveStatement, StorageDeadStatement, NopStatement)):
+            return
+        if isinstance(statement, DeinitStatement):
+            self._clear_place(statement.place, body)
             return
         raise MIRCodegenError(f"illegal statement reached WebAssembly emitter: {type(statement).__name__}")
 
@@ -725,6 +823,12 @@ class _WasmEmitter:
             body.extend((Instruction("if"), Instruction("unreachable"), Instruction("end")))
             self._goto(value.target, body)
             return
+        if isinstance(value, DropTerminator):
+            if value.unwind is not None:
+                raise MIRCodegenError("Wasm MIR drop unwind edge was not legalized")
+            self._clear_place(value.place, body)
+            self._goto(value.target, body)
+            return
         if isinstance(value, ReturnTerminator):
             assert self.current is not None
             result_type = self._type(self.current.locals[self.current.return_local].type, self.current)
@@ -736,6 +840,115 @@ class _WasmEmitter:
             body.append(Instruction("unreachable"))
             return
         raise MIRCodegenError(f"illegal terminator reached WebAssembly emitter: {type(value).__name__}")
+
+    def _clear_place(self, place: Place, body: list[Instruction]) -> None:
+        if place.projections:
+            value_type = self._place_type(place)
+            if all(
+                isinstance(projection, (IndexProjection, ConstantIndexProjection))
+                for projection in place.projections
+            ):
+                parent_type = self._place_type(Place(
+                    place.local, place.projections[:-1]
+                ))
+                element_type = parent_type.arguments[0]
+                body.extend(self._array_place(place))
+                if element_type == MIRType("string"):
+                    body.extend((
+                        Instruction("call", "__nyx_mir_array_get_string"),
+                        Instruction("i32.const", 0),
+                        Instruction("i32.const", 12),
+                        Instruction("memory.fill"),
+                    ))
+                    return
+                if element_type.name in self.structs:
+                    size = self.layouts.layout_of(element_type).size
+                    body.extend((
+                        Instruction("i32.const", size),
+                        Instruction("call", "__nyx_mir_array_get_blob"),
+                        Instruction("i32.const", 0),
+                        Instruction("i32.const", size),
+                        Instruction("memory.fill"),
+                    ))
+                    return
+                if element_type.name == "Array":
+                    body.extend((
+                        Instruction("i32.const", 12),
+                        Instruction("call", "__nyx_mir_array_get_blob"),
+                        Instruction("i32.const", 0),
+                        Instruction("i32.const", 12),
+                        Instruction("memory.fill"),
+                    ))
+                    return
+                if element_type == MIRType("bool"):
+                    body.extend((
+                        Instruction("i32.const", 0),
+                        Instruction("call", "__nyx_mir_array_set_i32"),
+                    ))
+                    return
+                if element_type == MIRType("int"):
+                    body.extend((
+                        Instruction("i64.const", 0),
+                        Instruction("call", "__nyx_mir_array_set_i64"),
+                    ))
+                    return
+                if element_type.name in ("float", "f64"):
+                    body.extend((
+                        Instruction("i32.const", 8),
+                        Instruction("call", "__nyx_mir_array_get_blob"),
+                        Instruction("f64.const", 0.0), Instruction("f64.store"),
+                    ))
+                    return
+                raise MIRCodegenError(
+                    f"Wasm MIR cannot clear array element type '{element_type}'"
+                )
+            if all(isinstance(projection, FieldProjection) for projection in place.projections):
+                body.extend(self._field_address(place))
+                if value_type == MIRType("string"):
+                    size = 12
+                elif value_type.name in self.structs:
+                    size = self.layouts.layout_of(value_type).size
+                elif value_type.name == "Array":
+                    size = 12
+                else:
+                    wasm_type = self._type(value_type, self.current)
+                    if wasm_type == I64:
+                        body.extend((Instruction("i64.const", 0), Instruction("i64.store")))
+                    elif wasm_type == F64:
+                        body.extend((Instruction("f64.const", 0.0), Instruction("f64.store")))
+                    elif wasm_type == I32:
+                        body.extend((
+                            Instruction("i32.const", 0),
+                            Instruction(self._store_instruction(value_type)),
+                        ))
+                    else:
+                        raise MIRCodegenError(
+                            f"Wasm MIR cannot clear projected value type '{value_type}'"
+                        )
+                    return
+                body.extend((
+                    Instruction("i32.const", 0),
+                    Instruction("i32.const", size),
+                    Instruction("memory.fill"),
+                ))
+                return
+            raise MIRCodegenError(
+                "Wasm MIR deinit/drop requires a field chain or index chain"
+            )
+        assert self.current is not None
+        value_type = self.current.locals[place.local].type
+        wasm_type = self._type(value_type, self.current)
+        if wasm_type == I64:
+            body.append(Instruction("i64.const", 0))
+        elif wasm_type == F64:
+            body.append(Instruction("f64.const", 0.0))
+        elif wasm_type == I32:
+            body.append(Instruction("i32.const", 0))
+        else:
+            raise MIRCodegenError(
+                f"Wasm MIR cannot clear value type '{value_type}'"
+            )
+        body.append(Instruction("local.set", self.local_names[place.local]))
 
     @staticmethod
     def _goto(target: int, body: list[Instruction]) -> None:
@@ -751,6 +964,10 @@ class _WasmEmitter:
         if isinstance(value, CastRValue):
             source_type = self._operand_type(value.operand)
             if source_type == value.type:
+                return self._operand(value.operand)
+            if source_type == MIRType("int") and value.type.name in ("float", "f64"):
+                return self._operand(value.operand) + [Instruction("f64.convert_i64_s")]
+            if source_type.name in ("float", "f64") and value.type.name in ("float", "f64"):
                 return self._operand(value.operand)
             if self._is_result_compatible(source_type) and self._is_result_compatible(value.type):
                 source_layout = self.layouts.layout_of(source_type)
@@ -812,12 +1029,13 @@ class _WasmEmitter:
                     if (
                         value.kind == "enum"
                         and payload_type not in (
-                            MIRType("int"), MIRType("bool"), MIRType("string")
+                            MIRType("int"), MIRType("bool"), MIRType("float"),
+                            MIRType("f64"), MIRType("string"),
                         )
                         and payload_type.name not in self.structs
                     ):
                         raise MIRCodegenError(
-                            f"Wasm MIR enum payload '{value.type.name}.{value.name}[{index}]' is not int, bool, string, or struct"
+                            f"Wasm MIR enum payload '{value.type.name}.{value.name}[{index}]' is not int, bool, float, string, or struct"
                         )
                     if (
                         value.kind == "enum"
@@ -826,10 +1044,11 @@ class _WasmEmitter:
                     ):
                         raise MIRCodegenError("Wasm MIR non-int enum payload must be the variant's only payload")
                     if value.kind == "result" and payload_type not in (
-                        MIRType("int"), MIRType("bool"), MIRType("string"),
+                        MIRType("int"), MIRType("bool"), MIRType("float"),
+                        MIRType("f64"), MIRType("string"),
                     ) and payload_type.name not in self.structs:
                         raise MIRCodegenError(
-                            f"Wasm MIR Result payload '{value.name}' is not int, bool, string, or struct"
+                            f"Wasm MIR Result payload '{value.name}' is not int, bool, float, string, or struct"
                         )
                     payload_offset = layout.payload_offset + (index * 8 if value.kind == "enum" else 0)
                     output.extend((
@@ -861,12 +1080,13 @@ class _WasmEmitter:
                     field = next((item for item in layout.fields if item.name == name), None)
                     if field is None or (
                         field.type not in (
-                            MIRType("int"), MIRType("bool"), MIRType("string")
+                            MIRType("int"), MIRType("bool"), MIRType("float"),
+                            MIRType("f64"), MIRType("string"),
                         )
                         and field.type.name not in self.structs
                     ):
                         raise MIRCodegenError(
-                            f"Wasm MIR struct field '{value.type.name}.{name}' is not int, bool, string, or struct"
+                            f"Wasm MIR struct field '{value.type.name}.{name}' is not int, bool, float, string, or struct"
                         )
                     output.extend((
                         Instruction("local.get", "__nyx_struct_ptr"),
@@ -885,7 +1105,7 @@ class _WasmEmitter:
             if value.kind != "array" or value.type.name != "Array" or len(value.type.arguments) != 1:
                 raise MIRCodegenError("Wasm MIR aggregate pilot requires Array<T>")
             element_type = value.type.arguments[0]
-            if element_type == MIRType("int"):
+            if element_type.name in ("int", "float", "f64"):
                 element_size = 8
             elif element_type == MIRType("bool"):
                 element_size = 4
@@ -894,6 +1114,8 @@ class _WasmEmitter:
             elif element_type in (
                 MIRType("Array", (MIRType("int"),)),
                 MIRType("Array", (MIRType("bool"),)),
+                MIRType("Array", (MIRType("float"),)),
+                MIRType("Array", (MIRType("f64"),)),
                 MIRType("Array", (MIRType("string"),)),
             ):
                 element_size = 12
@@ -935,6 +1157,8 @@ class _WasmEmitter:
                     output.extend((Instruction("i32.const", element_size), Instruction("memory.copy")))
                 elif element_type == MIRType("bool"):
                     output.append(Instruction("i32.store"))
+                elif element_type.name in ("float", "f64"):
+                    output.append(Instruction("f64.store"))
                 else:
                     output.append(Instruction("i64.store"))
             output.append(Instruction("local.get", "__nyx_array_desc"))
@@ -946,18 +1170,22 @@ class _WasmEmitter:
             if not self._is_tagged_aggregate(subject_type):
                 raise MIRCodegenError("Wasm MIR payload pilot requires an enum or Result")
             if (
-                value.type not in (MIRType("int"), MIRType("bool"), MIRType("string"))
-                and value.type.name not in self.structs
-            ):
-                raise MIRCodegenError("Wasm MIR payload pilot requires an int, bool, string, or struct payload")
-            if (
-                subject_type.name in self.enums
-                and value.type not in (
-                    MIRType("int"), MIRType("bool"), MIRType("string")
+                value.type not in (
+                    MIRType("int"), MIRType("bool"), MIRType("float"),
+                    MIRType("f64"), MIRType("string"),
                 )
                 and value.type.name not in self.structs
             ):
-                raise MIRCodegenError("Wasm MIR enum payload pilot requires an int, bool, string, or struct payload")
+                raise MIRCodegenError("Wasm MIR payload pilot requires an int, bool, float, string, or struct payload")
+            if (
+                subject_type.name in self.enums
+                and value.type not in (
+                    MIRType("int"), MIRType("bool"), MIRType("float"),
+                    MIRType("f64"), MIRType("string"),
+                )
+                and value.type.name not in self.structs
+            ):
+                raise MIRCodegenError("Wasm MIR enum payload pilot requires an int, bool, float, string, or struct payload")
             if (
                 subject_type.name in self.enums
                 and value.type != MIRType("int")
@@ -979,6 +1207,34 @@ class _WasmEmitter:
             return address + [Instruction(self._load_instruction(value.type))]
         if isinstance(value, BinaryRValue):
             left_type = self._operand_type(value.left)
+            if left_type == MIRType("string"):
+                if value.op == "+":
+                    return self._operand(value.left) + self._operand(value.right) + [
+                        Instruction("call", "rove_string_concat")
+                    ]
+                comparisons = {
+                    "==": "eq", "!=": "ne", "<": "lt_s", "<=": "le_s",
+                    ">": "gt_s", ">=": "ge_s",
+                }
+                operation = comparisons.get(value.op)
+                if operation is not None:
+                    return self._operand(value.left) + self._operand(value.right) + [
+                        Instruction("call", "rove_string_compare"),
+                        Instruction("i32.const", 0), Instruction(f"i32.{operation}"),
+                    ]
+                raise MIRCodegenError(f"unsupported Wasm string operation '{value.op}'")
+            if left_type.name in ("float", "f64"):
+                float_operations = {
+                    "+": "add", "-": "sub", "*": "mul", "/": "div",
+                    "==": "eq", "!=": "ne", "<": "lt", "<=": "le",
+                    ">": "gt", ">=": "ge",
+                }
+                operation = float_operations.get(value.op)
+                if operation is None:
+                    raise MIRCodegenError(f"unsupported Wasm float operation '{value.op}'")
+                return self._operand(value.left) + self._operand(value.right) + [
+                    Instruction(f"f64.{operation}")
+                ]
             wasm_type = self._type(left_type)
             operations = {
                 "+": "add", "-": "sub", "*": "mul",
@@ -1001,6 +1257,8 @@ class _WasmEmitter:
             if value.op == "+":
                 return operand
             if value.op == "-":
+                if self._operand_type(value.operand).name in ("float", "f64"):
+                    return operand + [Instruction("f64.neg")]
                 return [Instruction("i64.const", 0)] + operand + [Instruction("i64.sub")]
             if value.op == "~":
                 return operand + [Instruction("i64.const", -1), Instruction("i64.xor")]
@@ -1038,6 +1296,10 @@ class _WasmEmitter:
                             ))
                         return output
                     if element_type.name == "Array":
+                        output.extend((
+                            Instruction("i32.const", 12),
+                            Instruction("call", "__nyx_mir_array_get_blob"),
+                        ))
                         if isinstance(value, CopyOperand):
                             inner_type = element_type.arguments[0]
                             if inner_type == MIRType("string"):
@@ -1049,6 +1311,9 @@ class _WasmEmitter:
                                     "i32.const", self.layouts.layout_of(inner_type).size
                                 ))
                                 helper = "__nyx_mir_array_clone_blob"
+                            elif inner_type.name in ("float", "f64"):
+                                output.append(Instruction("i32.const", 8))
+                                helper = "__nyx_mir_array_clone_blob"
                             else:
                                 helper = "__nyx_mir_array_clone_i64"
                             output.append(Instruction("call", helper))
@@ -1057,6 +1322,12 @@ class _WasmEmitter:
                         helper = "__nyx_mir_array_get_string"
                     elif element_type == MIRType("bool"):
                         helper = "__nyx_mir_array_get_i32"
+                    elif element_type.name in ("float", "f64"):
+                        return output + [
+                            Instruction("i32.const", 8),
+                            Instruction("call", "__nyx_mir_array_get_blob"),
+                            Instruction("f64.load"),
+                        ]
                     else:
                         helper = "__nyx_mir_array_get_i64"
                     return output + [Instruction("call", helper)]
@@ -1072,6 +1343,9 @@ class _WasmEmitter:
                 if element_type.name in self.structs:
                     output.append(Instruction("i32.const", self.layouts.layout_of(element_type).size))
                     helper = "__nyx_mir_array_clone_blob"
+                elif element_type.name in ("float", "f64"):
+                    output.append(Instruction("i32.const", 8))
+                    helper = "__nyx_mir_array_clone_blob"
                 elif element_type.name == "Array":
                     inner_type = element_type.arguments[0]
                     if inner_type == MIRType("string"):
@@ -1082,6 +1356,9 @@ class _WasmEmitter:
                         output.append(Instruction(
                             "i32.const", self.layouts.layout_of(inner_type).size
                         ))
+                        helper = "__nyx_mir_array_clone_nested_blob"
+                    elif inner_type.name in ("float", "f64"):
+                        output.append(Instruction("i32.const", 8))
                         helper = "__nyx_mir_array_clone_nested_blob"
                     else:
                         helper = "__nyx_mir_array_clone_nested_i64"
@@ -1156,11 +1433,16 @@ class _WasmEmitter:
         if value.name == "Array" and len(value.arguments) == 1:
             element_type = value.arguments[0]
             if (
-                element_type in (MIRType("int"), MIRType("bool"), MIRType("string"))
+                element_type in (
+                    MIRType("int"), MIRType("bool"), MIRType("float"),
+                    MIRType("f64"), MIRType("string"),
+                )
                 or element_type.name in self.structs
                 or element_type in (
                     MIRType("Array", (MIRType("int"),)),
                     MIRType("Array", (MIRType("bool"),)),
+                    MIRType("Array", (MIRType("float"),)),
+                    MIRType("Array", (MIRType("f64"),)),
                     MIRType("Array", (MIRType("string"),)),
                 )
                 or (
@@ -1310,7 +1592,15 @@ class _WasmEmitter:
 
     def _is_result_compatible(self, value_type: MIRType) -> bool:
         def compatible(argument: MIRType) -> bool:
-            return argument.name in ("int", "bool", "string", "any") or argument.name in self.structs
+            return argument in (
+                MIRType("int"), MIRType("bool"), MIRType("float"),
+                MIRType("f64"), MIRType("string"), MIRType("any"),
+            ) or (
+                argument.name in self.structs
+                and not argument.arguments
+                and not argument.optional
+                and not argument.pointer
+            )
 
         return bool(
             value_type.name == "Result"

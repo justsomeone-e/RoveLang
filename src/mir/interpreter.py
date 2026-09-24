@@ -64,7 +64,7 @@ class _MIRUserThrow(Exception):
 
 
 class _MIRTask:
-    """Hot, memoized reference task matching Nyx repeated-await semantics."""
+    """Hot, memoized reference task matching Rove repeated-await semantics."""
 
     def __init__(self, thunk):
         self.value = None
@@ -118,7 +118,7 @@ class MIRInterpreter:
                     if main is not None:
                         value = self._call(main, arguments)
         except _MIRUserThrow as thrown:
-            raise MIRTrap(f"uncaught Nyx throw: {self._format(thrown.value)}") from None
+            raise MIRTrap(f"uncaught Rove throw: {self._format(thrown.value)}") from None
         return MIRExecutionResult(value, tuple(self.output), self.steps)
 
     def _function(self, name: str) -> MIRFunction:
@@ -422,7 +422,7 @@ class MIRInterpreter:
             self._write_place(container.place, container.locals, value)
             return
         if isinstance(projection, VariantProjection):
-            raise MIRTrap("Variant payload assignment is not part of Nyx value semantics")
+            raise MIRTrap("Variant payload assignment is not part of Rove value semantics")
         raise MIRTrap(f"Unsupported place projection {type(projection).__name__}")
 
     @staticmethod
@@ -525,11 +525,48 @@ class MIRInterpreter:
         if value is None:
             return "null"
         if isinstance(value, float):
-            if math.isnan(value):
-                return "nan"
-            if math.isinf(value):
-                return "inf" if value > 0 else "-inf"
+            return rove_f64_to_string(value)
+        if isinstance(value, list):
+            return "[" + ", ".join(MIRInterpreter._format(item) for item in value) + "]"
+        if isinstance(value, dict) and "__type__" in value and "fields" in value:
+            fields = ", ".join(
+                MIRInterpreter._format(item) for item in value["fields"].values()
+            )
+            return f"{value['__type__']}({fields})"
         if isinstance(value, tuple) and value and isinstance(value[0], str):
             payload = ", ".join(MIRInterpreter._format(item) for item in value[1:])
             return f"{value[0]}({payload})"
         return str(value)
+
+
+def rove_f64_to_string(value: float) -> str:
+    """Apply the source scalar-text contract to a shortest binary64 decimal."""
+    if math.isnan(value):
+        return "nan"
+    if math.isinf(value):
+        return "-inf" if value < 0 else "inf"
+    if value == 0.0:
+        return "0"
+    text = repr(value)
+    negative = text.startswith("-")
+    if negative:
+        text = text[1:]
+    mantissa, marker, exponent_text = text.partition("e")
+    exponent = int(exponent_text) if marker else 0
+    dot = mantissa.find(".")
+    decimal = (len(mantissa) if dot < 0 else dot) + exponent
+    digits = mantissa.replace(".", "")
+    first = len(digits) - len(digits.lstrip("0"))
+    decimal -= first
+    digits = digits[first:].rstrip("0")
+    if -6 < decimal <= 21:
+        if decimal <= 0:
+            result = "0." + "0" * -decimal + digits
+        elif decimal >= len(digits):
+            result = digits + "0" * (decimal - len(digits))
+        else:
+            result = digits[:decimal] + "." + digits[decimal:]
+    else:
+        result = digits[0] + ("." + digits[1:] if len(digits) > 1 else "")
+        result += "e" + ("+" if decimal > 0 else "") + str(decimal - 1)
+    return ("-" if negative else "") + result

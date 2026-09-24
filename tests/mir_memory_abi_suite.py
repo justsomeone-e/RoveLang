@@ -13,9 +13,12 @@ from src.mir import (
     AssignStatement,
     BorrowRValue,
     ConstOperand,
+    ConstantIndexProjection,
     CopyOperand,
+    DeinitStatement,
     DropTerminator,
     DerefProjection,
+    FieldProjection,
     GotoTerminator,
     LayoutEngine,
     MIRFunctionBuilder,
@@ -37,6 +40,7 @@ from src.mir import (
     lower_hir_to_mir,
     to_json,
 )
+from src.mir.model import MIRField
 
 
 def _lower(path: Path):
@@ -46,7 +50,7 @@ def _lower(path: Path):
 
 
 def _ownership_modules() -> tuple[MIRModule, MIRModule]:
-    span = MIRSpan("ownership.nyx", 1, 1)
+    span = MIRSpan("ownership.rove", 1, 1)
     int_type = MIRType("int")
 
     moved = MIRFunctionBuilder("moved", "function::moved", MIRType("void"), span)
@@ -78,13 +82,13 @@ def _ownership_modules() -> tuple[MIRModule, MIRModule]:
     dropped.set_terminator(exit_block, ReturnTerminator(span))
 
     return (
-        MIRModule("ownership.nyx", "cpp", (moved.finish(),)),
-        MIRModule("ownership.nyx", "cpp", (dropped.finish(),)),
+        MIRModule("ownership.rove", "cpp", (moved.finish(),)),
+        MIRModule("ownership.rove", "cpp", (dropped.finish(),)),
     )
 
 
 def _borrow_module() -> MIRModule:
-    span = MIRSpan("borrow.nyx", 1, 1)
+    span = MIRSpan("borrow.rove", 1, 1)
     int_type = MIRType("int")
     pointer_type = MIRType("int", pointer=True)
     builder = MIRFunctionBuilder("borrowed", "function::borrowed", int_type, span)
@@ -105,7 +109,76 @@ def _borrow_module() -> MIRModule:
     ))
     builder.push_statement(entry, ReleaseStatement(Place(reference), span))
     builder.set_terminator(entry, ReturnTerminator(span))
-    return MIRModule("borrow.nyx", "cpp", (builder.finish(),))
+    return MIRModule("borrow.rove", "cpp", (builder.finish(),))
+
+
+def _projected_replacement_modules() -> tuple[MIRModule, MIRModule]:
+    span = MIRSpan("projected-replacement.rove", 1, 1)
+    string_type = MIRType("string")
+    array_type = MIRType("Array", (string_type,))
+    projected = Place(1, (ConstantIndexProjection(0),))
+
+    valid = MIRFunctionBuilder("valid", "function::valid", MIRType("void"), span)
+    values = valid.new_local("values", array_type)
+    entry = valid.new_block()
+    valid.push_statement(entry, AssignStatement(
+        Place(values),
+        AggregateRValue("array", "Array", (ConstOperand(string_type, "old"),), array_type),
+        span,
+    ))
+    valid.push_statement(entry, DeinitStatement(projected, span))
+    valid.push_statement(entry, AssignStatement(
+        projected, UseRValue(ConstOperand(string_type, "new")), span
+    ))
+    valid.set_terminator(entry, ReturnTerminator(span))
+
+    invalid = MIRFunctionBuilder("invalid", "function::invalid", MIRType("void"), span)
+    invalid_values = invalid.new_local("values", array_type)
+    invalid_entry = invalid.new_block()
+    invalid.push_statement(invalid_entry, AssignStatement(
+        Place(invalid_values),
+        AggregateRValue("array", "Array", (ConstOperand(string_type, "old"),), array_type),
+        span,
+    ))
+    invalid.push_statement(
+        invalid_entry,
+        DeinitStatement(Place(invalid_values, (ConstantIndexProjection(0),)), span),
+    )
+    invalid.set_terminator(invalid_entry, ReturnTerminator(span))
+
+    return (
+        MIRModule("projected-replacement.rove", "cpp", (valid.finish(),)),
+        MIRModule("projected-replacement.rove", "cpp", (invalid.finish(),)),
+    )
+
+
+def _projected_move_module() -> MIRModule:
+    span = MIRSpan("projected-move.rove", 1, 1)
+    int_type = MIRType("int")
+    cell_type = MIRType("Cell")
+    definition = MIRStructDef(
+        "Cell", "type::Cell", (MIRField("value", int_type),)
+    )
+    builder = MIRFunctionBuilder("projected_move", "function::projected_move", MIRType("void"), span)
+    cell = builder.new_local("cell", cell_type)
+    sink = builder.new_local("sink", int_type)
+    entry = builder.new_block()
+    builder.push_statement(entry, AssignStatement(
+        Place(cell),
+        AggregateRValue(
+            "struct", "Cell", (ConstOperand(int_type, 7),), cell_type, ("value",)
+        ),
+        span,
+    ))
+    builder.push_statement(entry, AssignStatement(
+        Place(sink),
+        UseRValue(MoveOperand(Place(cell, (FieldProjection("value"),)))),
+        span,
+    ))
+    builder.set_terminator(entry, ReturnTerminator(span))
+    return MIRModule(
+        "projected-move.rove", "cpp", (builder.finish(),), (definition,)
+    )
 
 
 def run_mir_memory_abi_suite() -> bool:
@@ -113,14 +186,20 @@ def run_mir_memory_abi_suite() -> bool:
     print("NYX M4 MIR AGGREGATE / MEMORY / ABI CONTRACT")
     print("=" * 70)
 
-    aggregate_module = _lower(ROOT / "tests" / "fixtures" / "mir" / "m4_aggregates.nyx")
+    aggregate_module = _lower(ROOT / "tests" / "fixtures" / "mir" / "m4_aggregates.rove")
     assert from_json(to_json(aggregate_module)) == aggregate_module
     observed = MIRInterpreter(aggregate_module).run().output
     assert observed == ("1 9 9", "Nyx", "9", "2", "3"), observed
+    assert any(
+        isinstance(statement, DeinitStatement)
+        and aggregate_module.functions[-1].locals[statement.place.local].kind == "temporary"
+        for block in aggregate_module.functions[-1].blocks
+        for statement in block.statements
+    ), "safe-navigation/null-coalescing temporaries must close on every branch"
 
-    payload_module = _lower(ROOT / "tour" / "solutions" / "17_results" / "result01.nyx")
+    payload_module = _lower(ROOT / "tour" / "solutions" / "17_results" / "result01.rove")
     assert MIRInterpreter(payload_module).run().output == ("hello",)
-    static_enum_module = _lower(ROOT / "tour" / "solutions" / "07_enums" / "enums03.nyx")
+    static_enum_module = _lower(ROOT / "tour" / "solutions" / "07_enums" / "enums03.rove")
     assert MIRInterpreter(static_enum_module).run().output == (
         "Traffic light transitions verified!",
     )
@@ -131,6 +210,14 @@ def run_mir_memory_abi_suite() -> bool:
     borrowed = _borrow_module()
     assert not collect_mir_issues(borrowed)
     assert MIRInterpreter(borrowed).run("borrowed").value == 42
+    projected_valid, projected_invalid = _projected_replacement_modules()
+    assert not collect_mir_issues(projected_valid)
+    assert "MIR0805" in {
+        issue.code for issue in collect_mir_issues(projected_invalid)
+    }
+    assert "MIR0806" in {
+        issue.code for issue in collect_mir_issues(_projected_move_module())
+    }
 
     point = next(
         definition
@@ -160,7 +247,8 @@ def run_mir_memory_abi_suite() -> bool:
 
     print(
         "[PASS] aggregate value copies, projected places, collection iteration, enum payloads, "
-        "move/drop analysis, x64/wasm32 layouts, calling convention and C adapters"
+        "move/drop analysis, atomic projected replacement, projected-move rejection, x64/wasm32 layouts, "
+        "calling convention and C adapters"
     )
     return True
 

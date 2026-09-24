@@ -1,4 +1,4 @@
-"""Deterministic, verified transformation passes for Nyx HIR."""
+"""Deterministic, verified transformation passes for Rove HIR."""
 
 from __future__ import annotations
 

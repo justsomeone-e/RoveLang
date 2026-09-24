@@ -1,0 +1,21 @@
+struct Inner { value: int }
+struct Envelope { inner: Inner, active: bool }
+struct Owned { values: Array<int>, label: string }
+
+fn make_envelope(value: int) -> Envelope {
+  return Envelope(Inner(value), true)
+}
+
+fn main() {
+  var original = make_envelope(4)
+  var copied = original
+  set copied.inner.value = 9
+  set copied.active = false
+  print(original.inner.value, copied.inner.value, original.active, copied.active)
+
+  var owned = Owned([1, 2], "nyx")
+  var owned_copy = owned
+  set owned_copy.values[0] = 9
+  set owned_copy.label = "llvm"
+  print(owned.values[0], owned_copy.values[0], owned.label, owned_copy.label)
+}

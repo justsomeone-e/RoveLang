@@ -135,7 +135,7 @@ class HIRLowerer:
     def lower(self) -> IRModule:
         self._reserve_user_names(self.program)
         self._declare_builtins()
-        # Builtins live in a parent lexical frame so ordinary Nyx declarations
+        # Builtins live in a parent lexical frame so ordinary Rove declarations
         # can shadow names such as ``len`` without becoming duplicate symbols.
         self.scopes.push()
         try:
@@ -405,6 +405,17 @@ class HIRLowerer:
         if isinstance(node, ast.VarDeclNode):
             expr = self._lower_expr(node.expr)
             value_type = from_type_node(node.type_annot, expr.type)
+            if (
+                isinstance(expr, IRArray)
+                and not expr.elements
+                and expr.type == array_of(ANY)
+                and value_type.name == "Array"
+                and len(value_type.arguments) == 1
+                and value_type.arguments[0] != ANY
+                and not value_type.optional
+                and not value_type.pointer
+            ):
+                expr = IRArray(expr.span, value_type, ())
             symbol = _Symbol(node.name, self._next_symbol(node.name), value_type, "variable")
             self.scopes.declare(symbol, span)
             return IRVarDecl(span, node.name, symbol.identity, value_type, expr, node.is_const)
@@ -500,9 +511,11 @@ class HIRLowerer:
         if isinstance(node, ast.IdentifierNode):
             if node.name == "_":
                 return IRReference(self._span(node), ANY, "_", "pattern::_")
-            symbol = _Symbol(node.name, self._next_symbol(node.name), ANY, "pattern-binding")
+            symbol = _Symbol(
+                node.name, self._next_symbol(node.name), subject_type, "pattern-binding"
+            )
             self.scopes.declare(symbol, self._span(node))
-            return IRReference(self._span(node), ANY, node.name, symbol.identity)
+            return IRReference(self._span(node), subject_type, node.name, symbol.identity)
         if isinstance(node, ast.FunctionCallNode):
             symbol = self.scopes.resolve(node.callee)
             parameter_types: Tuple[IRType, ...] = ()
@@ -808,7 +821,7 @@ class HIRLowerer:
     def _reserve_name(self, name: str) -> None:
         if name and name != "_":
             self.reserved_names.add(name)
-            # '$' is legal in Nyx but is sanitized to '_' by native emitters.
+            # '$' is legal in Rove but is sanitized to '_' by native emitters.
             self.reserved_names.add(name.replace("$", "_"))
 
     def _reserve_user_names(self, value: object) -> None:

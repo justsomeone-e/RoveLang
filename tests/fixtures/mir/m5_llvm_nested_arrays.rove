@@ -1,0 +1,26 @@
+struct Grid { rows: Array<Array<int>> }
+
+enum Matrix {
+  Data(Array<Array<int>>),
+  Empty()
+}
+
+fn first_value(rows: Array<Array<int>>) -> int {
+  return rows[0][0]
+}
+
+fn main() {
+  var original = [[1, 2], [3]]
+  var copied = original
+  set original[0][0] = 9
+  print(copied, len(copied), first_value(copied))
+
+  var grid = Grid([[4], [5]])
+  var grid_copy = grid
+  set grid.rows[0][0] = 8
+  print(grid_copy.rows[0][0], grid.rows[0][0])
+
+  let matrix = Data(copied)
+  set copied[0][0] = 6
+  print(matrix)
+}

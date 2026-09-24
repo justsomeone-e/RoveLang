@@ -12,7 +12,7 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
-from src import CompilerPlugin, NyxCompiler, compile_source
+from src import CompilerPlugin, RoveCompiler, compile_source
 from src.codegen.cpp_toolchain import CppToolchain
 from src.codegen.wasm_ir import BundleLowerer
 from src.core import Lexer, Parser, TypeChecker
@@ -77,7 +77,7 @@ def _symbols(value) -> list[str]:
 def _program_corpus_files():
     files = []
     for relative in ("tests/battery138", "tests/bughunt"):
-        files.extend(sorted(Path(ROOT_DIR, relative).glob("*.nyx")))
+        files.extend(sorted(Path(ROOT_DIR, relative).glob("*.rove")))
     return files
 
 
@@ -133,7 +133,7 @@ def _run_type_relation_checks() -> None:
     assert not is_abi_compatible(STRING, IRType("int", pointer=True), "cpp")
 
 
-def _run_nyx_authored_hir_parity() -> int:
+def _run_rove_authored_hir_parity() -> int:
     compiler_dir = Path(ROOT_DIR, "compiler")
 
     def component(name: str) -> str:
@@ -144,8 +144,8 @@ def _run_nyx_authored_hir_parity() -> int:
             and not line.lstrip().startswith("#native")
         )
 
-    lexer = component("lexer.nyx")
-    lexer = lexer[lexer.index("// NYX_LEXER_SUPPORT_BEGIN:"):]
+    lexer = component("lexer.rove")
+    lexer = lexer[lexer.index("// ROVE_LEXER_SUPPORT_BEGIN:"):]
     if "fn main()" in lexer:
         lexer = lexer[:lexer.index("fn main()")]
 
@@ -181,6 +181,10 @@ def _run_nyx_authored_hir_parity() -> int:
         (
             "collection_for",
             "fn sum_items(items: Array<int>) -> int { var total: int = 0; for item in items { set total = total + item } return total }\n",
+        ),
+        (
+            "typed_empty_array",
+            "fn empty() -> int { let values: Array<float> = []; return len(values) }\n",
         ),
         (
             "struct_constructor_and_index",
@@ -326,14 +330,14 @@ def _run_nyx_authored_hir_parity() -> int:
         "#native include <string>\n"
         "#native include <vector>\n"
         + "\n\n".join((
-            component("parser.nyx"),
+            component("parser.rove"),
             lexer,
-            component("hir.nyx"),
-            component("hir_lowering.nyx"),
+            component("hir.rove"),
+            component("hir_lowering.rove"),
         ))
         + driver
     )
-    result = NyxCompiler(ROOT_DIR).compile_source(
+    result = RoveCompiler(ROOT_DIR).compile_source(
         source,
         target="cpp",
         filename="<nyx-authored-hir-parity>",
@@ -341,7 +345,7 @@ def _run_nyx_authored_hir_parity() -> int:
     assert result.success, result.diagnostics
     assert result.artifact is not None
 
-    with tempfile.TemporaryDirectory(prefix="nyx_authored_hir_parity_") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="rove_authored_hir_parity_") as temp_dir:
         cpp_path = os.path.join(temp_dir, "hir_parity.cpp")
         executable_path = os.path.join(temp_dir, "hir_parity.exe")
         with open(cpp_path, "w", encoding="utf-8") as handle:
@@ -364,7 +368,7 @@ def _run_nyx_authored_hir_parity() -> int:
             actual = native.get(name, "<missing>")
             assert not actual.startswith("@@HIR_ERROR@@"), f"{name}: {actual}"
             assert actual == expected[name], (
-                f"Nyx/Python HIR mismatch for {name}:\n"
+                f"Rove/Python HIR mismatch for {name}:\n"
                 f"Python: {expected[name]}\n"
                 f"Nyx:    {actual}"
             )
@@ -641,7 +645,7 @@ def _run_wasm_equivalence() -> None:
     optimized_calc = next(function for function in optimized_module.functions if function.name == "calc")
     assert any(instruction.op == "i32.const" and instruction.arg == 84 for instruction in optimized_calc.body)
 
-    with tempfile.TemporaryDirectory(prefix="nyx_hir_equivalence_") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="rove_hir_equivalence_") as temp_dir:
         raw_path = os.path.join(temp_dir, "raw.wasm")
         optimized_path = os.path.join(temp_dir, "optimized.wasm")
         with open(raw_path, "wb") as handle:
@@ -698,7 +702,7 @@ def _run_plugin_hir_contract() -> None:
     result = compile_source(
         "fn answer() -> int { return 41 }\n",
         target="wasm",
-        filename="answer.nyx",
+        filename="answer.rove",
         plugins=(plugin,),
     )
     assert result.success, result.diagnostics
@@ -716,12 +720,12 @@ def _run_plugin_hir_contract() -> None:
     python_result = compile_source(
         "fn answer() -> int { return 41 }\n",
         target="python",
-        filename="answer.nyx",
+        filename="answer.rove",
         plugins=(python_plugin,),
     )
     assert python_result.success, python_result.diagnostics
     assert python_result.artifact is not None
-    namespace = {"__name__": "nyx_hir_plugin_test"}
+    namespace = {"__name__": "rove_hir_plugin_test"}
     exec(compile(python_result.artifact.content, "<python-plugin>", "exec"), namespace)
     assert namespace["answer"]() == 42
     assert [event[0] for event in python_plugin.events] == ["lower", "transform", "optimize"]
@@ -730,7 +734,7 @@ def _run_plugin_hir_contract() -> None:
     javascript_result = compile_source(
         "fn answer() -> int { return 41 }\n",
         target="js",
-        filename="answer.nyx",
+        filename="answer.rove",
         plugins=(javascript_plugin,),
     )
     assert javascript_result.success, javascript_result.diagnostics
@@ -742,7 +746,7 @@ def _run_plugin_hir_contract() -> None:
     cpp_result = compile_source(
         "fn answer() -> int { return 41 }\n",
         target="cpp",
-        filename="answer.nyx",
+        filename="answer.rove",
         plugins=(cpp_plugin,),
     )
     assert cpp_result.success, cpp_result.diagnostics
@@ -766,7 +770,7 @@ def _run_plugin_hir_contract() -> None:
 
 
 def _run_stdlib_hir_contract() -> int:
-    compiler = NyxCompiler(ROOT_DIR)
+    compiler = RoveCompiler(ROOT_DIR)
     modules = BACKENDS["cpp"].to_dict()["stdlib_modules"]
     for module_name in modules:
         result = compiler.check_source(
@@ -788,12 +792,12 @@ def _run_stdlib_hir_contract() -> int:
 
 def run_ir_suite() -> bool:
     print("=" * 70)
-    print("NYX TYPED HIR / VERIFIED PASS PIPELINE")
+    print("ROVE TYPED HIR / VERIFIED PASS PIPELINE")
     print("=" * 70)
     corpus_count = _run_corpus()
     _run_canonical_and_scope_checks()
     _run_type_relation_checks()
-    hir_parity_count = _run_nyx_authored_hir_parity()
+    hir_parity_count = _run_rove_authored_hir_parity()
     _run_negative_verifier_checks()
     _run_optimizer_checks()
     _run_wasm_equivalence()
@@ -801,7 +805,7 @@ def run_ir_suite() -> bool:
     stdlib_count = _run_stdlib_hir_contract()
     print(
         f"[PASS] {corpus_count} programs, {stdlib_count} stdlib modules, canonical snapshot, "
-        f"{hir_parity_count}-case Nyx/Python HIR byte parity, exact/assignable/coercible/ABI type relations, negative verifier, "
+        f"{hir_parity_count}-case Rove/Python HIR byte parity, exact/assignable/coercible/ABI type relations, negative verifier, "
         "idempotent passes, WASM equivalence, "
         "and plugin HIR contract"
     )
