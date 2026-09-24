@@ -147,6 +147,8 @@ async function main() {
     assert.deepStrictEqual(manifest.galleryBanner, { color: '#171A35', theme: 'dark' });
     assert.ok(fs.existsSync(path.join(__dirname, manifest.icon)));
     const language = manifest.contributes.languages.find(item => item.id === 'rovelang');
+    assert.deepStrictEqual(language.extensions, ['.rove', '.nyx']);
+    assert.ok(manifest.activationEvents.includes('onLanguage:rovelang'));
     assert.deepStrictEqual(language.icon, {
         light: './images/rove-file-icon.png',
         dark: './images/rove-file-icon.png'
