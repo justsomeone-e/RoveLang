@@ -1,4 +1,4 @@
-// nyx Standard Library - std/collections
+// Rove Standard Library - std/collections
 // High-Performance Core Data Structures: Stack, Queue, and Dynamic Buffers
 
 struct Stack {

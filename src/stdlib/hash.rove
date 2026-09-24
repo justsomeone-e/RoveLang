@@ -1,4 +1,4 @@
-// nyx Standard Library - std/hash
+// Rove Standard Library - std/hash
 // Fast Non-Cryptographic Hashing Algorithms (RFC 9923 FNV-1a 64-bit Hex)
 
 #native include "string"

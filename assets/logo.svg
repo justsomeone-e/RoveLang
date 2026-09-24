@@ -49,22 +49,9 @@
   <ellipse cx="450" cy="150" rx="360" ry="130" fill="url(#auroraGlow)" class="aura-circle" filter="url(#cosmicBlur)"/>
   <ellipse cx="450" cy="150" rx="220" ry="80" fill="rgba(0, 240, 255, 0.12)" filter="url(#cosmicBlur)"/>
 
-  <!-- Main 3D Metallic Nyx Logo Centered -->
-  <g transform="translate(145, 45)" filter="url(#logoDropShadow)">
-    <!-- LETTER 'n' -->
-    <path d="M 60 110 L 96 130 L 96 230 L 60 230 Z" fill="url(#cyanFacet)"/>
-    <path d="M 60 70 L 96 70 L 96 130 L 60 110 Z" fill="url(#silverGrad)"/>
-    <path d="M 96 70 C 130 50 190 50 200 90 L 200 230 L 164 230 L 164 110 C 158 92 126 92 96 106 Z" fill="url(#silverGrad)"/>
-    <path d="M 164 110 L 200 90 L 200 230 L 164 230 Z" fill="url(#shadeFacet)" opacity="0.3"/>
-
-    <!-- LETTER 'y' -->
-    <path d="M 270 70 L 330 160 L 305 178 L 245 70 Z" fill="url(#silverGrad)"/>
-    <path d="M 375 70 L 275 240 L 310 240 L 410 70 Z" fill="url(#silverGrad)"/>
-    <path d="M 315 168 L 348 214 L 325 240 L 295 240 Z" fill="url(#cyanFacet)"/>
-
-    <!-- LETTER 'x' -->
-    <path d="M 460 70 L 515 150 L 460 230 L 495 230 L 535 170 L 575 230 L 610 230 L 555 150 L 610 70 L 575 70 L 535 130 L 495 70 Z" fill="url(#silverGrad)"/>
-    <path d="M 555 150 L 610 70 L 575 70 L 535 130 Z" fill="url(#cyanFacet)"/>
-    <path d="M 515 150 L 460 230 L 495 230 L 535 170 Z" fill="url(#cyanFacet)"/>
+  <!-- Rove wordmark -->
+  <g filter="url(#logoDropShadow)" font-family="'Arial Black', 'Inter', sans-serif" font-size="174" font-weight="900" letter-spacing="-8" text-anchor="middle">
+    <text x="454" y="232" fill="url(#shadeFacet)" opacity="0.75">ROVE</text>
+    <text x="450" y="226" fill="url(#silverGrad)" stroke="url(#cyanFacet)" stroke-width="1.2" paint-order="stroke fill">ROVE</text>
   </g>
 </svg>

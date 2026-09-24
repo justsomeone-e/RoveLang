@@ -1,4 +1,4 @@
-// nyx Standard Library: std/system
+// Rove Standard Library: std/system
 // Hosted operating-system information for native C++ targets.
 #target cpp
 

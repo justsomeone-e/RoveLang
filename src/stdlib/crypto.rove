@@ -1,4 +1,4 @@
-// nyx Standard Library - std/crypto
+// Rove Standard Library - std/crypto
 // Cryptographic Hash Functions - SHA-256 (FIPS 180-4) Exact Polyglot Specification
 
 #native include "string"

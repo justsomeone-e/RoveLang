@@ -1,4 +1,4 @@
-// nyx Standard Library - std/encoding
+// Rove Standard Library - std/encoding
 // Standard Data Encodings (Base64)
 
 #native include "string"

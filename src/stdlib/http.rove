@@ -15,8 +15,8 @@
 #include <unistd.h>
 #endif
 
-static constexpr std::size_t _NYX_HTTP_MAX_RESPONSE = 8u * 1024u * 1024u;
-static constexpr std::size_t _NYX_HTTP_MAX_REQUEST_BODY = 16u * 1024u;
+static constexpr std::size_t _ROVE_HTTP_MAX_RESPONSE = 8u * 1024u * 1024u;
+static constexpr std::size_t _ROVE_HTTP_MAX_REQUEST_BODY = 16u * 1024u;
 
 inline bool _rove_http_url_is_supported(const std::string& url) {
     return url.rfind("https://", 0) == 0 || url.rfind("http://", 0) == 0;
@@ -105,8 +105,8 @@ inline std::string _rove_http_run(const std::vector<std::string>& arguments) {
     char buffer[4096];
     DWORD received = 0;
     while (ReadFile(read_pipe, buffer, sizeof(buffer), &received, nullptr) && received > 0) {
-        if (output.size() < _NYX_HTTP_MAX_RESPONSE) {
-            const std::size_t remaining = _NYX_HTTP_MAX_RESPONSE - output.size();
+        if (output.size() < _ROVE_HTTP_MAX_RESPONSE) {
+            const std::size_t remaining = _ROVE_HTTP_MAX_RESPONSE - output.size();
             output.append(buffer, static_cast<std::size_t>(received) < remaining ? received : remaining);
         }
     }
@@ -146,8 +146,8 @@ inline std::string _rove_http_run(const std::vector<std::string>& arguments) {
     char buffer[4096];
     ssize_t received = 0;
     while ((received = read(output_pipe[0], buffer, sizeof(buffer))) > 0) {
-        if (output.size() < _NYX_HTTP_MAX_RESPONSE) {
-            const std::size_t remaining = _NYX_HTTP_MAX_RESPONSE - output.size();
+        if (output.size() < _ROVE_HTTP_MAX_RESPONSE) {
+            const std::size_t remaining = _ROVE_HTTP_MAX_RESPONSE - output.size();
             output.append(buffer, static_cast<std::size_t>(received) < remaining
                 ? static_cast<std::size_t>(received)
                 : remaining);
@@ -184,7 +184,7 @@ inline std::string _rove_http_post_impl(
     const std::string& content_type
 ) {
     if (!_rove_http_url_is_supported(url)) return "";
-    if (body.size() > _NYX_HTTP_MAX_REQUEST_BODY) return "";
+    if (body.size() > _ROVE_HTTP_MAX_REQUEST_BODY) return "";
     if (content_type.find_first_of("\r\n") != std::string::npos) return "";
 
     auto arguments = _rove_http_base_args();

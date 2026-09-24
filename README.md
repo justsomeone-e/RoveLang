@@ -41,7 +41,7 @@ A single compiler model lowers to native C++20, WebAssembly (WASM ABI v1), Node.
 > `rove`, and `rovec`.
 
 <div align="center">
-  <img src="assets/terminal_animated.svg?v=5.0.3" width="92%" alt="rove interactive live execution"/>
+  <img src="assets/terminal_animated.svg?v=rove-preview-1" width="92%" alt="Rove interactive live execution"/>
 </div>
 
 <p align="left">
@@ -215,7 +215,7 @@ Core v4 features: `let`/`var`/`const`, explicit `set`, `guard ... else`, `defer`
 The Rove toolchain operates through an authoritative, deterministic middle-end:
 
 <div align="center">
-  <img src="assets/pipeline_animated.svg?v=4.0.0" width="98%" alt="rove compiler architecture pipeline"/>
+  <img src="assets/pipeline_animated.svg?v=rove-preview-1" width="98%" alt="Rove compiler architecture pipeline"/>
 </div>
 
 ```text

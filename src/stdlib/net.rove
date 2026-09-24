@@ -1,4 +1,4 @@
-// nyx Standard Library - std/net
+// Rove Standard Library - std/net
 // Cross-Platform High-Performance TCP/UDP Network Primitives
 
 #native link "ws2_32"

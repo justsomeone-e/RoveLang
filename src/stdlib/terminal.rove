@@ -1,4 +1,4 @@
-// nyx Standard Library: std/terminal
+// Rove Standard Library: std/terminal
 // Terminal, cursor control, screen clearing, and non-blocking keyboard input.
 #target cpp
 

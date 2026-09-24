@@ -48,17 +48,17 @@
   <circle cx="62" cy="19" r="6" fill="#10b981"/>
 
   <!-- Title Tab -->
-  <text x="450" y="24" text-anchor="middle" font-family="'Inter', sans-serif" font-size="12" font-weight="600" fill="#64748b">nyx-terminal — bash — 90x24</text>
+  <text x="450" y="24" text-anchor="middle" font-family="'Inter', sans-serif" font-size="12" font-weight="600" fill="#64748b">rove-terminal — bash — 90x24</text>
 
   <!-- Terminal Content -->
   <g transform="translate(32, 75)" class="term-mono">
     <!-- Command Prompt Line -->
     <g class="l1">
-      <text x="0" y="0" fill="#00f0ff" font-weight="700">user@nyx-dev</text>
+      <text x="0" y="0" fill="#00f0ff" font-weight="700">user@rove-dev</text>
       <text x="110" y="0" fill="#94a3b8">:</text>
       <text x="120" y="0" fill="#a78bfa">~/projects/app</text>
       <text x="250" y="0" fill="#94a3b8">$</text>
-      <text x="265" y="0" fill="#f8fafc">nyx run main.nyx --target asm</text>
+      <text x="265" y="0" fill="#f8fafc">rove run main.rove --target asm</text>
     </g>
 
     <!-- Compiler Step 1 -->
@@ -95,7 +95,7 @@
       
       <!-- New Prompt with Blinking Cursor -->
       <g transform="translate(0, 125)">
-        <text x="0" y="0" fill="#00f0ff" font-weight="700">user@nyx-dev</text>
+        <text x="0" y="0" fill="#00f0ff" font-weight="700">user@rove-dev</text>
         <text x="110" y="0" fill="#94a3b8">:</text>
         <text x="120" y="0" fill="#a78bfa">~/projects/app</text>
         <text x="250" y="0" fill="#94a3b8">$</text>

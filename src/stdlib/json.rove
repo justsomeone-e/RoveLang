@@ -1,4 +1,4 @@
-// nyx Standard Library - std/json
+// Rove Standard Library - std/json
 // Full-Featured JSON Parser, Serializer, and Key-Value Extractor
 
 #native include "string"

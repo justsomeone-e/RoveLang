@@ -1,4 +1,4 @@
-// nyx Standard Library - std/time
+// Rove Standard Library - std/time
 // High-resolution Timing and Benchmarking Primitives
 
 #native include "chrono"

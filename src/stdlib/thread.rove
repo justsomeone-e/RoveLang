@@ -1,4 +1,4 @@
-// nyx Standard Library - std/thread
+// Rove Standard Library - std/thread
 // Native Multi-Threading, Mutex Locks & CSP Channel Primitives
 
 #native include "thread"

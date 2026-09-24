@@ -1,4 +1,4 @@
-// nyx Standard Library: std/memory (Native Memory Allocation & Pointers)
+// Rove Standard Library: std/memory (Native Memory Allocation & Pointers)
 #target cpp
 #native include <stdlib.h>
 #native include <string.h>
