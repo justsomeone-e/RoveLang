@@ -101,7 +101,7 @@ def _run_legacy_cpp() -> str:
 
 
 def _compile_and_run_cpp(source: str) -> str:
-    with tempfile.TemporaryDirectory(prefix="nyx_mir_codegen_") as temporary:
+    with tempfile.TemporaryDirectory(prefix="rove_mir_codegen_") as temporary:
         source_path = Path(temporary) / "program.cpp"
         executable = Path(temporary) / ("program.exe" if os.name == "nt" else "program")
         source_path.write_text(source, encoding="utf-8", newline="\n")
@@ -115,7 +115,7 @@ def _compile_and_run_cpp(source: str) -> str:
 def _compile_and_run_c17(source: str) -> str:
     clang = shutil.which("clang")
     assert clang is not None, "clang is required by the C17 MIR runtime gate"
-    with tempfile.TemporaryDirectory(prefix="nyx_mir_c17_") as temporary:
+    with tempfile.TemporaryDirectory(prefix="rove_mir_c17_") as temporary:
         source_path = Path(temporary) / "program.c"
         executable = Path(temporary) / ("program.exe" if os.name == "nt" else "program")
         source_path.write_text(source, encoding="utf-8", newline="\n")
@@ -135,7 +135,7 @@ def _compile_and_run_c17(source: str) -> str:
 def _compile_and_run_llvm(source: str) -> str:
     clang = shutil.which("clang")
     assert clang is not None, "clang is required by the existing LLVM conformance target"
-    with tempfile.TemporaryDirectory(prefix="nyx_mir_llvm_") as temporary:
+    with tempfile.TemporaryDirectory(prefix="rove_mir_llvm_") as temporary:
         source_path = Path(temporary) / "program.ll"
         executable = Path(temporary) / ("program.exe" if os.name == "nt" else "program")
         source_path.write_text(source, encoding="utf-8", newline="\n")
@@ -159,7 +159,7 @@ def _assert_rust_runtime(source: str, expected: str) -> None:
     global RUST_VALIDATION_MODE
     rustc = shutil.which("rustc")
     assert rustc is not None, "rustc is required by the Rust MIR runtime gate"
-    with tempfile.TemporaryDirectory(prefix="nyx_mir_rust_") as temporary:
+    with tempfile.TemporaryDirectory(prefix="rove_mir_rust_") as temporary:
         source_path = Path(temporary) / "program.rs"
         executable = Path(temporary) / ("program.exe" if os.name == "nt" else "program")
         source_path.write_text(source, encoding="utf-8", newline="\n")
@@ -219,7 +219,7 @@ def _assert_rust_runtime(source: str, expected: str) -> None:
 def _run_javascript(source: str) -> str:
     node = shutil.which("node")
     assert node is not None, "Node.js is required by the JavaScript MIR runtime gate"
-    with tempfile.TemporaryDirectory(prefix="nyx_mir_js_") as temporary:
+    with tempfile.TemporaryDirectory(prefix="rove_mir_js_") as temporary:
         source_path = Path(temporary) / "program.mjs"
         source_path.write_text(source, encoding="utf-8", newline="\n")
         executed = subprocess.run(
@@ -231,7 +231,7 @@ def _run_javascript(source: str) -> str:
 
 
 def _run_python(source: str) -> str:
-    with tempfile.TemporaryDirectory(prefix="nyx_mir_python_") as temporary:
+    with tempfile.TemporaryDirectory(prefix="rove_mir_python_") as temporary:
         source_path = Path(temporary) / "program.py"
         source_path.write_text(source, encoding="utf-8", newline="\n")
         executed = subprocess.run(
@@ -250,7 +250,7 @@ def _run_wasm_export(
 ) -> str:
     node = shutil.which("node")
     assert node is not None, "Node.js is required for the WebAssembly runtime gate"
-    with tempfile.TemporaryDirectory(prefix="nyx_mir_wasm_") as temporary:
+    with tempfile.TemporaryDirectory(prefix="rove_mir_wasm_") as temporary:
         wasm_path = Path(temporary) / "program.wasm"
         script_path = Path(temporary) / "run.mjs"
         wasm_path.write_bytes(wasm)
@@ -591,7 +591,7 @@ def run_mir_legalization_suite() -> bool:
     assert expected == ("13",), expected
 
     generated = emit_legalized_cpp(scalar)
-    assert "nyx_mir_runtime::add" in generated
+    assert "rove_mir_runtime::add" in generated
     assert "goto bb" in generated
     migrated_output = _compile_and_run_cpp(generated)
     assert migrated_output == "13\n", migrated_output
@@ -2150,7 +2150,7 @@ def run_mir_legalization_suite() -> bool:
     ) + "\n"
     assert expected_cpp_call_unwind == "cleanup\ncaught boom\nlocal 5\n"
     generated_cpp_call_unwind = emit_legalized_cpp(cpp_call_unwind)
-    assert "catch (const nyx_mir_runtime::user_throw& thrown)" in generated_cpp_call_unwind
+    assert "catch (const rove_mir_runtime::user_throw& thrown)" in generated_cpp_call_unwind
     assert _compile_and_run_cpp(generated_cpp_call_unwind) == expected_cpp_call_unwind
     assert not collect_legalization_issues(
         cpp_call_unwind, "js", require_emitter=True
