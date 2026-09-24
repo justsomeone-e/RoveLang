@@ -1,11 +1,11 @@
 // Package & Foreign Binding Consumer Example
-// Demonstrates consuming both a local Nyx package and native C++ filesystem bindings.
+// Demonstrates consuming both a local Rove package and native C++ filesystem bindings.
 
-import "../packages/stats_core/src/stats.nyx";
+import "../packages/stats_core/src/stats.rove";
 import cpp "std::filesystem" from "<filesystem>" as fs;
 
 fn main() {
-    print("=== Nyx Package & Binding Consumer ===");
+    print("=== Rove Package & Binding Consumer ===");
     
     // 1. Consume functions from stats_core package dependency
     var raw_readings = [15, -10, 85, 140, 42, 99];

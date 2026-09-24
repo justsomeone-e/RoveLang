@@ -1,8 +1,8 @@
 import "std/web"
 
 // =============================================================================
-// Nyx WebAssembly Interactive Portal & Arcade (site.nyx)
-// Nyx v4.0.0-rc.2 "Bodhi" — WASM ABI v1
+// Rove WebAssembly Interactive Portal & Arcade (site.rove)
+// Rove v4.0.0-rc.2 "Bodhi" — WASM ABI v1
 // =============================================================================
 
 // --- Global State ---
@@ -621,7 +621,7 @@ fn sum_array(values: Array<int>) -> int {
 }
 
 fn greet_user(name: string) -> string {
-    return "Merhaba, " + name + "! Nyx WebAssembly ve Ses Sistemi aktif."
+    return "Merhaba, " + name + "! Rove WebAssembly ve Ses Sistemi aktif."
 }
 
 fn mode_name(mode: int) -> string {
@@ -632,7 +632,7 @@ fn mode_name(mode: int) -> string {
     } else if mode == 2 {
         "Kuantum Yorunge Alani (Quantum Orbit Field)"
     } else if mode == 3 {
-        "Retro Nyx Pong 2.0 (Arcade & 2P)"
+        "Retro Rove Pong 2.0 (Arcade & 2P)"
     } else if mode == 4 {
         "Siber Uzay Kosusu 2.0 (Cyber Space Dodge)"
     } else if mode == 5 {
@@ -647,7 +647,7 @@ fn mode_name(mode: int) -> string {
 }
 
 fn system_status() -> string {
-    return "Nyx WASM v4.0.0-rc.2 Bodhi | 60 FPS Canvas | WebAudio Synth | 9 Modes"
+    return "Rove WASM v4.0.0-rc.2 Bodhi | 60 FPS Canvas | WebAudio Synth | 9 Modes"
 }
 
 // --- Canvas Graphics & Animation Engine (std/web) ---
@@ -1750,9 +1750,9 @@ fn draw_frame() -> void {
     }
 }
 
-// --- Nyx Event Dispatcher ---
+// --- Rove Event Dispatcher ---
 
-fn nyx_dispatch(callback_id: int, event: WebEvent) -> int {
+fn rove_dispatch(callback_id: int, event: WebEvent) -> int {
     if callback_id == 1 {
         inc_counter()
     }
@@ -1810,5 +1810,5 @@ fn app_start(canvas_selector: string) -> int {
 }
 
 fn main() {
-    print("Nyx WebAssembly Portal, Arcade & Music Engine v2 initialized.")
+    print("Rove WebAssembly Portal, Arcade & Music Engine v2 initialized.")
 }

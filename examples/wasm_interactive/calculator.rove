@@ -1,4 +1,4 @@
-// Nyx WASM Interactive Calculator
+// Rove WASM Interactive Calculator
 // High-performance arithmetic and combinatorics engine compiled directly to WebAssembly.
 #target wasm
 
@@ -48,5 +48,5 @@ fn factorial(n: int) -> int {
 }
 
 fn describe_calc(engine_id: string) -> string {
-    return "Nyx WASM Engine v4.5 [" + engine_id + "]";
+    return "Rove WASM Engine v4.5 [" + engine_id + "]";
 }

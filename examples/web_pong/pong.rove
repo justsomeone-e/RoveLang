@@ -59,7 +59,7 @@ fn handle_key(event: WebEvent) -> void {
     if paddle_y > 288.0 { set paddle_y = 288.0 }
 }
 
-fn nyx_dispatch(callback_id: int, event: WebEvent) -> int {
+fn rove_dispatch(callback_id: int, event: WebEvent) -> int {
     if callback_id == 1 {
         handle_key(event)
     }
@@ -73,7 +73,7 @@ fn nyx_dispatch(callback_id: int, event: WebEvent) -> int {
 fn pong_start() -> int {
     let body: WebElement = web_query("body")
     set canvas = web_create("canvas")
-    web_set_attribute(canvas, "id", "nyx-pong")
+    web_set_attribute(canvas, "id", "rove-pong")
     web_set_attribute(canvas, "width", "640")
     web_set_attribute(canvas, "height", "360")
     web_append(body, canvas)

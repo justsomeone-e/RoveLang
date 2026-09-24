@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Lightweight local development HTTP server for Nyx WebAssembly website."""
+"""Lightweight local development HTTP server for Rove WebAssembly website."""
 
 import http.server
 import mimetypes
@@ -15,7 +15,7 @@ mimetypes.add_type("application/javascript", ".js")
 mimetypes.add_type("text/plain", ".wat")
 
 
-class NyxWasmHandler(http.server.SimpleHTTPRequestHandler):
+class RoveWasmHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
         # Enable CORS and isolation headers for WebAssembly / SharedArrayBuffer if needed
         self.send_header("Cross-Origin-Opener-Policy", "same-origin")
@@ -42,7 +42,7 @@ def run_server(port=8080, open_browser=True):
     server = None
     while actual_port < port + 20:
         try:
-            server = socketserver.TCPServer(("", actual_port), NyxWasmHandler)
+            server = socketserver.TCPServer(("", actual_port), RoveWasmHandler)
             break
         except OSError:
             actual_port += 1
@@ -59,7 +59,7 @@ def run_server(port=8080, open_browser=True):
 
     url = f"http://localhost:{actual_port}/index.html"
     print("=" * 68)
-    print("[*] NYX WEBASSEMBLY INTERACTIVE PORTAL")
+    print("[*] ROVE WEBASSEMBLY INTERACTIVE PORTAL")
     print("=" * 68)
     print(f"[*] Serving site directory: {site_dir}")
     print(f"[*] URL: {url}")

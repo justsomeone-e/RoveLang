@@ -3,7 +3,7 @@
 import "std/terminal"
 
 // =======================================================
-// Nyx Arcade: BALANCED FLICKER-FREE Pong Game
+// Rove Arcade: BALANCED FLICKER-FREE Pong Game
 // Uses standard library `std/terminal` (Zero #native raw!)
 // Controls: 'W' = Up, 'S' = Down, 'Q' = Quit
 // First to 3 points wins!
@@ -33,7 +33,7 @@ fn main() {
     var status_msg: string = "Match started! Defend your goal!"
 
     print("==========================================")
-    print("      NYX ARCADE PONG (SERVE TO YOU)      ")
+    print("      ROVE ARCADE PONG (SERVE TO YOU)      ")
     print("==========================================")
     print("Controls: 'W' = UP, 'S' = DOWN, 'Q' = QUIT")
     print("Starting match in 1 second...")
@@ -133,7 +133,7 @@ fn main() {
             cursor_reset()
 
             print("==========================================")
-            print("        NYX RETRO ARCADE PONG (LIVE)      ")
+            print("        ROVE RETRO ARCADE PONG (LIVE)      ")
             print("==========================================")
             print("Score: [YOU] " + to_string(score_p1) + "   vs   " + to_string(score_p2) + " [CPU]  | W/S to move")
             print("+----------------------------------+")

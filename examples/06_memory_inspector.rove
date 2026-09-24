@@ -6,7 +6,7 @@ fn main() {
     unsafe {
         let pointer = addr(value)
 
-        print("=== Nyx hecpp Memory Inspector ===")
+        print("=== Rove hecpp Memory Inspector ===")
         print("Address:", pointer)
         print("Value written:", value)
         print("Value read from address:", peek(pointer))
@@ -14,7 +14,7 @@ fn main() {
         memdump(pointer, 8)
 
         set value = 42
-        print("Value changed through normal Nyx assignment:", value)
+        print("Value changed through normal Rove assignment:", value)
         print("Same address read again:", peek(pointer))
         print("Updated raw 8-byte memory dump:")
         memdump(pointer, 8)

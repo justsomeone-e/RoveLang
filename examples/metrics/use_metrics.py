@@ -1,11 +1,11 @@
-"""Import real Nyx-generated Python, without executing a compiler in the host."""
+"""Import real Rove-generated Python, without executing a compiler in the host."""
 import importlib.util
 import json
 from pathlib import Path
 import sys
 
 path = Path(sys.argv[1] if len(sys.argv) > 1 else "build/python/metrics.py").resolve()
-spec = importlib.util.spec_from_file_location("nyx_metrics", path)
+spec = importlib.util.spec_from_file_location("rove_metrics", path)
 metrics = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = metrics
 spec.loader.exec_module(metrics)

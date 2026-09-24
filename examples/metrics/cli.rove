@@ -1,5 +1,5 @@
 #target cpp
-import "metrics.nyx"
+import "metrics.rove"
 
 fn parse_sample(raw: string) -> Result<int, string> {
     if raw.len() == 0 or raw.len() > 7 { return Err("use integer milliseconds from 0 to 1000000") }

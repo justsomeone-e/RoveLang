@@ -38,7 +38,7 @@ fn process_event(event: Event) {
 }
 
 fn main() {
-    print("=== Nyx Event Streaming & Pipeline Processing ===")
+    print("=== Rove Event Streaming & Pipeline Processing ===")
 
     let events = [
         Event(1, 200, "Node handshake initialized"),

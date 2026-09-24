@@ -20,7 +20,7 @@ async fn execute_job(job: Job) -> int {
 fn compute_metric(units: int) -> int = units * 10
 
 async fn main() {
-    print("=== Nyx Concurrent Task Pipeline ===")
+    print("=== Rove Concurrent Task Pipeline ===")
     defer print("=== All concurrent operations completed cleanly ===")
 
     let job_a = Job(101, "Telemetry Ingestion", 5)

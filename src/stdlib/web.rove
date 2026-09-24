@@ -1,4 +1,4 @@
-// std/web.nyx
+// std/web.rove
 // Typed WebAssembly browser host API. WebElement and WebEvent are opaque
 // handles owned by the generated nyx_host_v1 JavaScript adapter.
 

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Nyx Web Pong</title>
+  <title>Rove Web Pong</title>
   <style>
     :root { color-scheme: dark; font-family: ui-monospace, monospace; background: #030711; color: #dffaff; }
     body { min-height: 100vh; margin: 0; display: grid; place-content: center; gap: 1rem; text-align: center; }
@@ -11,12 +11,12 @@
   </style>
 </head>
 <body>
-  <h1>Nyx Web Pong</h1>
-  <p>W/S to move — game state, physics, input dispatch, and drawing are Nyx.</p>
+  <h1>Rove Web Pong</h1>
+  <p>W/S to move — game state, physics, input dispatch, and drawing are Rove.</p>
   <script type="module">
-    import { initNyxModule } from './dist/pong.mjs';
-    const nyx = await initNyxModule();
-    nyx.pong_start();
+    import { initRoveModule } from './dist/pong.mjs';
+    const rove = await initRoveModule();
+    rove.pong_start();
   </script>
 </body>
 </html>

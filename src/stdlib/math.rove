@@ -1,4 +1,4 @@
-// std/math.nyx
+// std/math.rove
 // Complete mathematical utilities for Nyx standard library
 // All functions are pure, use guard-based validation, and follow strict Nyx syntax
 

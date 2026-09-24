@@ -3,7 +3,7 @@
 import "std/system"
 
 fn main() {
-    print("=== Nyx hecpp System Inspector ===")
+    print("=== Rove hecpp System Inspector ===")
     print("OS:", os_name())
     print("Architecture:", arch_name())
     print("Hostname:", host_name())

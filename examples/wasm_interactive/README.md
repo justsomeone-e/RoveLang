@@ -1,18 +1,18 @@
-# Nyx WebAssembly Interactive Calculator
+# Rove WebAssembly Interactive Calculator
 
-An interactive, zero-dependency browser application powered by a WebAssembly computation core written in Nyx (`calculator.nyx`).
+An interactive, zero-dependency browser application powered by a WebAssembly computation core written in Rove (`calculator.rove`).
 
 ## What It Demonstrates
 
-- **Direct Nyx -> WebAssembly Compilation**: Fast mathematical and algorithmic routines compiled into a standalone `.wasm` binary.
-- **ABI v1 ES Module Integration**: Clean JavaScript/TypeScript bindings (`bundle/calculator.mjs` and `bundle/calculator.d.ts`) generated automatically by `nyx bundle`.
-- **Browser Interop**: Asynchronous module initialization with `await initNyxModule()`, seamless calling of exported Nyx functions from modern ES module scripts.
+- **Direct Rove -> WebAssembly Compilation**: Fast mathematical and algorithmic routines compiled into a standalone `.wasm` binary.
+- **ABI v1 ES Module Integration**: Clean JavaScript/TypeScript bindings (`bundle/calculator.mjs` and `bundle/calculator.d.ts`) generated automatically by `rove bundle`.
+- **Browser Interop**: Asynchronous module initialization with `await initRoveModule()`, seamless calling of exported Rove functions from modern ES module scripts.
 
 ## Building the WASM Bundle
 
 To rebuild the WebAssembly bundle:
 ```bash
-nyx bundle calculator.nyx -o bundle --package
+rove bundle calculator.rove -o bundle --package
 ```
 
 ## Running the Web App
@@ -26,4 +26,4 @@ python -m http.server 8080
 npx serve .
 ```
 
-Open `http://localhost:8080` in any modern web browser to interact with the Nyx WebAssembly core in real-time.
+Open `http://localhost:8080` in any modern web browser to interact with the Rove WebAssembly core in real-time.

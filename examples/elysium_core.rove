@@ -1,0 +1,76 @@
+#target cpp
+
+struct TelemetryPacket {
+    id: int,
+    subsystem: string,
+    reading: int,
+    status_code: int
+}
+
+trait Diagnosable {
+    fn diagnose(self) -> string
+}
+
+impl Diagnosable for TelemetryPacket {
+    fn diagnose(self) -> string {
+        let level = match self.status_code {
+            0 => "NOMINAL",
+            1 => "WARNING",
+            2 => "CRITICAL",
+            _ => "UNKNOWN"
+        }
+        return $"[{level}] Subsystem '{self.subsystem}' (Node #{self.id}): Value={self.reading}"
+    }
+}
+
+// Single-line expression-bodied pure function
+fn calibrate_signal(raw: int) -> int = (raw * 105) / 100
+
+// Pure metric normalization
+fn normalize_band(v: int) -> int = v + 10
+
+// Asynchronous mission-critical processor
+async fn process_telemetry(packet: TelemetryPacket) -> int {
+    guard packet.id > 0 else {
+        throw "Telemetry packet dropped: Invalid node identifier"
+    }
+
+    // Deterministic scope exit cleanup (LIFO)
+    defer print($"  [teardown] Processed packet #{packet.id} cleanly")
+
+    // Pipeline composition: reading |> calibrate |> normalize
+    let calibrated = packet.reading |> calibrate_signal |> normalize_band
+
+    print(packet.diagnose())
+    return calibrated
+}
+
+// In-file verification test suite
+test "calibration formula integrity" {
+    let result = 100 |> calibrate_signal |> normalize_band
+    assert(result == 115)
+}
+
+async fn main() {
+    print("==================================================")
+    print("      ELYSIUM SYSTEMS CORE: TELEMETRY ENGINE      ")
+    print("==================================================")
+
+    // Ensure total system cleanup upon function exit
+    defer print("==================================================")
+    defer print("[System] Elysium Telemetry Engine safely shut down")
+
+    let packet_a = TelemetryPacket(1, "Orbital Thrusters", 100, 0)
+    let packet_b = TelemetryPacket(2, "Core Reactor Thermal", 850, 1)
+
+    // Dispatch non-blocking concurrent tasks
+    let task_a: Task<int> = process_telemetry(packet_a)
+    let task_b: Task<int> = process_telemetry(packet_b)
+
+    // Await completion of concurrent pipelines
+    let val_a: int = await task_a
+    let val_b: int = await task_b
+
+    let aggregate: int = val_a + val_b
+    print($"[Telemetry Bus] Aggregated Health Index: {aggregate}")
+}

@@ -4,7 +4,7 @@ import "std/process"
 import "std/str"
 
 fn inspect_file(file_path: string) -> int {
-    print("=== Nyx Native CLI: File & Path Inspector ===");
+    print("=== Rove Native CLI: File & Path Inspector ===");
     print("Input path:", file_path);
 
     let base = basename(file_path);
@@ -28,8 +28,8 @@ fn inspect_file(file_path: string) -> int {
     let upper_base = to_upper(base);
     print("Upper base:", upper_base);
 
-    let is_nyx = ends_with(file_path, ".nyx");
-    print("Is Nyx source:", is_nyx);
+    let is_rove = ends_with(file_path, ".rove");
+    print("Is Rove source:", is_rove);
 
     let env_res = get_env("PATH");
     match env_res {
@@ -48,7 +48,7 @@ fn inspect_file(file_path: string) -> int {
 
 fn main() {
     let arguments = args();
-    var target_file = "src/main.nyx";
+    var target_file = "src/main.rove";
     if arguments.len() > 1 {
         set target_file = arguments[1];
     }

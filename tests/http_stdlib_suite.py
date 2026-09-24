@@ -48,7 +48,7 @@ class _Handler(BaseHTTPRequestHandler):
 
 def run_http_stdlib_suite() -> bool:
     print("=" * 70)
-    print("NYX NATIVE STD/HTTP SHELL-FREE TRANSPORT")
+    print("ROVE NATIVE STD/HTTP SHELL-FREE TRANSPORT")
     print("=" * 70)
 
     assert shutil.which("curl"), "curl is required for std/http runtime coverage"

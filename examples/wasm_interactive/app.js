@@ -1,5 +1,5 @@
 import {
-    initNyxModule,
+    initRoveModule,
     add,
     subtract,
     multiply,
@@ -24,7 +24,7 @@ function log(msg) {
 
 async function boot() {
     try {
-        await initNyxModule();
+        await initRoveModule();
         const desc = describe_calc("WebWorker-0");
         statusEl.textContent = `Ready: ${desc}`;
         statusEl.style.color = '#38bdf8';
