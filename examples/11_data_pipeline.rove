@@ -1,0 +1,56 @@
+#target cpp
+
+struct Event {
+    id: int,
+    status_code: int,
+    message: string
+}
+
+trait Display {
+    fn display(self) -> string
+}
+
+impl Display for Event {
+    fn display(self) -> string {
+        let level = match self.status_code {
+            200 => "INFO",
+            201 => "INFO",
+            400 => "WARN",
+            404 => "WARN",
+            500 => "ERROR",
+            _   => "DEBUG"
+        }
+        return $"[{level}] Event #{self.id}: {self.message} (status: {self.status_code})"
+    }
+}
+
+fn filter_critical(event: Event) -> bool =
+    event.status_code >= 400
+
+fn process_event(event: Event) {
+    guard event.id > 0 else {
+        print("[SKIP] Invalid event ID dropped")
+        return
+    }
+
+    let formatted = event.display()
+    print(formatted)
+}
+
+fn main() {
+    print("=== Rove Event Streaming & Pipeline Processing ===")
+
+    let events = [
+        Event(1, 200, "Node handshake initialized"),
+        Event(2, 404, "Target endpoint route not found"),
+        Event(3, 500, "Database connection pool exhausted"),
+        Event(0, 400, "Malformed packet header")
+    ]
+
+    for i in 0..3 {
+        let ev = events[i]
+        ev |> process_event
+    }
+
+    print("=== Stream processing finished ===")
+}

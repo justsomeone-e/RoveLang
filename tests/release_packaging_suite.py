@@ -44,9 +44,9 @@ def _package(output: Path) -> None:
 
 def run_release_packaging_suite() -> bool:
     print("=" * 70)
-    print("NYX DETERMINISTIC RELEASE ARCHIVE CONTRACT")
+    print("ROVE DETERMINISTIC RELEASE ARCHIVE CONTRACT")
     print("=" * 70)
-    with tempfile.TemporaryDirectory(prefix="nyx_release_package_") as directory:
+    with tempfile.TemporaryDirectory(prefix="rove_release_package_") as directory:
         base = Path(directory)
         first = base / "first"
         second = base / "second"
@@ -54,13 +54,13 @@ def run_release_packaging_suite() -> bool:
         _package(second)
 
         names = (
-            f"nyx-{TEST_TAG}-universal.zip",
-            f"nyx-{TEST_TAG}-source.tar.gz",
+            f"rove-{TEST_TAG}-universal.zip",
+            f"rove-{TEST_TAG}-source.tar.gz",
         )
         for name in names:
             assert _digest(first / name) == _digest(second / name), name
 
-        prefix = f"nyx-{TEST_TAG}/"
+        prefix = f"rove-{TEST_TAG}/"
         with zipfile.ZipFile(first / names[0]) as archive:
             members = archive.infolist()
             member_names = [member.filename for member in members]
@@ -75,7 +75,7 @@ def run_release_packaging_suite() -> bool:
             member_names = [member.name for member in members]
             assert member_names == sorted(member_names, key=lambda value: value.encode("utf-8"))
             assert all(name.startswith(prefix) and "\\" not in name for name in member_names)
-            assert prefix + "compiler/main.nyx" in member_names
+            assert prefix + "compiler/main.rove" in member_names
             assert prefix + "LICENSE" in member_names
             assert all(member.uid == 0 and member.gid == 0 for member in members)
             assert len({member.mtime for member in members}) == 1

@@ -1,6 +1,6 @@
-# Nyx Changelog
+# Rove Changelog
 
-All notable changes to the Nyx compiler, toolchain, and standard library are documented in this file.
+All notable changes to the Rove compiler, toolchain, and standard library are documented in this file.
 
 ---
 
@@ -35,7 +35,7 @@ All notable changes to the Nyx compiler, toolchain, and standard library are doc
 * Register the experimental native `std/http` module for the C++ target and
   replace shell-interpolated curl commands with bounded, direct process
   execution on Windows and POSIX hosts.
-* Install Nyx editor support from the Unix installer for VS Code, VS Code
+* Install Rove editor support from the Unix installer for VS Code, VS Code
   Insiders, and VSCodium; syntax highlighting remains available even when npm
   is absent, while the installer reports that LSP dependencies are unavailable.
 * Emit extensionless native executables on Linux and macOS instead of applying
@@ -54,7 +54,7 @@ All notable changes to the Nyx compiler, toolchain, and standard library are doc
 
 ### Tour and documentation
 
-* Add the project-driven Core Path and exercise metadata to the Tour of Nyx.
+* Add the project-driven Core Path and exercise metadata to the Tour of Rove.
 * Document the Deep Compiler M9-M24 roadmap, capability-resolution design, and
   the boundary between implemented evidence and future work.
 
@@ -68,19 +68,19 @@ All notable changes to the Nyx compiler, toolchain, and standard library are doc
 
 ### Fixed
 
-* Register foreign-import aliases in the Nyx-authored type checker before
-  checking function bodies, so native `nyxc` accepts C++ namespace imports.
-* Emit `std::nullopt` when a Nyx `null` initializes, assigns, or returns an
+* Register foreign-import aliases in the Rove-authored type checker before
+  checking function bodies, so native `rovec` accepts C++ namespace imports.
+* Emit `std::nullopt` when a Rove `null` initializes, assigns, or returns an
   optional value in the self-hosted C++ backend.
 * Suppress MSVC's legacy `getenv` deprecation diagnostics in generated C++ and
   prefer `npm.cmd`/`npm.exe` when PowerShell execution policy blocks `npm.ps1`.
 * Correct the intentionally failing string assertion in the in-file test
-  example and document the distinction between release `nyxc.exe` and the
-  installer-created `nyx.cmd` wrapper.
+  example and document the distinction between release `rovec.exe` and the
+  installer-created `rove.cmd` wrapper.
 
 ## [5.0.0] - 2026-09-07 (Daydream)
 
-Nyx v5.0.0 promotes the Daydream language and toolchain line to stable while
+Rove v5.0.0 promotes the Daydream language and toolchain line to stable while
 preserving the established C++20, JavaScript, Python, Typed HIR v1, and Bundle
 ABI v1 contracts. The direct LLVM IR and C17 paths ship as experimental
 backends with strict capability rejection; their presence does not imply full
@@ -94,7 +94,7 @@ language or standard-library parity.
   stable parity targets.
 * Ship the direct LLVM IR pipeline and C17 emitter under their existing
   experimental maturity contracts.
-* Preserve Stage1 → Stage2 → Stage3 reproducibility and Python/Nyx canonical
+* Preserve Stage1 → Stage2 → Stage3 reproducibility and Python/Rove canonical
   Typed HIR parity as release gates.
 * Publish platform-native compiler binaries, deterministic source archives,
   VSIX, SHA-256 manifests, SBOM, and provenance only after the tagged workflow
@@ -104,7 +104,7 @@ language or standard-library parity.
 
 ### Experimental LLVM backend
 
-* Add scalar-field Nyx structs to the direct LLVM IR backend as named LLVM
+* Add scalar-field Rove structs to the direct LLVM IR backend as named LLVM
   aggregate types.
 * Pass and return supported structs by value, lower constructors with
   `insertvalue`, lower field reads with `extractvalue`, and lower direct local
@@ -124,13 +124,13 @@ language or standard-library parity.
   iteration supports `break` and routes `continue` through the increment block.
 * Keep Array returns, rebinding, nested arrays, and non-scalar elements
   explicitly gated until the v5 ownership and cleanup ABI is defined.
-* Wire the experimental C17 and LLVM targets into `nyx build` and `nyx run`.
+* Wire the experimental C17 and LLVM targets into `rove build` and `rove run`.
   LLVM builds now preserve the generated `.ll`, compile that exact IR with the
   host Clang toolchain, and produce a native executable without a C++ source hop.
 
 ## [4.5.0] - 2026-09-06 (Ivory)
 
-Nyx v4.5.0 establishes the stable bridge release toward v5, providing standard library
+Rove v4.5.0 establishes the stable bridge release toward v5, providing standard library
 parity, deterministic package management, import invalidation benchmarking, and experimental
 C17 and LLVM IR direct emitters while preserving full v4 backward compatibility.
 Verification evidence and test battery metrics are recorded in
@@ -139,10 +139,10 @@ Verification evidence and test battery metrics are recorded in
 ### Compiler and lowering
 
 * Preserve `int` HIR types for Array/string length methods and specialize
-  built-in Result match payloads in the Python and Nyx HIR lowerers.
+  built-in Result match payloads in the Python and Rove HIR lowerers.
 * Lower string indexing (`string[i]`) and `Iterator<T>` indexing with concrete
-  element types in both Python (`src/ir/lowering.py`) and self-hosted Nyx
-  (`compiler/hir_lowering.nyx`) lowerers, eliminating `any` type loss while
+  element types in both Python (`src/ir/lowering.py`) and self-hosted Rove
+  (`compiler/hir_lowering.rove`) lowerers, eliminating `any` type loss while
   preserving 100% canonical byte parity.
 * Strengthen `IRVerifier` type contracts: reject member access on primitive
   types (`int`, `float`, `bool`, `void`, `null`) with structured diagnostic
@@ -150,8 +150,8 @@ Verification evidence and test battery metrics are recorded in
   type parameter substitution on struct member lookups, and verify string
   and collection element indexing result types.
 * Add experimental C17 scalar emitter (`src/codegen/c17_scalar.py`) consuming
-  verified `IRModule`. Implements 64-bit wrapping integer arithmetic (`nyx_i64_add`,
-  `nyx_i64_sub`, etc.), safe division and modulus (aborting with exit code 1 on zero
+  verified `IRModule`. Implements 64-bit wrapping integer arithmetic (`rove_i64_add`,
+  `rove_i64_sub`, etc.), safe division and modulus (aborting with exit code 1 on zero
   divisor and wrapping `INT64_MIN / -1`), scalar control flow (`if`/`else`, `while`,
   `break`, `continue`), float and boolean logic, and strict rejection of non-scalar
   types with `C17EmissionError`.
@@ -200,7 +200,7 @@ Verification evidence and test battery metrics are recorded in
 * Package Manager (45-PKG): implemented Semantic Versioning range evaluator (`SemVerRange`)
   supporting caret (`^`), tilde (`~`), wildcards, and compound ranges; mock registry protocol;
   offline cache miss and hit handling; SHA-256 package checksum verification; and
-  deterministic lockfile generation and verification (`NyxLock`).
+  deterministic lockfile generation and verification (`RoveLock`).
 * Add the Metrics CLI/JS/Python/WASM example, generated documentation-site
   bundles and checksums, and isolated worker-based learning previews.
 * Rebuild Metrics/Pong artifacts after the WASM lowering correction.
@@ -208,7 +208,7 @@ Verification evidence and test battery metrics are recorded in
   - `examples/file_inspector/`: Native CLI tool consuming `std/path`, `std/process`, and `std/str`.
   - `examples/host_embedding/`: Polyglot data transformer module embedded in both Node.js (WASM ABI v1 package) and Python 3 hosts.
   - `examples/wasm_interactive/`: Interactive WebAssembly arithmetic and combinatorics engine with browser UI.
-  - `examples/package_consumer/`: Real package consumer demonstrating `nyx.toml` local dependencies, deterministic `nyx.lock` verification, and native C++ filesystem foreign bindings.
+  - `examples/package_consumer/`: Real package consumer demonstrating `rove.toml` local dependencies, deterministic `rove.lock` verification, and native C++ filesystem foreign bindings.
 * VS Code Language Toolchain extension: synchronized canonical language surface metadata
   (`vscode-extension/language-surface.json`) including the experimental `"llvm"` target,
   verified with test contract suite.
@@ -250,7 +250,7 @@ Verification evidence and test battery metrics are recorded in
   ABI marshalling with generated TypeScript interfaces.
 * Tightened capability-derived diagnostics for backend features that remain
   unsupported.
-* Expanded Tour of Nyx to 81 verified exercises across 21 modules and removed
+* Expanded Tour of Rove to 81 verified exercises across 21 modules and removed
   retired duplicate lesson files.
 * Closed hosted-backend semantic gaps for Array/Struct value copies and Unicode
   code-point length, indexing, and iteration.
@@ -268,16 +268,16 @@ Verification evidence and test battery metrics are recorded in
 ### Bodhi release candidate
 
 * Added complete `.wat`/`.wasm`/`.mjs`/`.d.ts` output to ordinary WASM builds.
-* Added versioned `nyx_host_v1` imports and the typed `std/web` DOM, event,
+* Added versioned `rove_host_v1` imports and the typed `std/web` DOM, event,
   lifecycle, and Canvas API.
 * Added npm-ready bundle manifests and React 19, Vue 3, and Svelte 5 adapters.
-* Added pure-Nyx browser Pong and host-simulated runtime conformance tests.
+* Added pure-Rove browser Pong and host-simulated runtime conformance tests.
 * Expanded WASM lowering for host/internal calls, booleans, mutable globals,
   numeric arrays, collection loops, built-in `len()` methods, and conditional
   UTF-8 string results.
 * Added recursive deterministic local path dependencies with slash-normalized
   manifests, source checksums, and cycle diagnostics.
-* Made aliases transparently compatible in both the Python and Nyx-authored
+* Made aliases transparently compatible in both the Python and Rove-authored
   type checkers.
 
 ### Validation
@@ -293,12 +293,12 @@ Verification evidence and test battery metrics are recorded in
 * Promoted the compiler-focused v4 line to its first public release candidate,
   **Samsara**. This is an evaluation and soak release; `v4.0.0 Nirvana` remains
   the future stable milestone.
-* Completed default-argument lowering in both frontends and the Nyx-authored
+* Completed default-argument lowering in both frontends and the Rove-authored
   HIR path, including omitted trailing arguments and required-argument
   diagnostics.
 * Added flat array and struct destructuring declarations with single RHS
   evaluation, checked cardinality diagnostics, const preservation, and exact
-  Python/Nyx HIR parity.
+  Python/Rove HIR parity.
 * Hardened destructuring lowering against user-identifier collisions and made
   top-level bounds failures deterministic across C++, JavaScript, and Python.
 * Expanded typed standard-library, collection, fallible-result, and foreign
@@ -326,7 +326,7 @@ Verification evidence and test battery metrics are recorded in
 * Removed the physical hardware standard-library surface: `std/board`,
   `std/gpio`, `std/adc`, `std/pwm`, `std/spi`, `std/i2c`, `std/serial`,
   `std/timer`, `std/interrupt`, and `std/mmio`.
-* Removed embedded-only language residue from both Python and Nyx-authored
+* Removed embedded-only language residue from both Python and Rove-authored
   frontends: `volatile`, `interrupt`, `critical`, `Buffer<T, N>`, and
   `buffer_ptr`. The canonical surface is now 43 keywords.
 * Removed obsolete hardware fixtures, editor snippets/completions, documentation,
@@ -335,7 +335,7 @@ Verification evidence and test battery metrics are recorded in
 
 ### Why
 
-Nyx was trying to maintain a language, seven application backends, self-hosting,
+Rove was trying to maintain a language, seven application backends, self-hosting,
 IDE tooling, and a broad physical-board platform simultaneously. The firmware
 layer was larger than the project could support without weakening compiler
 correctness. Dev.2 deliberately narrows v4 toward the compiler itself: typed HIR,
@@ -345,7 +345,7 @@ a target-neutral language RFC.
 
 ### Validation
 
-* Python/Nyx frontend and 184-case canonical HIR byte parity passed.
+* Python/Rove frontend and 184-case canonical HIR byte parity passed.
 * 530 fuzz cases completed with zero unhandled compiler crashes.
 * Python, JavaScript, C++20, and Rust backend conformance passed.
 * VS Code/LSP, installer, FFI, SDK, interop, and clean-environment smoke suites passed.
@@ -355,15 +355,15 @@ a target-neutral language RFC.
 
 ### Compiler architecture
 
-* Nyx-authored lexer, parser, type checker, typed-HIR lowerer, and HIR C++
+* Rove-authored lexer, parser, type checker, typed-HIR lowerer, and HIR C++
   emitter now form a reproducible native stage1 -> stage2 bootstrap.
 * `cpp`, `js`, `python`, `rust`, and `wasm` consume canonical verified HIR;
   non-HIR targets retain beta or experimental status.
-* The Rust 2021 emitter now preserves Nyx value semantics, strict Boolean
+* The Rust 2021 emitter now preserves Rove value semantics, strict Boolean
   boundaries, Option/Result lowering, lexical `defer`, and wrapping i64 code
   directly from HIR. Unsupported Task, exception, spawn, and channel semantics
   fail with `E3001`; beta status remains until runtime and Gate 8 evidence.
-* Native-first installers provide `nyxc check`, `emit-cpp`, and `compile`
+* Native-first installers provide `rovec check`, `emit-cpp`, and `compile`
   without a Python runtime.
 
 ### Frozen v4 semantics
@@ -381,7 +381,7 @@ a target-neutral language RFC.
 * Embedded-only `Buffer<T, N>` adds allocation-free fixed storage, checked
   capacities/indexes, and pointer-length bulk-I/O interop without native code.
 * Maya adds expression-bodied functions plus value-producing `if` and
-  exhaustive literal `match` expressions. The Python and Nyx-authored
+  exhaustive literal `match` expressions. The Python and Rove-authored
   frontends produce byte-identical HIR, and declared backends share the same
   branch typing and lazy evaluation rules.
 
@@ -417,7 +417,7 @@ a target-neutral language RFC.
 * Formatting is string/comment-safe and idempotent; profiling measures an
   actual compile+run instead of printing synthetic routines; the source
   inspector no longer invents runtime variables or memory.
-* Package commands mutate and verify `nyx.toml`/`nyx.lock` with explicit
+* Package commands mutate and verify `rove.toml`/`rove.lock` with explicit
   versions. RC1 intentionally exposes no remote registry fetch and says so.
 
 ## [2.0.0-beta.1] - 2026-08-28 (Beta 1 Public Release)
@@ -437,13 +437,13 @@ a target-neutral language RFC.
 * **Diagnostics v2 Standard**:
   * Rustc-style visual errors with dynamic span carets (`^^^^`), error catalog codes (`E1000` to `E2006`), `searched paths:`, `note:`, and actionable `help:`.
 * **Standard Library Expansion (`src/stdlib/`)**:
-  * `std/math.nyx` (`abs_val`, `max_val`, `min_val`, `power`, `clamp`, `gcd`, `sign`).
-  * `std/str.nyx` (`is_empty_str`, `concat_three`, `wrap_with`, `contains_substring`).
-  * `std/io.nyx` (`println_str`, `println_int`, `println_bool`, `prompt_input`).
-  * `std/fs.nyx` (`join_paths`, `file_extension`, `is_source_file`).
+  * `std/math.rove` (`abs_val`, `max_val`, `min_val`, `power`, `clamp`, `gcd`, `sign`).
+  * `std/str.rove` (`is_empty_str`, `concat_three`, `wrap_with`, `contains_substring`).
+  * `std/io.rove` (`println_str`, `println_int`, `println_bool`, `prompt_input`).
+  * `std/fs.rove` (`join_paths`, `file_extension`, `is_source_file`).
 * **Toolchain & Release Engineering**:
-  * `nyx new`, `nyx init`, `nyx check`, `nyx build`, `nyx run`, `nyx test`, `nyx clean`, `nyx doctor`, `nyx lsp`.
-  * `nyx.toml` project manifest and deterministic `nyx.lock` SHA256 locking.
+  * `rove new`, `rove init`, `rove check`, `rove build`, `rove run`, `rove test`, `rove clean`, `rove doctor`, `rove lsp`.
+  * `rove.toml` project manifest and deterministic `rove.lock` SHA256 locking.
   * Language Server Protocol v2 with autocomplete, hover signatures, and go-to-definition.
 * **Test Verification**:
   * 138/138 Regression Battery (100%).

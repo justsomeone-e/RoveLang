@@ -119,9 +119,9 @@ def run_rust_e2e_tests():
         print("\033[93m[!] WARNING: rustc compiler not found on system.\033[0m")
         print("    Verifying Rust code generation syntax only...")
         for name, code, expected in RUST_CONFORMANCE_CASES:
-            tokens = Lexer(code, f"{name}.nyx").tokenize()
-            ast = Parser(tokens, code, f"{name}.nyx").parse()
-            TypeChecker(ast, f"{name}.nyx", code).check()
+            tokens = Lexer(code, f"{name}.rove").tokenize()
+            ast = Parser(tokens, code, f"{name}.rove").parse()
+            TypeChecker(ast, f"{name}.rove", code).check()
             rs = UniversalCodeGen(ast).gen_rust()
             assert "fn main()" in rs
             print(f"  [PASS (Codegen)] {name}")
@@ -135,9 +135,9 @@ def run_rust_e2e_tests():
 
     try:
         for name, code, expected_out in RUST_CONFORMANCE_CASES:
-            tokens = Lexer(code, f"{name}.nyx").tokenize()
-            ast = Parser(tokens, code, f"{name}.nyx").parse()
-            TypeChecker(ast, f"{name}.nyx", code).check()
+            tokens = Lexer(code, f"{name}.rove").tokenize()
+            ast = Parser(tokens, code, f"{name}.rove").parse()
+            TypeChecker(ast, f"{name}.rove", code).check()
             
             rs_code = UniversalCodeGen(ast).gen_rust()
             rs_file = os.path.join(temp_dir, f"{name}.rs")

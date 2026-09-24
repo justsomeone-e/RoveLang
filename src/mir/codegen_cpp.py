@@ -39,6 +39,7 @@ from .model import (
     ReturnTerminator,
     StorageDeadStatement,
     StorageLiveStatement,
+    SuspendTerminator,
     SwitchIntTerminator,
     SwitchValueTerminator,
     ThrowTerminator,
@@ -92,15 +93,19 @@ class _CppEmitter:
         declarations = [self._prototype(function) + ";" for function in self.module.functions]
         definitions = [self._function(function) for function in self.module.functions]
         parts = [
-            "// Experimental Nyx legalized MIR -> C++20 output.",
+            "// Experimental Rove legalized MIR -> C++20 output.",
             "// The production Typed HIR C++ backend remains the parity oracle.",
             "#include <any>",
             "#include <bit>",
             "#include <cmath>",
             "#include <cstddef>",
             "#include <cstdint>",
+            "#include <exception>",
+            "#include <functional>",
             "#include <iostream>",
             "#include <limits>",
+            "#include <charconv>",
+            "#include <memory>",
             "#include <optional>",
             "#include <sstream>",
             "#include <stdexcept>",
@@ -124,6 +129,70 @@ class _CppEmitter:
         return """namespace nyx_mir_runtime {
 struct user_throw {
     std::string value;
+};
+
+template <typename Value>
+class task {
+    struct state {
+        std::function<Value()> run;
+        std::optional<Value> value;
+        std::exception_ptr error;
+        bool done = false;
+    };
+    std::shared_ptr<state> state_;
+
+public:
+    task() : state_(std::make_shared<state>()) {}
+    explicit task(std::function<Value()> run) : state_(std::make_shared<state>()) {
+        state_->run = std::move(run);
+    }
+
+    Value await_result() const {
+        if (!state_->done) {
+            if (!state_->run) throw std::runtime_error("attempted to await an uninitialized Rove task");
+            auto run = std::move(state_->run);
+            state_->run = {};
+            try {
+                state_->value = run();
+            } catch (...) {
+                state_->error = std::current_exception();
+            }
+            state_->done = true;
+        }
+        if (state_->error) std::rethrow_exception(state_->error);
+        return *state_->value;
+    }
+};
+
+template <>
+class task<void> {
+    struct state {
+        std::function<void()> run;
+        std::exception_ptr error;
+        bool done = false;
+    };
+    std::shared_ptr<state> state_;
+
+public:
+    task() : state_(std::make_shared<state>()) {}
+    explicit task(std::function<void()> run) : state_(std::make_shared<state>()) {
+        state_->run = std::move(run);
+    }
+
+    void await_result() const {
+        if (!state_->done) {
+            if (!state_->run) throw std::runtime_error("attempted to await an uninitialized Rove task");
+            auto run = std::move(state_->run);
+            state_->run = {};
+            try {
+                run();
+            } catch (...) {
+                state_->error = std::current_exception();
+            }
+            state_->done = true;
+        }
+        if (state_->error) std::rethrow_exception(state_->error);
+    }
 };
 
 inline std::int64_t from_bits(std::uint64_t value) {
@@ -174,18 +243,77 @@ const Value& index(const std::vector<Value>& values, std::int64_t position) {
 }
 inline std::string to_string(const std::string& value) { return value; }
 inline std::string to_string(bool value) { return value ? "true" : "false"; }
-inline std::string to_string(double value) {
+
+inline std::string rove_f64_to_string(double value) {
     if (std::isnan(value)) return "nan";
-    if (std::isinf(value)) return value > 0 ? "inf" : "-inf";
+    if (std::isinf(value)) return std::signbit(value) ? "-inf" : "inf";
     if (value == 0.0) return "0";
-    std::ostringstream stream;
-    stream << value;
-    return stream.str();
+    char buffer[128];
+    const auto converted = std::to_chars(
+        buffer, buffer + sizeof(buffer), value, std::chars_format::general
+    );
+    if (converted.ec != std::errc{})
+        throw std::runtime_error("Rove float formatting failed");
+    std::string text(buffer, converted.ptr);
+    const bool negative = text.front() == '-';
+    if (negative) text.erase(text.begin());
+    const auto marker = text.find_first_of("eE");
+    std::string digits = text.substr(0, marker);
+    const int exponent = marker == std::string::npos ? 0 : std::stoi(text.substr(marker + 1));
+    const auto dot = digits.find('.');
+    int decimal = static_cast<int>(dot == std::string::npos ? digits.size() : dot) + exponent;
+    if (dot != std::string::npos) digits.erase(dot, 1);
+    const auto first = digits.find_first_not_of('0');
+    decimal -= static_cast<int>(first);
+    digits.erase(0, first);
+    while (digits.size() > 1 && digits.back() == '0') digits.pop_back();
+    std::string result;
+    if (decimal > -6 && decimal <= 21) {
+        if (decimal <= 0) {
+            result = "0." + std::string(static_cast<std::size_t>(-decimal), '0') + digits;
+        } else if (static_cast<std::size_t>(decimal) >= digits.size()) {
+            result = digits + std::string(static_cast<std::size_t>(decimal) - digits.size(), '0');
+        } else {
+            result = digits.substr(0, decimal) + "." + digits.substr(decimal);
+        }
+    } else {
+        result = digits.substr(0, 1);
+        if (digits.size() > 1) result += "." + digits.substr(1);
+        result += "e";
+        if (decimal > 0) result += "+";
+        result += std::to_string(decimal - 1);
+    }
+    return (negative ? "-" : "") + result;
+}
+
+inline void rove_print_value(std::ostream& output, double value) {
+    output << rove_f64_to_string(value);
+}
+template <typename Value>
+void rove_print_value(std::ostream& output, const Value& value);
+template <typename Value>
+void rove_print_value(std::ostream& output, const std::vector<Value>& values);
+template <typename Value>
+void rove_print_value(std::ostream& output, const Value& value) {
+    if constexpr (requires { output << value; }) {
+        output << value;
+    } else {
+        throw std::runtime_error("unsupported Rove display value");
+    }
+}
+template <typename Value>
+void rove_print_value(std::ostream& output, const std::vector<Value>& values) {
+    output << '[';
+    for (std::size_t index = 0; index < values.size(); ++index) {
+        if (index) output << ", ";
+        rove_print_value(output, values[index]);
+    }
+    output << ']';
 }
 template <typename Value>
 std::string to_string(const Value& value) {
     std::ostringstream stream;
-    stream << value;
+    rove_print_value(stream, value);
     return stream.str();
 }
 inline void print_one(bool& first, double value) {
@@ -197,7 +325,7 @@ template <typename Value>
 void print_one(bool& first, const Value& value) {
     if (!first) std::cout << ' ';
     first = false;
-    std::cout << value;
+    rove_print_value(std::cout, value);
 }
 template <typename... Values>
 void print(const Values&... values) {
@@ -215,19 +343,7 @@ void print(const Values&... values) {
             "    std::string tag;\n"
             "    std::vector<std::any> payload;\n"
             "};",
-            "inline std::ostream& operator<<(std::ostream& output, const nyx_tagged_value& value) {\n"
-            "    output << value.tag << '(';\n"
-            "    for (std::size_t index = 0; index < value.payload.size(); ++index) {\n"
-            "        if (index) output << \", \";\n"
-            "        const auto& item = value.payload[index];\n"
-            "        if (item.type() == typeid(std::int64_t)) output << std::any_cast<std::int64_t>(item);\n"
-            "        else if (item.type() == typeid(double)) output << std::any_cast<double>(item);\n"
-            "        else if (item.type() == typeid(bool)) output << std::boolalpha << std::any_cast<bool>(item);\n"
-            "        else if (item.type() == typeid(std::string)) output << std::any_cast<const std::string&>(item);\n"
-            "        else output << \"<payload>\";\n"
-            "    }\n"
-            "    return output << ')';\n"
-            "}",
+            "std::ostream& operator<<(std::ostream& output, const nyx_tagged_value& value);",
         ]
         for definition in self.enums.values():
             definitions.append(
@@ -239,13 +355,92 @@ void print(const Values&... values) {
                 lines.append(f"    {self._type(field.type)} {_identifier(field.name)}{{}};")
             lines.append("};")
             definitions.append("\n".join(lines))
+        for definition in self.structs.values():
+            name = f"nyx_type_{_identifier(definition.name)}"
+            definitions.append(
+                f"std::ostream& operator<<(std::ostream& output, const {name}& value);"
+            )
+        for definition in self.structs.values():
+            name = f"nyx_type_{_identifier(definition.name)}"
+            lines = [
+                f"inline std::ostream& operator<<(std::ostream& output, const {name}& value) {{",
+                f"    output << {json.dumps(definition.name + '(')};",
+            ]
+            for index, field in enumerate(definition.fields):
+                if index:
+                    lines.append('    output << ", ";')
+                lines.append(
+                    f"    nyx_mir_runtime::rove_print_value(output, value.{_identifier(field.name)});"
+                )
+            lines.extend(("    return output << ')';", "}"))
+            definitions.append("\n".join(lines))
+        payload_types = [
+            "std::int64_t", "double", "bool", "std::string", "nyx_tagged_value",
+            *(f"nyx_type_{_identifier(name)}" for name in self.structs),
+            *(self._type(value) for value in self._display_array_types()),
+        ]
+        payload_lines = [
+            "inline void rove_print_payload(std::ostream& output, const std::any& item) {"
+        ]
+        for value_type in dict.fromkeys(payload_types):
+            payload_lines.extend((
+                f"    if (item.type() == typeid({value_type})) {{",
+                "        nyx_mir_runtime::rove_print_value("
+                f"output, std::any_cast<const {value_type}&>(item));",
+                "        return;",
+                "    }",
+            ))
+        payload_lines.extend((
+            '    throw std::runtime_error("unsupported Rove tagged display payload");',
+            "}",
+        ))
+        definitions.append("\n".join(payload_lines))
+        definitions.append(
+            "inline std::ostream& operator<<(std::ostream& output, const nyx_tagged_value& value) {\n"
+            "    output << value.tag << '(';\n"
+            "    for (std::size_t index = 0; index < value.payload.size(); ++index) {\n"
+            "        if (index) output << \", \";\n"
+            "        rove_print_payload(output, value.payload[index]);\n"
+            "    }\n"
+            "    return output << ')';\n"
+            "}"
+        )
         return definitions
+
+    def _display_array_types(self) -> tuple[MIRType, ...]:
+        found: dict[str, MIRType] = {}
+
+        def visit(value_type: MIRType) -> None:
+            key = value_type.canonical()
+            if key in found:
+                return
+            found[key] = value_type
+            for argument in value_type.arguments:
+                visit(argument)
+
+        for definition in self.module.type_definitions:
+            if isinstance(definition, MIRStructDef):
+                for field in definition.fields:
+                    visit(field.type)
+            elif isinstance(definition, MIREnumDef):
+                for variant in definition.variants:
+                    for payload in variant.payload_types:
+                        visit(payload)
+        for function in self.module.functions:
+            for local in function.locals:
+                visit(local.type)
+        return tuple(
+            found[key] for key in sorted(found)
+            if found[key].name == "Array" and len(found[key].arguments) == 1
+        )
 
     def _entry_point(self) -> str:
         by_name = {function.name: function for function in self.module.functions}
         entry = by_name.get("main") or by_name.get("__nyx_top_level")
         if entry is None:
             return "int main() { return 0; }"
+        if entry.is_async:
+            return f"int main() {{ {self.function_names[entry.symbol]}().await_result(); return 0; }}"
         return f"int main() {{ {self.function_names[entry.symbol]}(); return 0; }}"
 
     def _prototype(self, function: MIRFunction) -> str:
@@ -256,12 +451,15 @@ void print(const Values&... values) {
         )
         return_type = function.locals[function.return_local].type
         rendered_return = "void" if function.name == "main" and return_type.name == "any" else self._type(return_type)
+        if function.is_async:
+            rendered_return = f"nyx_mir_runtime::task<{rendered_return}>"
         return f"static {rendered_return} {name}({parameters})"
 
     def _function(self, function: MIRFunction) -> str:
         self.current = function
         self.local_types = {local.id: local.type for local in function.locals}
-        lines = [self._prototype(function) + " {"]
+        signature = self._prototype(function) + " {"
+        lines: list[str] = []
         parameter_ids = set(function.parameters)
         for local in function.locals:
             if local.id in parameter_ids or local.type.name in ("void", "any"):
@@ -276,10 +474,20 @@ void print(const Values&... values) {
             for statement in block.statements:
                 lines.extend(self._statement(statement))
             lines.extend(self._terminator(block.terminator))
-        lines.append("}")
+        if function.is_async:
+            return_type = function.locals[function.return_local].type
+            body_return = "void" if function.name == "main" and return_type.name == "any" else self._type(return_type)
+            rendered_lines = [
+                signature,
+                f"    return nyx_mir_runtime::task<{body_return}>([=]() mutable -> {body_return} {{",
+            ]
+            rendered_lines.extend(f"    {line}" for line in lines)
+            rendered_lines.extend(("    });", "}"))
+        else:
+            rendered_lines = [signature, *lines, "}"]
         self.current = None
         self.local_types = {}
-        return "\n".join(lines)
+        return "\n".join(rendered_lines)
 
     def _statement(self, statement: object) -> list[str]:
         if isinstance(statement, AssignStatement):
@@ -375,6 +583,25 @@ void print(const Values&... values) {
                 ))
                 return wrapped
             lines.append(f"    goto bb{terminator.target};")
+            return lines
+        if isinstance(terminator, SuspendTerminator):
+            task = self._operand(terminator.task)
+            destination_type = self._place_type(terminator.destination)
+            awaited = f"{task}.await_result()"
+            assignment = (
+                f"    {awaited};"
+                if destination_type.name in ("void", "any")
+                else f"    {self._place(terminator.destination)} = {awaited};"
+            )
+            lines = [assignment]
+            if terminator.unwind is not None:
+                if terminator.error_destination is None:
+                    raise MIRCodegenError("C++ MIR suspend unwind requires an error destination")
+                lines = ["    try {", f"    {assignment}",
+                         "    } catch (const nyx_mir_runtime::user_throw& thrown) {",
+                         f"        {self._place(terminator.error_destination)} = thrown.value;",
+                         f"        goto bb{terminator.unwind};", "    }"]
+            lines.append(f"    goto bb{terminator.resume};")
             return lines
         if isinstance(terminator, AssertTerminator):
             expected = "true" if terminator.expected else "false"
@@ -607,6 +834,8 @@ void print(const Values&... values) {
             return f"std::optional<{_CppEmitter._type(replace(value, optional=False))}>"
         if value.name == "Array" and len(value.arguments) == 1:
             return f"std::vector<{_CppEmitter._type(value.arguments[0])}>"
+        if value.name == "Task" and len(value.arguments) == 1:
+            return f"nyx_mir_runtime::task<{_CppEmitter._type(value.arguments[0])}>"
         if value.name in ("Option", "Result") and value.arguments:
             return "nyx_tagged_value"
         if value.name == "void":

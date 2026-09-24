@@ -8,20 +8,22 @@ import tempfile
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLI_PATH = os.path.join(ROOT_DIR, "src", "cli.py")
-PARITY_SOURCE = os.path.join(ROOT_DIR, "tests", "test_parity_matrix.nyx")
+PARITY_SOURCE = os.path.join(ROOT_DIR, "tests", "test_parity_matrix.rove")
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
 from src.core.backend_capabilities import (
     BACKENDS,
     CAPABILITY_SCHEMA_VERSION,
+    get_stdlib_contract,
     normalize_backend_name,
     resolve_backend,
+    stdlib_module_from_import,
     stdlib_modules_for_target,
 )
 from src.core.diagnostics import DiagnosticEmitter, DiagnosticError
 from src.core.module_loader import ModuleLoader
-from src.api import NyxCompiler
+from src.api import RoveCompiler
 
 
 def _write(path: str, source: str) -> None:
@@ -31,7 +33,7 @@ def _write(path: str, source: str) -> None:
 
 def run_capability_suite() -> bool:
     print("=" * 70)
-    print("NYX BACKEND / STDLIB CAPABILITY CONTRACT")
+    print("ROVE BACKEND / STDLIB CAPABILITY CONTRACT")
     print("=" * 70)
 
     assert normalize_backend_name("python") == "python"
@@ -57,10 +59,14 @@ def run_capability_suite() -> bool:
     } <= BACKENDS["wasm"].features
     assert "web" in stdlib_modules_for_target("wasm")
     assert "web" not in stdlib_modules_for_target("cpp")
+    assert get_stdlib_contract("web.rove") == get_stdlib_contract("web")
+    assert get_stdlib_contract("web.nyx") == get_stdlib_contract("web")
+    assert stdlib_module_from_import("std/web.rove") == "web"
+    assert stdlib_module_from_import("std/web.nyx") == "web"
     assert "http" in stdlib_modules_for_target("cpp")
     assert "http" not in stdlib_modules_for_target("js")
 
-    http_source_path = os.path.join(ROOT_DIR, "src", "stdlib", "http.nyx")
+    http_source_path = os.path.join(ROOT_DIR, "src", "stdlib", "http.rove")
     with open(http_source_path, "r", encoding="utf-8") as handle:
         http_source = handle.read()
     assert "popen(" not in http_source and "_popen(" not in http_source
@@ -86,10 +92,10 @@ def run_capability_suite() -> bool:
         "fn run() -> Result<int, string> { let value = read()?; return Ok(value) }\n"
     )
     for target in ("asm", "wasm", "react"):
-        rejected = NyxCompiler(ROOT_DIR).compile_source(
+        rejected = RoveCompiler(ROOT_DIR).compile_source(
             propagated,
             target=target,
-            filename=f"capability-{target}.nyx",
+            filename=f"capability-{target}.rove",
         )
         assert not rejected.success, f"{target} silently accepted unsupported Result propagation"
         assert rejected.diagnostics and rejected.diagnostics[0].code == "E3001"
@@ -98,23 +104,23 @@ def run_capability_suite() -> bool:
     previous_exit_mode = DiagnosticEmitter.EXIT_ON_ERROR
     DiagnosticEmitter.EXIT_ON_ERROR = False
     try:
-        with tempfile.TemporaryDirectory(prefix="nyx_capability_") as temp_dir:
-            js_source = os.path.join(temp_dir, "js_ok.nyx")
+        with tempfile.TemporaryDirectory(prefix="rove_capability_") as temp_dir:
+            js_source = os.path.join(temp_dir, "js_ok.rove")
             _write(js_source, '#target js\nimport "std/fs"\nfn main() {}\n')
             js_ast = ModuleLoader(base_dir=temp_dir).load_program(js_source)
             assert js_ast.target == "js"
 
-            llvm_source = os.path.join(temp_dir, "llvm_ok.nyx")
+            llvm_source = os.path.join(temp_dir, "llvm_ok.rove")
             _write(llvm_source, '#target llvm\nfn answer() -> int { return 42 }\n')
             llvm_ast = ModuleLoader(base_dir=temp_dir).load_program(llvm_source)
             assert llvm_ast.target == "llvm"
-            llvm_result = NyxCompiler(temp_dir).compile_file(llvm_source)
+            llvm_result = RoveCompiler(temp_dir).compile_file(llvm_source)
             assert llvm_result.success, llvm_result.diagnostics
             assert llvm_result.target == "llvm"
             assert llvm_result.artifact is not None
             assert llvm_result.artifact.extension == ".ll"
 
-            wrong_web_source = os.path.join(temp_dir, "wrong_web_target.nyx")
+            wrong_web_source = os.path.join(temp_dir, "wrong_web_target.rove")
             _write(wrong_web_source, '#target cpp\nimport "std/web"\nfn main() {}\n')
             try:
                 ModuleLoader(base_dir=temp_dir).load_program(wrong_web_source)
@@ -122,12 +128,12 @@ def run_capability_suite() -> bool:
             except DiagnosticError as error:
                 assert error.code == "E1400"
 
-            native_http_source = os.path.join(temp_dir, "native_http_ok.nyx")
+            native_http_source = os.path.join(temp_dir, "native_http_ok.rove")
             _write(native_http_source, '#target cpp\nimport "std/http"\nfn main() {}\n')
             native_http_ast = ModuleLoader(base_dir=temp_dir).load_program(native_http_source)
             assert native_http_ast.target == "cpp"
 
-            portable_str = os.path.join(temp_dir, "portable_str.nyx")
+            portable_str = os.path.join(temp_dir, "portable_str.rove")
             _write(
                 portable_str,
                 'import "std/str"\n'
@@ -186,7 +192,7 @@ def run_capability_suite() -> bool:
                 assert "[FAIL]" not in parity_output, f"stdlib parity failed for {target}: {parity_output}"
                 assert "[SUCCESS] All 6 Stdlib Modules" in parity_output
 
-            rust_source = os.path.join(temp_dir, "rust_reject.nyx")
+            rust_source = os.path.join(temp_dir, "rust_reject.rove")
             _write(rust_source, '#target rust\nimport "std/fs"\nfn main() {}\n')
             try:
                 ModuleLoader(base_dir=temp_dir).load_program(rust_source)
@@ -194,7 +200,7 @@ def run_capability_suite() -> bool:
             except DiagnosticError as error:
                 assert error.code == "E1400"
 
-            unknown_source = os.path.join(temp_dir, "unknown_target.nyx")
+            unknown_source = os.path.join(temp_dir, "unknown_target.rove")
             _write(unknown_source, '#target moonvm\nfn main() {}\n')
             try:
                 ModuleLoader(base_dir=temp_dir).load_program(unknown_source)

@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.api import NyxCompiler
+from src.api import RoveCompiler
 from src.mir import (
     AssignStatement,
     ConstOperand,
@@ -38,7 +38,7 @@ from src.mir import (
 
 
 def _valid_module() -> MIRModule:
-    span = MIRSpan("example.nyx", 1, 1)
+    span = MIRSpan("example.rove", 1, 1)
     int_type = MIRType("int")
     builder = MIRFunctionBuilder("identity", "module::fn::identity", int_type, span)
     parameter = builder.new_local("value", int_type, "parameter")
@@ -53,7 +53,7 @@ def _valid_module() -> MIRModule:
     builder.set_terminator(exit_block, ReturnTerminator(span))
     function = builder.finish()
     assert function.parameters == (parameter,)
-    return MIRModule("example.nyx", "cpp", (function,))
+    return MIRModule("example.rove", "cpp", (function,))
 
 
 class _IdentityPass:
@@ -78,7 +78,7 @@ class _PreservingIdentityPass:
 
 def run_mir_suite() -> bool:
     print("=" * 70)
-    print("NYX M1 EXPERIMENTAL MIR CONTRACT")
+    print("ROVE M1 EXPERIMENTAL MIR CONTRACT")
     print("=" * 70)
 
     module = _valid_module()
@@ -158,13 +158,17 @@ def run_mir_suite() -> bool:
     )
     assert "MIR0100" in {issue.code for issue in collect_mir_issues(duplicate_local)}
 
-    effect_source = NyxCompiler(str(ROOT)).check_source(
+    effect_source = RoveCompiler(str(ROOT)).check_source(
         "fn pure_value() -> int { return 1 }\n"
         "fn allocate() -> int { var values = [1, 2]; return len(values) }\n"
+        "struct Owned { values: Array<int> }\n"
+        "fn copy_array(values: Array<int>) -> int { var copied = values; return len(copied) }\n"
+        "fn copy_owned(value: Owned) -> int { var copied = value; return len(copied.values) }\n"
+        "fn copy_text(value: string) -> int { var copied = value; return len(copied) }\n"
         "fn emit() { print(\"nyx\") }\n"
         "fn caller() { emit() }\n"
         "async fn pending() {}\n",
-        filename="effects.nyx",
+        filename="effects.rove",
         target="cpp",
     )
     assert effect_source.success and effect_source.hir is not None
@@ -173,6 +177,9 @@ def run_mir_suite() -> bool:
     assert effects == {
         "pure_value": ("pure",),
         "allocate": ("may_allocate",),
+        "copy_array": ("may_allocate",),
+        "copy_owned": ("may_allocate",),
+        "copy_text": ("may_allocate",),
         "emit": ("io",),
         "caller": ("io",),
         "pending": ("may_suspend",),
@@ -184,9 +191,9 @@ def run_mir_suite() -> bool:
     )
     assert "MIR0111" in {issue.code for issue in collect_mir_issues(bad_effects)}
 
-    empty = NyxCompiler(str(ROOT)).check_source(
+    empty = RoveCompiler(str(ROOT)).check_source(
         "fn empty() {}\n",
-        filename="empty.nyx",
+        filename="empty.rove",
         target="cpp",
     )
     assert empty.success and empty.hir is not None
@@ -196,9 +203,9 @@ def run_mir_suite() -> bool:
         skeleton.functions[0].span
     )
 
-    executable = NyxCompiler(str(ROOT)).check_source(
+    executable = RoveCompiler(str(ROOT)).check_source(
         'fn main() { print("M2") }\n',
-        filename="m2-required.nyx",
+        filename="m2-required.rove",
         target="cpp",
     )
     assert executable.success and executable.hir is not None
@@ -208,7 +215,7 @@ def run_mir_suite() -> bool:
     except MIRLoweringError as error:
         assert "requires M2 lowering" in str(error)
 
-    span = MIRSpan("builder.nyx", 1, 1)
+    span = MIRSpan("builder.rove", 1, 1)
     incomplete = MIRFunctionBuilder("bad", "bad", MIRType("void"), span)
     incomplete.new_block()
     try:
@@ -217,8 +224,8 @@ def run_mir_suite() -> bool:
     except ValueError as error:
         assert "exactly one terminator" in str(error)
 
-    with tempfile.TemporaryDirectory(prefix="nyx_mir_cli_") as directory:
-        source_path = Path(directory, "empty.nyx")
+    with tempfile.TemporaryDirectory(prefix="rove_mir_cli_") as directory:
+        source_path = Path(directory, "empty.rove")
         json_path = Path(directory, "empty.mir.json")
         source_path.write_text("fn empty() {}\n", encoding="utf-8")
         emitted = subprocess.run(

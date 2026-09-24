@@ -1,15 +1,15 @@
-# GitHub Linguist map for the Nyx toolchain
-# Paths are relative to this file.  Nyx is not yet a built-in Linguist
-# language, so .nyx keeps C++ highlighting while remaining out of the C++
+# GitHub Linguist map for the Rove toolchain
+# Paths are relative to this file. Rove is not yet a built-in Linguist
+# language, so .rove keeps C++ highlighting while remaining out of the C++
 # language percentage.  The real implementation languages stay detectable.
 
-# Nyx source extension
-*.nyx linguist-language=Nix
-*.nyx linguist-detectable=true
-*.nyx linguist-vendored=false
-repo/**/*.nyx linguist-language=Nix
-repo/**/*.nyx linguist-detectable=true
-repo/**/*.nyx linguist-vendored=false
+# Rove source extension
+*.rove linguist-language=Nix
+*.rove linguist-detectable=true
+*.rove linguist-vendored=false
+repo/**/*.rove linguist-language=Nix
+repo/**/*.rove linguist-detectable=true
+repo/**/*.rove linguist-vendored=false
 
 # Compiler, tooling, and backend sources
 *.py linguist-language=Python -linguist-vendored

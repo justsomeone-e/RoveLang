@@ -18,6 +18,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 CORPUS = ROOT / "tests/fixtures/compiler_benchmark.json"
+MIR_CORPUS = ROOT / "tests/fixtures/compiler_mir_benchmark.json"
 
 
 def peak_rss():
@@ -53,7 +54,7 @@ def measure(source_path: Path, target: str, repetitions: int):
     from src.core.parser import Parser
 
     source = source_path.read_text(encoding="utf-8")
-    compiler = api.NyxCompiler(str(source_path.parent))
+    compiler = api.RoveCompiler(str(source_path.parent))
 
     def compile_once():
         result = compiler.compile_source(source, filename=str(source_path), target=target)
@@ -78,7 +79,7 @@ def measure(source_path: Path, target: str, repetitions: int):
         hooks = ((Lexer, "tokenize", "lexer"), (Parser, "parse", "parser"),
                  (api.TypeChecker, "check", "type_checker"), (api, "lower_to_hir", "hir_lowering"),
                  (api, "verify_hir", "hir_verify"), (api, "optimize_hir", "hir_passes"),
-                 (api.NyxCompiler, "_emit", "codegen"))
+                 (api.RoveCompiler, "_emit", "codegen"))
         with ExitStack() as stack:
             for owner, name, stage in hooks:
                 wrapper = timed(stage, getattr(owner, name))
@@ -111,7 +112,7 @@ def measure_mir(source_path: Path, target: str, repetitions: int):
     from src.mir import fingerprint, legalize_mir, lower_hir_to_mir, verify_mir
 
     source = source_path.read_text(encoding="utf-8")
-    compiler = api.NyxCompiler(str(source_path.parent))
+    compiler = api.RoveCompiler(str(source_path.parent))
     checked = compiler.check_source(source, filename=str(source_path), target=target)
     if not checked.success or checked.hir is None:
         raise RuntimeError(str(checked.diagnostics))
@@ -159,13 +160,13 @@ def measure_mir(source_path: Path, target: str, repetitions: int):
 
 def measure_invalidation(corpus_dir: Path, repetitions: int) -> dict:
     from src import api
-    main_file = corpus_dir / "main.nyx"
-    leaf_file = corpus_dir / "core_types.nyx"
+    main_file = corpus_dir / "main.rove"
+    leaf_file = corpus_dir / "core_types.rove"
     leaf_content = leaf_file.read_text(encoding="utf-8")
 
     cold_times = []
     for _ in range(repetitions):
-        compiler = api.NyxCompiler(str(corpus_dir))
+        compiler = api.RoveCompiler(str(corpus_dir))
         start = time.perf_counter_ns()
         res = compiler.compile_file(str(main_file), target="cpp")
         elapsed = (time.perf_counter_ns() - start) / 1e6
@@ -174,7 +175,7 @@ def measure_invalidation(corpus_dir: Path, repetitions: int) -> dict:
         cold_times.append(elapsed)
 
     warm_times = []
-    compiler = api.NyxCompiler(str(corpus_dir))
+    compiler = api.RoveCompiler(str(corpus_dir))
     compiler.compile_file(str(main_file), target="cpp")  # warmup
     for _ in range(repetitions):
         start = time.perf_counter_ns()
@@ -189,7 +190,7 @@ def measure_invalidation(corpus_dir: Path, repetitions: int) -> dict:
         for i in range(repetitions):
             leaf_file.write_text(leaf_content + f"\n// invalidation test {i}\n", encoding="utf-8")
             start = time.perf_counter_ns()
-            c = api.NyxCompiler(str(corpus_dir))
+            c = api.RoveCompiler(str(corpus_dir))
             res = c.compile_file(str(main_file), target="cpp")
             elapsed = (time.perf_counter_ns() - start) / 1e6
             if not res.success:
@@ -241,7 +242,8 @@ def main():
         print(f"Measured import invalidation corpus: {options.invalidation_output}")
         return
 
-    manifest = json.loads(CORPUS.read_text())
+    corpus_path = MIR_CORPUS if options.mir else CORPUS
+    manifest = json.loads(corpus_path.read_text(encoding="utf-8"))
     if options.worker is not None:
         source = (ROOT / manifest["sources"][options.worker]).resolve()
         source.relative_to(ROOT)
@@ -278,6 +280,7 @@ def main():
             "hir_to_mir_total includes the lowering path's mandatory MIR verification.",
             "mir_verify_isolated measures an additional standalone verification of the produced MIR.",
             "mir_legalize_total includes legalization's own verification gate.",
+            "The fixed MIR corpus is a supported pilot subset, not full language or backend parity.",
             "No target executable is built or timed; this is an experimental MIR stage benchmark.",
         ]
         engine = "Python stage-0 experimental MIR pipeline"
@@ -288,16 +291,16 @@ def main():
             "Stage times are instrumented wall times; total includes module resolution and orchestration.",
             "Peak RSS is the worker lifetime high-water mark, including imports and allocation tracing.",
             "Python allocation peak comes from a separate untimed compilation.",
-            "No target executable is built or timed; not a native nyxc benchmark or cache speedup claim.",
+            "No target executable is built or timed; not a native rovec benchmark or cache speedup claim.",
         ]
-        engine = "Python stage-0 NyxCompiler API"
+        engine = "Python stage-0 RoveCompiler API"
         output_path = options.output
 
     report = {
         "schemaVersion": 1, "engine": engine, "target": manifest["target"],
         "python": sys.version, "platform": platform.platform(), "machine": platform.machine(),
         "compilerVersion": (ROOT / "VERSION").read_text().strip(),
-        "corpusSha256": hashlib.sha256(CORPUS.read_bytes()).hexdigest(),
+        "corpusSha256": hashlib.sha256(corpus_path.read_bytes()).hexdigest(),
         "notes": notes,
         "results": results,
     }

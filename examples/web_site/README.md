@@ -1,13 +1,13 @@
-# Nyx WebAssembly (WASM) İnteraktif Web Sitesi
+# Rove WebAssembly (WASM) İnteraktif Web Sitesi
 
-Bu proje, **Nyx** sistem programlama dili kullanılarak yazılmış, saf **WebAssembly (`wasm32`)** ikili koduna derlenmiş ve tarayıcıda çalışan interaktif bir web sitesi ve görselleştirme portalıdır.
+Bu proje, **Rove** sistem programlama dili kullanılarak yazılmış, saf **WebAssembly (`wasm32`)** ikili koduna derlenmiş ve tarayıcıda çalışan interaktif bir web sitesi ve görselleştirme portalıdır.
 
 ---
 
 ## 🌟 Neler İçerir?
 
-1. **Nyx WASM 60 FPS 3D Optik Shader & Çizim Motoru (`std/web`)**:
-   - Nyx dilindeki `web_canvas_set_blend_mode`, `web_canvas_set_global_alpha`, `web_canvas_draw_glow_circle`, `web_canvas_draw_line` ve `web_canvas_draw_circle` fonksiyonları ile gerçek zamanlı optik parlama (additive bloom), 3D derinlik izdüşümü ve parçacık fiziği.
+1. **Rove WASM 60 FPS 3D Optik Shader & Çizim Motoru (`std/web`)**:
+   - Rove dilindeki `web_canvas_set_blend_mode`, `web_canvas_set_global_alpha`, `web_canvas_draw_glow_circle`, `web_canvas_draw_line` ve `web_canvas_draw_circle` fonksiyonları ile gerçek zamanlı optik parlama (additive bloom), 3D derinlik izdüşümü ve parçacık fiziği.
    - 9 Farklı 3D Görsel & Oyun Modu:
      - **3D Spektrum Işınları (Mod 0)**: 3D Tron zemin ızgarası üzerinde yükselen, neon parlama başlıklı ve yansımalı 24 holografik ses kulesi.
      - **3D Siber Matris Tüneli (Mod 1)**: Sonsuza uzanan 3D perspektif tünelinde kameraya doğru akan beyaz kor başlıklı dijital veri akımları.
@@ -26,13 +26,13 @@ Bu proje, **Nyx** sistem programlama dili kullanılarak yazılmış, saf **WebAs
        - **Olay Ufku & Foton Halkası**: Işığı yutan saf kozmik boşluk ve göz kamaştırıcı beyaz foton çemberi.
        - **32 Kuantum Düğümü**: Gerçek 3D koordinatlarda yörüngede dönen, derinlik izdüşümü ($Z$-depth) ile ön planda parlayan ve lazer ağlarıyla birbirine bağlanan parçacıklar.
        - **Süpernova Şok Dalgası**: Boşluk (`Space`) tuşuna basarak tetiklenen çok renkli kromatik şok dalgası halkaları.
-     - **Aurora Plazma Kafesi (Mod 7)**: Üç farklı faz ve derinlikte akan Nyx/WASM aurora şeritleri, perspektif ışık zemini ve hareketli iyon parçacıkları.
+     - **Aurora Plazma Kafesi (Mod 7)**: Üç farklı faz ve derinlikte akan Rove/WASM aurora şeritleri, perspektif ışık zemini ve hareketli iyon parçacıkları.
      - **Derin Uzay Sinir Ağı (Mod 8)**: Paralaks yıldız katmanları, deterministik bağlantı topolojisi ve nefes alan ışık çekirdeğiyle prosedürel neural constellation sahnesi.
    - **⚡ 3D Shader FX & CRT Post-Processing**:
      - Sayfadaki butonla değiştirilebilen ham Canvas, sinematik renk/bloom ve CRT bloom profilleri; fareyi izleyen optik flare, lens vinyeti ve canlı frame-pacing telemetrisi.
-2. **🎵 Nyx Prosedürel Müzik İstasyonu & Siber DJ Launchpad**:
-   - Harici MP3/WAV ses dosyası olmadan, Web Audio API ve Nyx WASM ile 100% matematiksel canlı sentezlenen ses motoru!
-   - Nyx WebAssembly fonksiyonları tarafından hesaplanan melodi frekansları (`music_lead_note`), bas dizilimleri (`music_bass_note`) ve davul vuruşları (`music_drum_beat`).
+2. **🎵 Rove Prosedürel Müzik İstasyonu & Siber DJ Launchpad**:
+   - Harici MP3/WAV ses dosyası olmadan, Web Audio API ve Rove WASM ile 100% matematiksel canlı sentezlenen ses motoru!
+   - Rove WebAssembly fonksiyonları tarafından hesaplanan melodi frekansları (`music_lead_note`), bas dizilimleri (`music_bass_note`) ve davul vuruşları (`music_drum_beat`).
    - **5 Farklı Prosedürel Parça**:
      1. Cyberpunk Synthwave (128 BPM)
      2. 8-Bit Retro Arcade (140 BPM)
@@ -41,20 +41,20 @@ Bu proje, **Nyx** sistem programlama dili kullanılarak yazılmış, saf **WebAs
      5. Arcade Boss Battle (152 BPM)
    - **Ses Özelleştirme**: Dalga formu seçimi (`sawtooth`, `square`, `triangle`, `sine`) ve tempo çarpanı (`0.75x`, `1.0x`, `1.25x`, `1.5x`).
    - **16-Adımlı Canlı Ritim LED Matrisi**.
-   - **8-Notalı İnteraktif Nyx Synthboard (Piyano)**: `1-8` tuşlarıyla veya tıklamayla canlı çalınabilen notalar (C4 - C5).
+   - **8-Notalı İnteraktif Rove Synthboard (Piyano)**: `1-8` tuşlarıyla veya tıklamayla canlı çalınabilen notalar (C4 - C5).
    - **🎛️ 8-Pad Siber DJ Launchpad (Ses Tahtası)**:
      - `Q, W, E, R, A, S, D, F` klavye kısayolları ve dokunmatik neon pedlerle anında tetiklenen 8 prosedürel ses:
        - **Sub Kick** (`Q`), **Cyber Snare** (`W`), **Neon Hi-Hat** (`E`), **Laser Blaster** (`R`)
        - **Sub Wobble** (`A`), **Retro Coin** (`S`), **Warp Phase** (`D`), **Spark Pop** (`F`)
-3. **🔍 Nyx WASM Bayt, İkili (Binary) & Onaltılık (Hex) Müfettişi**:
-   - Girilen metin veya sayıları canlı olarak Nyx WASM doğrusal belleğinde işler.
+3. **🔍 Rove WASM Bayt, İkili (Binary) & Onaltılık (Hex) Müfettişi**:
+   - Girilen metin veya sayıları canlı olarak Rove WASM doğrusal belleğinde işler.
    - Her karakter veya sayının 8-bit İkili (Binary), Onaltılık (Hex), ASCII kodunu ve dizi sağlama toplamını (checksum/GCD) gösterir.
 4. **Reaktif Durum ve Sayaç Yöneticisi**:
-   - `var counter: int` durumu Nyx WebAssembly doğrusal belleğinde saklanır.
+   - `var counter: int` durumu Rove WebAssembly doğrusal belleğinde saklanır.
    - Artırma, azaltma, çarpma ve sıfırlama işlemleri saf WASM içinde gerçekleştirilir.
 5. **WASM vs JavaScript Hız Karşılaştırması (Benchmark)**:
    - 25,000 ile 200,000 arasındaki sayılar için asal sayı tarama algoritması ($6k \pm 1$ optimizasyonu).
-   - Nyx WASM ile V8 JavaScript motorunun milisaniye cinsinden çalışma sürelerini görsel çubuklarla kıyaslar.
+   - Rove WASM ile V8 JavaScript motorunun milisaniye cinsinden çalışma sürelerini görsel çubuklarla kıyaslar.
 6. **Matematik Laboratuvarı**:
    - Hızlı Fibonacci, Collatz ($3n+1$) adım sayıcı, Öklid EBOB/GCD, `Array<int>` vektör toplamı ve UTF-8 string selamlama.
 
@@ -62,11 +62,11 @@ Bu proje, **Nyx** sistem programlama dili kullanılarak yazılmış, saf **WebAs
 
 ## 🛠️ Nasıl Derlenir? (Build)
 
-Proje kök dizininden (`repo/`) şu komutu çalıştırarak `site.nyx` dosyasını derleyebilirsiniz:
+Proje kök dizininden (`repo/`) şu komutu çalıştırarak `site.rove` dosyasını derleyebilirsiniz:
 
 ```bash
-# Nyx bundle komutu ile WebAssembly (.wasm, .wat, .mjs, .d.ts) çıktılarını üretin:
-python src/cli.py bundle examples/web_site/site.nyx -o examples/web_site/dist --package
+# Rove bundle komutu ile WebAssembly (.wasm, .wat, .mjs, .d.ts) çıktılarını üretin:
+python src/cli.py bundle examples/web_site/site.rove -o examples/web_site/dist --package
 ```
 
 Üretilen çıktılar (`examples/web_site/dist/`):
@@ -111,7 +111,7 @@ node examples/web_site/verify.mjs
 
 ```
 examples/web_site/
-├── site.nyx          # Nyx WebAssembly kaynak kodu (Grafik, mantık ve durum)
+├── site.rove          # Rove WebAssembly kaynak kodu (Grafik, mantık ve durum)
 ├── index.html        # Modern koyu tema, responsive web arayüzü
 ├── server.py         # Yerel test HTTP sunucusu
 ├── verify.mjs        # Node.js otomatik doğrulama testi

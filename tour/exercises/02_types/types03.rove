@@ -1,0 +1,13 @@
+// I AM NOT DONE
+// Strings in Rove can be concatenated using the `+` operator.
+// TODO: Combine `first` and `last` with a space to form "Rove Language".
+
+fn main() {
+    let first = "Rove"
+    let last = "Language"
+    let full_name = first // Fix concatenation here
+    assert(full_name == "Rove Language", "full_name must be 'Rove Language'!")
+    print("Full name:", full_name)
+}
+
+main()

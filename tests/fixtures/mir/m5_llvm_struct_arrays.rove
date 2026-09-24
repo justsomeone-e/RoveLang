@@ -1,0 +1,39 @@
+struct Cell { values: Array<int>, label: string }
+
+enum CellBatch {
+  Cells(Array<Cell>),
+  Empty()
+}
+
+fn first_value(cells: Array<Cell>) -> int {
+  return cells[0].values[0]
+}
+
+fn tagged_value() -> int {
+  var source = [Cell([3], "tagged")]
+  let original = Cells(source)
+  let copied = original
+  set source[0].values[0] = 8
+  match copied {
+    Cells(cells) => return cells[0].values[0],
+    Empty() => return 0
+  }
+  return -1
+}
+
+fn main() {
+  var source = Cell([7, 8], "source")
+  var cells = [source, Cell([9], "second")]
+  var copied = cells
+
+  set cells[0].values[0] = 1
+  set cells[1].values[0] = 2
+
+  print(
+    copied[0].values[0],
+    copied[1].values[0],
+    len(copied),
+    first_value(copied),
+    tagged_value()
+  )
+}

@@ -55,7 +55,7 @@ print("Time sleep completed")
         try:
             loader = ModuleLoader(base_dir=os.path.join(_root_dir, "tests"))
             ast = loader.load_program("<memory>", source)
-            TypeChecker(ast, f"{name}.nyx", source).check()
+            TypeChecker(ast, f"{name}.rove", source).check()
 
             codegen = UniversalCodeGen(ast)
             cpp_code = codegen.gen_cpp()

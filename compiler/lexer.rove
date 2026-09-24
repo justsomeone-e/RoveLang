@@ -1,0 +1,632 @@
+#target cpp
+#native include <string>
+#native include <vector>
+#native include <cctype>
+
+struct Token {
+    type_name: string,
+    value: string,
+    line: int,
+    col: int
+}
+
+// ROVE_LEXER_SUPPORT_BEGIN: parser.rove owns Token when compiler units are composed.
+
+fn lexer_text_slice(value: string, start: int, end_exclusive: int) -> string {
+    var result = ""
+    var i = start
+    while i < end_exclusive and i < len(value) {
+        if i >= 0 { result = result + value[i] }
+        i = i + 1
+    }
+    return result
+}
+
+fn lexer_trim(value: string) -> string {
+    var start = 0
+    var end_exclusive = len(value)
+    while start < end_exclusive and (value[start] == " " or value[start] == "\t" or value[start] == "\r" or value[start] == "\n") {
+        start = start + 1
+    }
+    while end_exclusive > start and (value[end_exclusive - 1] == " " or value[end_exclusive - 1] == "\t" or value[end_exclusive - 1] == "\r" or value[end_exclusive - 1] == "\n") {
+        end_exclusive = end_exclusive - 1
+    }
+    return lexer_text_slice(value, start, end_exclusive)
+}
+
+fn lexer_hex_digit(ch: string) -> int {
+    if ch >= "0" and ch <= "9" { return to_int(ch) }
+    if ch == "a" or ch == "A" { return 10 }
+    if ch == "b" or ch == "B" { return 11 }
+    if ch == "c" or ch == "C" { return 12 }
+    if ch == "d" or ch == "D" { return 13 }
+    if ch == "e" or ch == "E" { return 14 }
+    if ch == "f" or ch == "F" { return 15 }
+    return -1
+}
+
+fn lexer_decimal_mul_add(value: string, multiplier: int, addend: int) -> string {
+    var result = ""
+    var carry = addend
+    var index = len(value) - 1
+    while index >= 0 {
+        var digit = lexer_hex_digit(value[index])
+        var total = digit * multiplier + carry
+        result = to_string(total % 10) + result
+        carry = total / 10
+        index = index - 1
+    }
+    while carry > 0 {
+        result = to_string(carry % 10) + result
+        carry = carry / 10
+    }
+    return result
+}
+
+fn lexer_normalize_number(value: string) -> string {
+    if len(value) > 2 and value[0] == "0" and (value[1] == "x" or value[1] == "X") {
+        // Keep the magnitude as decimal text.  Converting through Rove int here
+        // would wrap before the type checker can reject an out-of-range literal.
+        var number = "0"
+        for i in 2..len(value)-1 {
+            var digit = lexer_hex_digit(value[i])
+            if digit >= 0 { number = lexer_decimal_mul_add(number, 16, digit) }
+        }
+        return number
+    }
+    if contains(value, ".") {
+        var dot_index = 0
+        for i in 0..len(value)-1 {
+            if value[i] == "." { dot_index = i; break }
+        }
+        var whole = lexer_text_slice(value, 0, dot_index)
+        var fraction = lexer_text_slice(value, dot_index + 1, len(value))
+        while len(whole) > 1 and whole[0] == "0" {
+            whole = lexer_text_slice(whole, 1, len(whole))
+        }
+        if whole == "" { whole = "0" }
+        while len(fraction) > 1 and fraction[len(fraction) - 1] == "0" {
+            fraction = lexer_text_slice(fraction, 0, len(fraction) - 1)
+        }
+        if fraction == "" { fraction = "0" }
+        return whole + "." + fraction
+    }
+    var start = 0
+    while start < len(value) - 1 and value[start] == "0" { start = start + 1 }
+    return lexer_text_slice(value, start, len(value))
+}
+
+impl Token {
+    fn to_str(self) -> string {
+        return self.type_name + ":" + self.value + "@" + to_string(self.line) + ":" + to_string(self.col)
+    }
+}
+
+// Decode once: lexer positions and columns count Unicode code points.
+// Array indexing avoids rescanning the entire UTF-8 source for every peek.
+fn lexer_characters(source: string) -> Array<string> {
+    var characters: Array<string> = []
+    for character in source { characters.push(character) }
+    return characters
+}
+
+struct Lexer {
+    source: Array<string>,
+    pos: int,
+    line: int,
+    col: int
+}
+
+impl Lexer {
+    fn text_slice(self, start: int, end_exclusive: int) -> string {
+        var result = ""
+        var i = start
+        while i < end_exclusive and i < len(self.source) {
+            if i >= 0 { result = result + self.source[i] }
+            i = i + 1
+        }
+        return result
+    }
+
+    fn is_eof(self) -> bool {
+        return self.pos >= len(self.source)
+    }
+
+    fn peek_char(self) -> string {
+        if self.pos >= len(self.source) {
+            return ""
+        }
+        return self.source[self.pos]
+    }
+
+    fn peek_ahead(self, offset: int) -> string {
+        var idx = self.pos + offset
+        if idx >= len(self.source) {
+            return ""
+        }
+        return self.source[idx]
+    }
+
+    fn advance(self) -> string {
+        if self.pos >= len(self.source) {
+            return ""
+        }
+        var ch = self.source[self.pos]
+        self.pos = self.pos + 1
+        self.col = self.col + 1
+        return ch
+    }
+
+    fn match_str(self, s: string) -> bool {
+        var slen = len(s)
+        if self.pos + slen > len(self.source) {
+            return false
+        }
+        for i in 0..slen-1 {
+            if self.source[self.pos + i] != s[i] {
+                return false
+            }
+        }
+        return true
+    }
+
+    fn tokenize(self) -> Array<Token> {
+        var tokens: Array<Token> = []
+        var length = len(self.source)
+
+        while self.pos < length {
+            var ch = self.peek_char()
+
+            if ch == "\n" {
+                self.line = self.line + 1
+                self.col = 1
+                self.pos = self.pos + 1
+                continue
+            }
+
+            if ch == " " or ch == "\t" or ch == "\r" {
+                self.col = self.col + 1
+                self.pos = self.pos + 1
+                continue
+            }
+
+            // Doc comment ///
+            if self.match_str("///") {
+                var start_col = self.col
+                self.pos = self.pos + 3
+                self.col = self.col + 3
+                while self.pos < length and (self.peek_char() == " " or self.peek_char() == "\t") {
+                    self.pos = self.pos + 1
+                    self.col = self.col + 1
+                }
+                var start_doc = self.pos
+                while self.pos < length and self.peek_char() != "\n" {
+                    self.pos = self.pos + 1
+                    self.col = self.col + 1
+                }
+                var end_doc = self.pos
+                while end_doc > start_doc and (self.source[end_doc - 1] == " " or
+                    self.source[end_doc - 1] == "\t" or self.source[end_doc - 1] == "\r") {
+                    end_doc = end_doc - 1
+                }
+                var doc_text = ""
+                for i in start_doc..end_doc-1 {
+                    doc_text = doc_text + self.source[i]
+                }
+                tokens.push(Token("DOC_COMMENT", doc_text, self.line, start_col))
+                continue
+            }
+
+            // Line comment //
+            if self.match_str("//") {
+                while self.pos < length and self.peek_char() != "\n" {
+                    self.pos = self.pos + 1
+                }
+                continue
+            }
+
+            // Block comment /* ... */
+            if self.match_str("/*") {
+                self.pos = self.pos + 2
+                self.col = self.col + 2
+                while self.pos + 1 < length and not (self.peek_char() == "*" and self.peek_ahead(1) == "/") {
+                    if self.peek_char() == "\n" {
+                        self.line = self.line + 1
+                        self.col = 1
+                    } else {
+                        self.col = self.col + 1
+                    }
+                    self.pos = self.pos + 1
+                }
+                self.pos = self.pos + 2
+                self.col = self.col + 2
+                continue
+            }
+
+            // Directives: #target and #native
+            if ch == "#" and self.match_str("#target") {
+                var start_col = self.col
+                self.pos = self.pos + 7
+                self.col = self.col + 7
+                while self.pos < length and (self.peek_char() == " " or self.peek_char() == "\t") {
+                    self.pos = self.pos + 1
+                    self.col = self.col + 1
+                }
+                var start_val = self.pos
+                while self.pos < length and self.peek_char() != "\n" and self.peek_char() != " " and self.peek_char() != "\r" {
+                    self.pos = self.pos + 1
+                    self.col = self.col + 1
+                }
+                var target_val = ""
+                for i in start_val..self.pos-1 {
+                    target_val = target_val + self.source[i]
+                }
+                tokens.push(Token("TARGET", target_val, self.line, start_col))
+                continue
+            }
+
+            if ch == "#" and self.match_str("#native") {
+                var start_col = self.col
+                self.pos = self.pos + 7
+                self.col = self.col + 7
+                while self.pos < length and (self.peek_char() == " " or self.peek_char() == "\t") {
+                    self.pos = self.pos + 1
+                    self.col = self.col + 1
+                }
+
+                if self.match_str("include") {
+                    self.pos = self.pos + 7
+                    self.col = self.col + 7
+                    while self.pos < length and (self.peek_char() == " " or self.peek_char() == "\t") {
+                        self.pos = self.pos + 1
+                        self.col = self.col + 1
+                    }
+                    var start_hdr = self.pos
+                    while self.pos < length and self.peek_char() != "\n" and self.peek_char() != ";" {
+                        self.pos = self.pos + 1
+                        self.col = self.col + 1
+                    }
+                    var hdr = ""
+                    for i in start_hdr..self.pos-1 {
+                        hdr = hdr + self.source[i]
+                    }
+                    tokens.push(Token("NATIVE_INCLUDE", hdr, self.line, start_col))
+                    continue
+                }
+
+                if self.match_str("link") {
+                    self.pos = self.pos + 4
+                    self.col = self.col + 4
+                    while self.pos < length and (self.peek_char() == " " or self.peek_char() == "\t") {
+                        self.pos = self.pos + 1
+                        self.col = self.col + 1
+                    }
+                    var start_lib = self.pos
+                    while self.pos < length and self.peek_char() != "\n" and self.peek_char() != ";" {
+                        self.pos = self.pos + 1
+                        self.col = self.col + 1
+                    }
+                    var lib = ""
+                    for i in start_lib..self.pos-1 {
+                        if self.source[i] != "\"" and self.source[i] != "'" {
+                            lib = lib + self.source[i]
+                        }
+                    }
+                    tokens.push(Token("NATIVE_LINK", lib, self.line, start_col))
+                    continue
+                }
+
+                if self.match_str("use") {
+                    self.pos = self.pos + 3
+                    self.col = self.col + 3
+                    while self.pos < length and (self.peek_char() == " " or self.peek_char() == "\t") {
+                        self.pos = self.pos + 1
+                        self.col = self.col + 1
+                    }
+                    var start_use = self.pos
+                    while self.pos < length and self.peek_char() != "\n" and self.peek_char() != ";" {
+                        self.pos = self.pos + 1
+                        self.col = self.col + 1
+                    }
+                    var ut = ""
+                    for i in start_use..self.pos-1 {
+                        ut = ut + self.source[i]
+                    }
+                    tokens.push(Token("NATIVE_USE", ut, self.line, start_col))
+                    continue
+                }
+
+                var native_block_length = 0
+                if self.match_str("raw") { native_block_length = 3 }
+                elif self.match_str("cpp") { native_block_length = 3 }
+                if native_block_length > 0 {
+                    self.pos = self.pos + native_block_length
+                    self.col = self.col + native_block_length
+                    while self.pos < length and (self.peek_char() == " " or self.peek_char() == "\t") {
+                        self.pos = self.pos + 1
+                        self.col = self.col + 1
+                    }
+
+                    if self.pos < length and self.peek_char() == "{" {
+                        self.pos = self.pos + 1
+                        self.col = self.col + 1
+                        var brace_depth = 1
+                        var start_body = self.pos
+                        while self.pos < length and brace_depth > 0 {
+                            var raw_ch = self.peek_char()
+                            if raw_ch == "{" {
+                                brace_depth = brace_depth + 1
+                            } elif raw_ch == "}" {
+                                brace_depth = brace_depth - 1
+                                if brace_depth == 0 { break }
+                            }
+                            if raw_ch == "\n" {
+                                self.line = self.line + 1
+                                self.col = 1
+                            } else {
+                                self.col = self.col + 1
+                            }
+                            self.pos = self.pos + 1
+                        }
+                        var raw_body = lexer_trim(self.text_slice(start_body, self.pos))
+                        if self.pos < length and self.peek_char() == "}" {
+                            self.pos = self.pos + 1
+                            self.col = self.col + 1
+                        }
+                        tokens.push(Token("NATIVE_RAW", raw_body, self.line, start_col))
+                        continue
+                    }
+
+                    var start_raw_line = self.pos
+                    while self.pos < length and self.peek_char() != "\n" {
+                        self.pos = self.pos + 1
+                        self.col = self.col + 1
+                    }
+                    var raw_line = lexer_trim(self.text_slice(start_raw_line, self.pos))
+                    tokens.push(Token("NATIVE_RAW", raw_line, self.line, start_col))
+                    continue
+                }
+
+                // Raw native
+                var start_raw = self.pos
+                while self.pos < length and self.peek_char() != "\n" {
+                    self.pos = self.pos + 1
+                    self.col = self.col + 1
+                }
+                var raw = ""
+                for i in start_raw..self.pos-1 {
+                    raw = raw + self.source[i]
+                }
+                tokens.push(Token("NATIVE_RAW", raw, self.line, start_col))
+                continue
+            }
+
+            // Multi-character symbols
+            if self.match_str("?.") { tokens.push(Token("SAFE_NAV", "?.", self.line, self.col)); self.pos = self.pos + 2; self.col = self.col + 2; continue }
+            if self.match_str("??") { tokens.push(Token("NULL_COALESCE", "??", self.line, self.col)); self.pos = self.pos + 2; self.col = self.col + 2; continue }
+            if self.match_str("=>") { tokens.push(Token("FAT_ARROW", "=>", self.line, self.col)); self.pos = self.pos + 2; self.col = self.col + 2; continue }
+            if self.match_str("->") { tokens.push(Token("ARROW", "->", self.line, self.col)); self.pos = self.pos + 2; self.col = self.col + 2; continue }
+            if self.match_str("|>") { tokens.push(Token("PIPE", "|>", self.line, self.col)); self.pos = self.pos + 2; self.col = self.col + 2; continue }
+            if self.match_str("..") { tokens.push(Token("DOTDOT", "..", self.line, self.col)); self.pos = self.pos + 2; self.col = self.col + 2; continue }
+            if self.match_str("<<") { tokens.push(Token("SHL", "<<", self.line, self.col)); self.pos = self.pos + 2; self.col = self.col + 2; continue }
+            if self.match_str(">>") { tokens.push(Token("SHR", ">>", self.line, self.col)); self.pos = self.pos + 2; self.col = self.col + 2; continue }
+            if self.match_str("==") { tokens.push(Token("EQ", "==", self.line, self.col)); self.pos = self.pos + 2; self.col = self.col + 2; continue }
+            if self.match_str("!=") { tokens.push(Token("NEQ", "!=", self.line, self.col)); self.pos = self.pos + 2; self.col = self.col + 2; continue }
+            if self.match_str(">=") { tokens.push(Token("GTE", ">=", self.line, self.col)); self.pos = self.pos + 2; self.col = self.col + 2; continue }
+            if self.match_str("<=") { tokens.push(Token("LTE", "<=", self.line, self.col)); self.pos = self.pos + 2; self.col = self.col + 2; continue }
+            if self.match_str("&&") { tokens.push(Token("AND", "and", self.line, self.col)); self.pos = self.pos + 2; self.col = self.col + 2; continue }
+            if self.match_str("||") { tokens.push(Token("OR", "or", self.line, self.col)); self.pos = self.pos + 2; self.col = self.col + 2; continue }
+
+            // Strings
+            if ch == "\"" or ch == "'" {
+                var quote = ch
+                var start_col = self.col
+                self.pos = self.pos + 1
+                self.col = self.col + 1
+                var str_val = ""
+                while self.pos < length and self.peek_char() != quote {
+                    if self.peek_char() == "\\" and self.pos + 1 < length {
+                        var esc = self.peek_ahead(1)
+                        if esc == "n" { str_val = str_val + "\n" }
+                        elif esc == "t" { str_val = str_val + "\t" }
+                        elif esc == "r" { str_val = str_val + "\r" }
+                        elif esc == "0" { str_val = str_val + "\0" }
+                        elif esc == "u" and self.pos + 5 < length {
+                            var codepoint = 0
+                            var valid_escape = true
+                            for offset in 2..5 {
+                                var digit = lexer_hex_digit(self.peek_ahead(offset))
+                                if digit < 0 { valid_escape = false }
+                                else { codepoint = codepoint * 16 + digit }
+                            }
+                            if valid_escape {
+                                str_val = str_val + _nyx_utf8_from_codepoint(codepoint)
+                                self.pos = self.pos + 6
+                                self.col = self.col + 6
+                                continue
+                            }
+                            str_val = str_val + "u"
+                        }
+                        elif esc == "\\" { str_val = str_val + "\\" }
+                        elif esc == quote { str_val = str_val + quote }
+                        else { str_val = str_val + esc }
+                        self.pos = self.pos + 2
+                        self.col = self.col + 2
+                    } else {
+                        if self.peek_char() == "\n" {
+                            self.line = self.line + 1
+                            self.col = 1
+                        } else {
+                            self.col = self.col + 1
+                        }
+                        str_val = str_val + self.peek_char()
+                        self.pos = self.pos + 1
+                    }
+                }
+                self.pos = self.pos + 1
+                self.col = self.col + 1
+                tokens.push(Token("STRING", str_val, self.line, start_col))
+                continue
+            }
+
+            // Numbers (decimal, float, and hex 0x)
+            if (ch >= "0" and ch <= "9") or (ch == "." and self.pos + 1 < length and (self.peek_ahead(1) >= "0" and self.peek_ahead(1) <= "9")) {
+                var start_col = self.col
+                var start_pos = self.pos
+                if ch == "0" and self.pos + 1 < length and (self.peek_ahead(1) == "x" or self.peek_ahead(1) == "X") {
+                    self.pos = self.pos + 2
+                    self.col = self.col + 2
+                    while self.pos < length and ((self.peek_char() >= "0" and self.peek_char() <= "9") or (self.peek_char() >= "a" and self.peek_char() <= "f") or (self.peek_char() >= "A" and self.peek_char() <= "F")) {
+                        self.pos = self.pos + 1
+                        self.col = self.col + 1
+                    }
+                    var hex_val = ""
+                    for i in start_pos..self.pos-1 {
+                        hex_val = hex_val + self.source[i]
+                    }
+                    tokens.push(Token("NUMBER", lexer_normalize_number(hex_val), self.line, start_col))
+                    continue
+                }
+
+                while self.pos < length and ((self.peek_char() >= "0" and self.peek_char() <= "9") or self.peek_char() == ".") {
+                    if self.peek_char() == "." and self.peek_ahead(1) == "." {
+                        break
+                    }
+                    self.pos = self.pos + 1
+                    self.col = self.col + 1
+                }
+                var num_val = ""
+                for i in start_pos..self.pos-1 {
+                    num_val = num_val + self.source[i]
+                }
+                tokens.push(Token("NUMBER", lexer_normalize_number(num_val), self.line, start_col))
+                continue
+            }
+
+            // Identifiers & Keywords
+            if (ch >= "a" and ch <= "z") or (ch >= "A" and ch <= "Z") or ch == "_" or ch == "$" {
+                var start_col = self.col
+                var start_pos = self.pos
+                while self.pos < length and ((self.peek_char() >= "a" and self.peek_char() <= "z") or (self.peek_char() >= "A" and self.peek_char() <= "Z") or (self.peek_char() >= "0" and self.peek_char() <= "9") or self.peek_char() == "_" or self.peek_char() == "$") {
+                    self.pos = self.pos + 1
+                    self.col = self.col + 1
+                }
+                var ident = ""
+                for i in start_pos..self.pos-1 {
+                    // Match the Python frontend: '$' is stripped only while it
+                    // is a leading source marker; embedded '$' stays canonical.
+                    if self.source[i] != "$" or len(ident) > 0 {
+                        ident = ident + self.source[i]
+                    }
+                }
+
+                // Keyword check
+                var tt = "IDENT"
+                if ident == "var" { tt = "VAR" }
+                elif ident == "let" { tt = "LET" }
+                elif ident == "set" { tt = "SET" }
+                elif ident == "const" { tt = "CONST" }
+                elif ident == "fn" { tt = "FN" }
+                elif ident == "struct" { tt = "STRUCT" }
+                elif ident == "trait" { tt = "TRAIT" }
+                elif ident == "impl" { tt = "IMPL" }
+                elif ident == "type" { tt = "TYPE_ALIAS" }
+                elif ident == "enum" { tt = "ENUM" }
+                elif ident == "unsafe" { tt = "UNSAFE" }
+                elif ident == "extern" { tt = "EXTERN" }
+                elif ident == "async" { tt = "ASYNC" }
+                elif ident == "await" { tt = "AWAIT" }
+                elif ident == "spawn" { tt = "SPAWN" }
+                elif ident == "channel" { tt = "CHANNEL" }
+                elif ident == "test" { tt = "TEST" }
+                elif ident == "assert" { tt = "ASSERT" }
+                elif ident == "return" { tt = "RETURN" }
+                elif ident == "yield" { tt = "YIELD" }
+                elif ident == "continue" { tt = "CONTINUE" }
+                elif ident == "break" { tt = "BREAK" }
+                elif ident == "defer" { tt = "DEFER" }
+                elif ident == "guard" { tt = "GUARD" }
+                elif ident == "if" { tt = "IF" }
+                elif ident == "else" { tt = "ELSE" }
+                elif ident == "elif" { tt = "ELIF" }
+                elif ident == "for" { tt = "FOR" }
+                elif ident == "in" { tt = "IN" }
+                elif ident == "loop" { tt = "LOOP" }
+                elif ident == "while" { tt = "WHILE" }
+                elif ident == "match" { tt = "MATCH" }
+                elif ident == "try" { tt = "TRY" }
+                elif ident == "catch" { tt = "CATCH" }
+                elif ident == "throw" { tt = "THROW" }
+                elif ident == "use" { tt = "USE" }
+                elif ident == "import" { tt = "IMPORT" }
+                elif ident == "from" { tt = "FROM" }
+                elif ident == "as" { tt = "AS" }
+                elif ident == "print" { tt = "PRINT" }
+                elif ident == "input" { tt = "INPUT" }
+                elif ident == "addr" { tt = "ADDR" }
+                elif ident == "peek" { tt = "PEEK" }
+                elif ident == "memdump" { tt = "MEMDUMP" }
+                elif ident == "and" { tt = "AND" }
+                elif ident == "or" { tt = "OR" }
+                elif ident == "not" { tt = "NOT" }
+                elif ident == "true" or ident == "false" { tt = "BOOLEAN" }
+                elif ident == "null" { tt = "NULL" }
+
+                tokens.push(Token(tt, ident, self.line, start_col))
+                continue
+            }
+
+            // Single character symbols
+            var single_tt = ""
+            if ch == "=" { single_tt = "ASSIGN" }
+            elif ch == "+" { single_tt = "PLUS" }
+            elif ch == "-" { single_tt = "MINUS" }
+            elif ch == "*" { single_tt = "MUL" }
+            elif ch == "/" { single_tt = "DIV" }
+            elif ch == "%" { single_tt = "MOD" }
+            elif ch == "|" { single_tt = "BIT_OR" }
+            elif ch == "&" { single_tt = "BIT_AND" }
+            elif ch == "^" { single_tt = "BIT_XOR" }
+            elif ch == "~" { single_tt = "BIT_NOT" }
+            elif ch == ">" { single_tt = "GT" }
+            elif ch == "<" { single_tt = "LT" }
+            elif ch == "!" { single_tt = "NOT" }
+            elif ch == "(" { single_tt = "LPAREN" }
+            elif ch == ")" { single_tt = "RPAREN" }
+            elif ch == "[" { single_tt = "LBRACKET" }
+            elif ch == "]" { single_tt = "RBRACKET" }
+            elif ch == "{" { single_tt = "LBRACE" }
+            elif ch == "}" { single_tt = "RBRACE" }
+            elif ch == "," { single_tt = "COMMA" }
+            elif ch == ":" { single_tt = "COLON" }
+            elif ch == "." { single_tt = "DOT" }
+            elif ch == "?" { single_tt = "QUESTION" }
+            elif ch == ";" { single_tt = "SEMICOLON" }
+
+            if single_tt != "" {
+                tokens.push(Token(single_tt, ch, self.line, self.col))
+                self.pos = self.pos + 1
+                self.col = self.col + 1
+                continue
+            }
+
+            // Unexpected char - skip with warning
+            self.pos = self.pos + 1
+            self.col = self.col + 1
+        }
+
+        tokens.push(Token("EOF", "EOF", self.line, self.col))
+        return tokens
+    }
+}
+
+fn main() {
+    var code = "var x: int = 100 + 20; print(\"Result:\", x)"
+    var lex = Lexer(lexer_characters(code), 0, 1, 1)
+    var tokens = lex.tokenize()
+    for t in tokens {
+        print(t.type_name, t.value)
+    }
+}
+
+main()

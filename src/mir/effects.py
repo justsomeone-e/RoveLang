@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import fields, is_dataclass, replace
 
 from .model import (
     AggregateRValue,
     AssignStatement,
     BinaryRValue,
     CallTerminator,
+    CopyOperand,
     DropTerminator,
+    MIREnumDef,
     MIRFunction,
     MIRModule,
+    MIRStructDef,
     ThrowTerminator,
 )
+from .types import MIRType
 
 
 MIR_EFFECT_ORDER = (
@@ -28,7 +32,54 @@ MIR_EFFECT_ORDER = (
 VALID_MIR_EFFECTS = frozenset(("pure",) + MIR_EFFECT_ORDER)
 
 
-def _direct_effects(function: MIRFunction) -> tuple[set[str], set[str]]:
+def _copy_may_allocate(
+    value: MIRType,
+    definitions: dict[str, MIRStructDef | MIREnumDef],
+    seen: frozenset[str] = frozenset(),
+) -> bool:
+    if value.pointer:
+        return False
+    if value.name in {"string", "Array"}:
+        return True
+    if value.name in {"Option", "Result"}:
+        return any(_copy_may_allocate(item, definitions, seen) for item in value.arguments)
+    definition = definitions.get(value.name)
+    if definition is None or value.name in seen:
+        return False
+    nested_seen = seen | {value.name}
+    if isinstance(definition, MIRStructDef):
+        return any(
+            _copy_may_allocate(field.type, definitions, nested_seen)
+            for field in definition.fields
+        )
+    return any(
+        _copy_may_allocate(payload, definitions, nested_seen)
+        for variant in definition.variants
+        for payload in variant.payload_types
+    )
+
+
+def _contains_allocating_copy(
+    value: object,
+    function: MIRFunction,
+    definitions: dict[str, MIRStructDef | MIREnumDef],
+) -> bool:
+    if isinstance(value, CopyOperand):
+        return _copy_may_allocate(function.locals[value.place.local].type, definitions)
+    if is_dataclass(value):
+        return any(
+            _contains_allocating_copy(getattr(value, field.name), function, definitions)
+            for field in fields(value)
+        )
+    if isinstance(value, (tuple, list)):
+        return any(_contains_allocating_copy(item, function, definitions) for item in value)
+    return False
+
+
+def _direct_effects(
+    function: MIRFunction,
+    definitions: dict[str, MIRStructDef | MIREnumDef],
+) -> tuple[set[str], set[str]]:
     effects: set[str] = set()
     calls: set[str] = set()
     if function.is_async:
@@ -47,6 +98,8 @@ def _direct_effects(function: MIRFunction) -> tuple[set[str], set[str]]:
                 and value.type.name == "string"
             ):
                 effects.add("may_allocate")
+            if _contains_allocating_copy(value, function, definitions):
+                effects.add("may_allocate")
 
         terminator = block.terminator
         if isinstance(terminator, ThrowTerminator):
@@ -54,6 +107,8 @@ def _direct_effects(function: MIRFunction) -> tuple[set[str], set[str]]:
         elif isinstance(terminator, DropTerminator) and terminator.unwind is not None:
             effects.add("may_throw")
         elif isinstance(terminator, CallTerminator):
+            if _contains_allocating_copy(terminator.arguments, function, definitions):
+                effects.add("may_allocate")
             if terminator.unwind is not None:
                 effects.add("may_throw")
             function_name = terminator.function
@@ -76,8 +131,13 @@ def infer_module_effects(module: MIRModule) -> MIRModule:
     direct: dict[str, set[str]] = {}
     calls: dict[str, set[str]] = {}
     aliases: dict[str, str] = {}
+    definitions = {
+        definition.name: definition
+        for definition in module.type_definitions
+        if isinstance(definition, (MIRStructDef, MIREnumDef))
+    }
     for function in module.functions:
-        effects, callees = _direct_effects(function)
+        effects, callees = _direct_effects(function, definitions)
         direct[function.symbol] = effects
         calls[function.symbol] = callees
         aliases[function.symbol] = function.symbol

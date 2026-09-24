@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create deterministic Nyx source archives from canonical Git blobs."""
+"""Create deterministic Rove source archives from canonical Git blobs."""
 
 from __future__ import annotations
 
@@ -147,9 +147,9 @@ def package(root: Path, output: Path, tag: str) -> tuple[Path, Path]:
     output.mkdir(parents=True, exist_ok=True)
     files = _tracked_blobs(root)
     epoch = _source_epoch(root)
-    prefix = f"nyx-{tag}"
-    zip_path = output / f"nyx-{tag}-universal.zip"
-    tar_path = output / f"nyx-{tag}-source.tar.gz"
+    prefix = f"rove-{tag}"
+    zip_path = output / f"rove-{tag}-universal.zip"
+    tar_path = output / f"rove-{tag}-source.tar.gz"
     _write_zip(zip_path, prefix, epoch, files)
     _write_tar_gz(tar_path, prefix, epoch, files)
     return zip_path, tar_path

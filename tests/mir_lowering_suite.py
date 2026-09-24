@@ -8,15 +8,15 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.api import NyxCompiler
+from src.api import RoveCompiler
 from src.mir import MIRInterpreter, MIRTrap, lower_hir_to_mir, verify_mir
 
 
-FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m2_scalar.nyx"
+FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m2_scalar.rove"
 
 
 def _checked(source: str, filename: str = "<m2>"):
-    result = NyxCompiler(str(ROOT)).check_source(source, filename=filename, target="cpp")
+    result = RoveCompiler(str(ROOT)).check_source(source, filename=filename, target="cpp")
     assert result.success and result.hir is not None, result.diagnostics
     return result.hir
 
@@ -37,7 +37,7 @@ def _run_cli_target(target: str) -> str:
 
 def run_mir_lowering_suite() -> bool:
     print("=" * 70)
-    print("NYX M2 MIR SCALAR / CONTROL-FLOW LOWERING")
+    print("ROVE M2 MIR SCALAR / CONTROL-FLOW LOWERING")
     print("=" * 70)
 
     source = FIXTURE.read_text(encoding="utf-8")
@@ -50,7 +50,7 @@ def run_mir_lowering_suite() -> bool:
     order_hir = _checked(
         "fn mark(value: int) -> int { print(value); return value }\n"
         "fn main() { print(mark(1) + mark(2)) }\n",
-        "evaluation-order.nyx",
+        "evaluation-order.rove",
     )
     order = MIRInterpreter(lower_hir_to_mir(order_hir)).run()
     assert order.output == ("1", "2", "3"), order.output
@@ -61,12 +61,12 @@ def run_mir_lowering_suite() -> bool:
         "  print(-7 / 3)\n"
         "  print(-7 % 3)\n"
         "}\n",
-        "numeric-contract.nyx",
+        "numeric-contract.rove",
     )
     numeric = MIRInterpreter(lower_hir_to_mir(numeric_hir)).run()
     assert numeric.output == ("-9223372036854775808", "-2", "-1"), numeric.output
 
-    trap_hir = _checked("fn main() { print(1 / 0) }\n", "division-trap.nyx")
+    trap_hir = _checked("fn main() { print(1 / 0) }\n", "division-trap.rove")
     try:
         MIRInterpreter(lower_hir_to_mir(trap_hir)).run()
         raise AssertionError("MIR interpreter did not trap division by zero")

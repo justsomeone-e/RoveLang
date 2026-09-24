@@ -1,0 +1,5 @@
+fn check_types() {
+    let age: int = 20
+    let name: string = "Rove"
+    let active: bool = true
+}

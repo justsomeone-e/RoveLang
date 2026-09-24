@@ -1,4 +1,4 @@
-"""Calling-convention and checked C-adapter contracts for Nyx MIR."""
+"""Calling-convention and checked C-adapter contracts for Rove MIR."""
 
 from __future__ import annotations
 

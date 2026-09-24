@@ -1,6 +1,6 @@
-# Tour of Nyx
+# Tour of Rove
 
-> A guided terminal tour of the Nyx programming language, with compiler diagnostics and live file-watching.
+> A guided terminal tour of the Rove programming language, with compiler diagnostics and live file-watching.
 
 ```text
   ████████╗ ██████╗ ██╗   ██╗██████╗      ██████╗ ███████╗    ███╗   ██╗██╗   ██╗██╗  ██╗
@@ -33,7 +33,7 @@ python tour/tour.py
 python tour/tour.py core
 ```
 
-Or double-click **`Tour of Nyx.bat`** on your Desktop!
+Or double-click **`Tour of Rove.bat`** on your Desktop!
 
 ---
 
@@ -57,7 +57,7 @@ While in watch mode, the Tour monitors your current exercise file in real-time. 
 
 The Tour has two layers:
 
-- **Core Path:** a project-driven route for learning Nyx from the first print
+- **Core Path:** a project-driven route for learning Rove from the first print
   statement to a multi-module application. Read [`CORE_PATH.md`](CORE_PATH.md)
   first.
 - **Practice Lab:** the complete verified exercise corpus. Use it to repeat a
@@ -75,7 +75,7 @@ collection transformations, and real standard-library boundaries—rather than
 repeating keywords in isolation.
 
 1. **`00_intro`** (3 exercises)
-   - `intro01`: Welcome to Nyx & verifying your environment.
+   - `intro01`: Welcome to Rove & verifying your environment.
    - `intro02`: Fixing syntax errors in string literals.
    - `intro03`: Line comments and uncommenting executable code.
 2. **`01_variables`** (8 exercises)
@@ -228,7 +228,7 @@ python tour/verify_all.py
 Output:
 ```text
 ======================================================================
-Tour of Nyx - Autonomous Verification Suite (81 Exercises)
+Tour of Rove - Autonomous Verification Suite (81 Exercises)
 ======================================================================
 [01/81] ✅ PASS intro01        (Unsolved: FAIL as expected | Solved: OK in 411ms)
 ...

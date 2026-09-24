@@ -1,14 +1,14 @@
 """
-Nyx Diagnostic Error Catalog
+Rove Diagnostic Error Catalog
 Comprehensive knowledge base for compiler error codes, explaining causes and resolutions.
-Used by `nyx explain <error_code>`.
+Used by `rove explain <error_code>`.
 """
 
 CATALOG = {
     "E1000": {
         "title": "Unexpected Token in Expression",
         "category": "Syntax Error",
-        "description": "The parser encountered a token that cannot begin or continue a valid Nyx expression.",
+        "description": "The parser encountered a token that cannot begin or continue a valid Rove expression.",
         "bad_example": "var x = + * 5;",
         "good_example": "var x = 10 * 5;",
         "solution": "Check expression operator placement and ensure all operands are provided."
@@ -49,8 +49,8 @@ CATALOG = {
         "title": "Malformed Import or Test Description",
         "category": "Syntax Error",
         "description": "An import statement was missing the 'from' keyword, or a test block lacked a description string.",
-        "bad_example": "import { add } \"math.nyx\";",
-        "good_example": "import { add } from \"math.nyx\";",
+        "bad_example": "import { add } \"math.rove\";",
+        "good_example": "import { add } from \"math.rove\";",
         "solution": "Ensure 'import { symbols } from \"path\"' syntax is used."
     },
     "E1006": {
@@ -73,8 +73,8 @@ CATALOG = {
         "title": "Circular Module Dependency Detected",
         "category": "Module Resolution",
         "description": "Two or more modules mutually import each other in a closed cycle.",
-        "bad_example": "A.nyx imports B.nyx, and B.nyx imports A.nyx",
-        "good_example": "Factor shared structs and types into a third module 'types.nyx' imported by both.",
+        "bad_example": "A.rove imports B.rove, and B.rove imports A.rove",
+        "good_example": "Factor shared structs and types into a third module 'types.rove' imported by both.",
         "solution": "Refactor common dependencies into a shared leaf module to keep the dependency graph a Directed Acyclic Graph (DAG)."
     },
     "E1301": {

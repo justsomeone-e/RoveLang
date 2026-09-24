@@ -1,0 +1,27 @@
+fn subject() -> string { return "hit" }
+fn pattern() -> string { return "hit" }
+fn suffix() -> string { return "" }
+fn fail() -> string { throw "boom" }
+fn numbers() -> Array<int> { return [3, 4] }
+fn failed_result() -> Result<int, string> { return Err("bad") }
+fn returned_numbers() -> Array<int> {
+  match numbers() { values => return values }
+}
+
+fn main() {
+  match subject() { pattern() => print("stmt-hit") }
+  print(match subject() { ("hit" + suffix()) => "expr-hit", _ => "expr-miss" })
+  try { match subject() { fail() => print("unreachable") } }
+  catch err { print("caught", err) }
+  match 7 { 1 => print("unreachable"), _ => print("wildcard") }
+  match 8 { 1 => print("unreachable"), "_" => print("legacy-wildcard") }
+  match numbers() { values => print("owned", values[0], len(values)) }
+  match failed_result() {
+    Ok(value) => print("unreachable", value),
+    other => print("result", other)
+  }
+  let source: string = "borrowed"
+  match source { value => print("bound", value) }
+  print("source", source)
+  print("returned", len(returned_numbers()))
+}

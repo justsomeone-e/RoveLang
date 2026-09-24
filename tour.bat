@@ -33,7 +33,7 @@ if exist "%LOCALAPPDATA%\Programs\Python\Python311\python.exe" (
     goto :RUN
 )
 
-echo [ERROR] Python 3.10+ is required to launch Tour of Nyx.
+echo [ERROR] Python 3.10+ is required to launch Tour of Rove.
 echo Please install Python from https://www.python.org/ or ensure it is added to your PATH.
 exit /b 1
 

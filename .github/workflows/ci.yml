@@ -1,4 +1,4 @@
-name: nyx CI Battery
+name: Rove CI Battery
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 concurrency:
-  group: nyx-ci-${{ github.workflow }}-${{ github.ref }}
+  group: rove-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -21,7 +21,7 @@ jobs:
         python-version: ["3.11", "3.12", "3.13"]
 
     steps:
-      - name: Checkout nyx Repository
+      - name: Checkout Rove Repository
         uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}

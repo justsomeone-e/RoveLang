@@ -1,0 +1,20 @@
+// I AM NOT DONE
+// Multiple trailing parameters can declare defaults in Rove.
+// TODO: Give `filling` the default "Cheese" and `toasted` the default `true`.
+
+fn make_sandwich(bread: string, filling: string, toasted: bool) -> string {
+    let toast_str = if toasted { "Toasted" } else { "Fresh" }
+    return toast_str + " " + filling + " on " + bread
+}
+
+fn main() {
+    let s1 = make_sandwich("Rye", "Turkey", false)
+    let s2 = make_sandwich("Sourdough") // Should use defaults: Cheese and true!
+
+    assert(s1 == "Fresh Turkey on Rye", "s1 must match custom arguments")
+    assert(s2 == "Toasted Cheese on Sourdough", "s2 must use default values")
+    print(s1)
+    print(s2)
+}
+
+main()

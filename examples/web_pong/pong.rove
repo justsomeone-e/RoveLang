@@ -1,0 +1,84 @@
+import "std/web"
+
+var canvas: WebElement = 0
+var paddle_y: float = 120.0
+var ball_x: float = 320.0
+var ball_y: float = 180.0
+var ball_dx: float = 3.5
+var ball_dy: float = 2.5
+
+fn draw_scene() -> void {
+    web_canvas_clear(canvas)
+    web_canvas_set_fill_style(canvas, "#07111f")
+    web_canvas_fill_rect(canvas, 0.0, 0.0, 640.0, 360.0)
+
+    web_canvas_set_fill_style(canvas, "#00d9ff")
+    web_canvas_fill_rect(canvas, 22.0, paddle_y, 12.0, 72.0)
+
+    web_canvas_set_fill_style(canvas, "#f5f7ff")
+    web_canvas_fill_rect(canvas, ball_x, ball_y, 12.0, 12.0)
+}
+
+fn update_game() -> void {
+    set ball_x = ball_x + ball_dx
+    set ball_y = ball_y + ball_dy
+
+    if ball_y <= 0.0 {
+        set ball_y = 0.0
+        set ball_dy = -ball_dy
+    }
+    if ball_y >= 348.0 {
+        set ball_y = 348.0
+        set ball_dy = -ball_dy
+    }
+    if ball_x >= 628.0 {
+        set ball_x = 628.0
+        set ball_dx = -ball_dx
+    }
+    if ball_x <= 34.0 {
+        if ball_y + 12.0 >= paddle_y and ball_y <= paddle_y + 72.0 {
+            set ball_x = 34.0
+            set ball_dx = -ball_dx
+        } else {
+            set ball_x = 320.0
+            set ball_y = 180.0
+        }
+    }
+    draw_scene()
+}
+
+fn handle_key(event: WebEvent) -> void {
+    let key: int = web_event_key(event)
+    if key == 87 or key == 119 {
+        set paddle_y = paddle_y - 18.0
+    }
+    if key == 83 or key == 115 {
+        set paddle_y = paddle_y + 18.0
+    }
+    if paddle_y < 0.0 { set paddle_y = 0.0 }
+    if paddle_y > 288.0 { set paddle_y = 288.0 }
+}
+
+fn rove_dispatch(callback_id: int, event: WebEvent) -> int {
+    if callback_id == 1 {
+        handle_key(event)
+    }
+    if callback_id == 2 {
+        update_game()
+        web_request_animation_frame(2)
+    }
+    return 0
+}
+
+fn pong_start() -> int {
+    let body: WebElement = web_query("body")
+    set canvas = web_create("canvas")
+    web_set_attribute(canvas, "id", "rove-pong")
+    web_set_attribute(canvas, "width", "640")
+    web_set_attribute(canvas, "height", "360")
+    web_append(body, canvas)
+    web_listen(web_document(), "keydown", 1)
+    draw_scene()
+    web_request_animation_frame(2)
+    return 1
+}

@@ -48,7 +48,7 @@ def _canonical_battery_output(value: str) -> str:
 def _run_corpus_compile() -> int:
     paths = []
     for relative in ("tests/battery138", "tests/bughunt"):
-        paths.extend(sorted(Path(ROOT_DIR, relative).glob("*.nyx")))
+        paths.extend(sorted(Path(ROOT_DIR, relative).glob("*.rove")))
     assert len(paths) >= 162
     for path in paths:
         source = path.read_text(encoding="utf-8-sig")
@@ -58,7 +58,7 @@ def _run_corpus_compile() -> int:
 
 def _run_battery_runtime() -> int:
     for name, source, expected_output in test_cases:
-        generated = _emit(source, name + ".nyx")
+        generated = _emit(source, name + ".rove")
         runtime = _run(generated)
         assert runtime.returncode == 0, (name, runtime.stderr or runtime.stdout)
         actual = _canonical_battery_output(runtime.stdout)
@@ -72,8 +72,8 @@ def _run_battery_runtime() -> int:
 
 def _run_differential_fixtures() -> int:
     for name, source in TRIPLE_DIFF_CASES:
-        first = _run(_emit(source, name + ".nyx"))
-        second = _run(_emit(source, name + ".nyx"))
+        first = _run(_emit(source, name + ".rove"))
+        second = _run(_emit(source, name + ".rove"))
         assert first.returncode == second.returncode == 0
         assert first.stdout == second.stdout
     return len(TRIPLE_DIFF_CASES)
@@ -99,7 +99,7 @@ lifecycle(false)
 lifecycle(true)
 print(-7 / 3, -7 % 3)
 """
-    generated = _emit(source, "semantic_repairs.nyx")
+    generated = _emit(source, "semantic_repairs.rove")
     runtime = _run(generated)
     assert runtime.returncode == 0, runtime.stderr or runtime.stdout
     assert runtime.stdout.replace("\r\n", "\n").strip() == (
@@ -147,7 +147,7 @@ fn main() {
     print(len(empty[0]), len(empty[-1]))
 }
 '''
-    runtime = _run(_emit(source, "value_unicode_semantics.nyx"))
+    runtime = _run(_emit(source, "value_unicode_semantics.rove"))
     assert runtime.returncode == 0, runtime.stderr or runtime.stdout
     assert runtime.stdout.replace("\r\n", "\n").strip() == "1 9\n1 9\n1\n2 ş 😀\nş😀\n5 5 5 5 ş 😀 e\ntrue true\n0 0 0\n0 0"
 

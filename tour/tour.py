@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Tour of Nyx - Interactive Guided Learning CLI
-Inspired by Rustlings, engineered for the Nyx programming language with
+Tour of Rove - Interactive Guided Learning CLI
+Inspired by Rustlings, engineered for the Rove programming language with
 a modern terminal user interface, instant diagnostics, and live file watching.
 """
 
@@ -33,18 +33,18 @@ from ui import (
     DIM,
     RESET,
     WHITE,
-    COLOR_NYX_PURPLE,
-    COLOR_NYX_VIOLET,
-    COLOR_NYX_CYAN,
-    COLOR_NYX_GREEN,
-    COLOR_NYX_GOLD,
-    COLOR_NYX_RED,
+    COLOR_ROVE_PURPLE,
+    COLOR_ROVE_VIOLET,
+    COLOR_ROVE_CYAN,
+    COLOR_ROVE_GREEN,
+    COLOR_ROVE_GOLD,
+    COLOR_ROVE_RED,
     BRIGHT_CYAN,
     BRIGHT_GREEN,
     BRIGHT_YELLOW,
     BRIGHT_WHITE,
 )
-from runner import NyxRunner, TestResult
+from runner import RoveRunner, TestResult
 
 
 STATE_FILE = ".tour-state.json"
@@ -65,7 +65,7 @@ class TourApp:
 
         self.exercises: List[Dict[str, Any]] = self._load_exercises()
         self.lessons = self._load_lessons()
-        self.runner = NyxRunner(repo_dir=self.repo_dir)
+        self.runner = RoveRunner(repo_dir=self.repo_dir)
 
         self.state = self._load_state()
         self.current_index = self._determine_starting_index()
@@ -222,7 +222,7 @@ class TourApp:
             if os.path.isfile(sol_path):
                 with open(sol_path, "r", encoding="utf-8") as sf:
                     sol_code = sf.read().strip()
-                print(box("Reference Solution", sol_code, color_seq=COLOR_NYX_GOLD))
+                print(box("Reference Solution", sol_code, color_seq=COLOR_ROVE_GOLD))
                 print()
 
         # 7. Navigation Controls
@@ -284,7 +284,7 @@ class TourApp:
             topics[t].append(ex)
 
         for topic, ex_list in topics.items():
-            print(f"  {BOLD}{COLOR_NYX_VIOLET}▶ {topic.upper()}{RESET}")
+            print(f"  {BOLD}{COLOR_ROVE_VIOLET}▶ {topic.upper()}{RESET}")
             for ex in ex_list:
                 eid = ex["id"]
                 is_curr = (eid == self.get_current_exercise()["id"])
@@ -296,7 +296,7 @@ class TourApp:
                     pointer = " "
 
                 if is_done:
-                    badge = f"{BOLD}{COLOR_NYX_GREEN}✔{RESET}"
+                    badge = f"{BOLD}{COLOR_ROVE_GREEN}✔{RESET}"
                 else:
                     badge = f"{DIM}○{RESET}"
 
@@ -304,7 +304,7 @@ class TourApp:
                 if is_curr:
                     name_fmt = f"{BOLD}{BRIGHT_CYAN}{name_fmt}{RESET}"
                 elif is_done:
-                    name_fmt = f"{COLOR_NYX_GREEN}{name_fmt}{RESET}"
+                    name_fmt = f"{COLOR_ROVE_GREEN}{name_fmt}{RESET}"
                 else:
                     name_fmt = f"{WHITE}{name_fmt}{RESET}"
 
@@ -348,11 +348,11 @@ class TourApp:
         for idx, ex in enumerate(self.exercises, 1):
             res = self.runner.verify(ex)
             if res.success:
-                status = f"{BOLD}{COLOR_NYX_GREEN}✔ DONE{RESET}"
+                status = f"{BOLD}{COLOR_ROVE_GREEN}✔ DONE{RESET}"
                 done_count += 1
                 self.mark_completed(ex["id"])
             else:
-                status = f"{BOLD}{COLOR_NYX_RED}✗ PENDING{RESET}"
+                status = f"{BOLD}{COLOR_ROVE_RED}✗ PENDING{RESET}"
 
             print(f"  [{idx:02d}/{len(self.exercises)}] {status}  {ex['id']:<14} {DIM}{ex['title']}{RESET}")
 
@@ -389,7 +389,7 @@ class TourApp:
 
             if k == "q":
                 clear_screen()
-                print(f"\n{BOLD}{COLOR_NYX_VIOLET}Tour of Nyx saved! See you soon. 🌙{RESET}\n")
+                print(f"\n{BOLD}{COLOR_ROVE_VIOLET}Tour of Rove saved! See you soon. 🌙{RESET}\n")
                 self._save_state()
                 break
 
@@ -474,7 +474,7 @@ def init_workspace(target_path: Optional[str] = None):
     repo_dir = os.path.abspath(os.path.join(base_tour_dir, ".."))
 
     if not target_path:
-        target_path = os.path.join(os.path.expanduser("~"), "Desktop", "Nyx_Tour_Exercises")
+        target_path = os.path.join(os.path.expanduser("~"), "Desktop", "Rove_Tour_Exercises")
 
     target_path = os.path.abspath(target_path)
     os.makedirs(target_path, exist_ok=True)
@@ -505,7 +505,7 @@ def init_workspace(target_path: Optional[str] = None):
     start_bat_content = f"""@echo off
 setlocal
 chcp 65001 >nul 2>&1
-title Tour of Nyx
+title Tour of Rove
 call "{tour_bat_in_repo}" --workspace "{target_path}" %*
 pause
 """
@@ -513,9 +513,9 @@ pause
         f.write(start_bat_content)
 
     # 4. Create BENI_OKU.txt in target_path
-    readme_content = f"""Tour of Nyx - Alıştırma Klasörü 🌙
+    readme_content = f"""Tour of Rove - Alıştırma Klasörü 🌙
 ======================================================================
-Bu klasör, Nyx programlama dilini öğrenmeniz için bilerek hatalı veya
+Bu klasör, Rove programlama dilini öğrenmeniz için bilerek hatalı veya
 eksik bırakılmış {len(curriculum)} alıştırmayı içerir.
 
 Nasıl Çalışır?
@@ -523,7 +523,7 @@ Nasıl Çalışır?
    Klasöre sağ tıklayın -> "Open with Code" (veya terminalde: code .)
 2. "start_tour.bat" dosyasını çift tıklayarak çalıştırın.
 3. Terminalde sıradaki dersin konusu, ipuçları ve hata mesajı belirir.
-4. VS Code'da ilgili .nyx dosyasını açıp kodunu düzeltin ve kaydedin (Ctrl + S).
+4. VS Code'da ilgili .rove dosyasını açıp kodunu düzeltin ve kaydedin (Ctrl + S).
 5. Terminal kaydettiğinizi ANINDA algılar, doğrular ve çözüldüğünde bir sonrakine geçer!
 ======================================================================
 """
@@ -531,7 +531,7 @@ Nasıl Çalışır?
         f.write(readme_content)
 
     print("=" * 70)
-    print("✨ Nyx Tour Öğrenci Çalışma Alanı Başarıyla Oluşturuldu!")
+    print("✨ Rove Tour Öğrenci Çalışma Alanı Başarıyla Oluşturuldu!")
     print(f"📁 Konum: {target_path}")
     print("=" * 70)
     print("1. Klasördeki 'start_tour.bat' dosyasını çalıştırarak turu başlatın.")
@@ -555,7 +555,7 @@ Nasıl Çalışır?
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Tour of Nyx - Interactive Terminal Learning CLI")
+    parser = argparse.ArgumentParser(description="Tour of Rove - Interactive Terminal Learning CLI")
     parser.add_argument("command", nargs="?", default="watch",
                         choices=["watch", "core", "run", "check-all", "hint", "list", "reset", "init"],
                         help="Tour command (default: watch)")

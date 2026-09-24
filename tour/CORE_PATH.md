@@ -1,6 +1,6 @@
-# Core Path: Build with Nyx
+# Core Path: Build with Rove
 
-The Core Path is the recommended first route through the Tour of Nyx. It is
+The Core Path is the recommended first route through the Tour of Rove. It is
 project-driven: every chapter introduces a language idea because the next
 small program needs it. It contains 25 carefully selected exercises. You do
 not need to complete every practice exercise before moving on.
@@ -16,22 +16,22 @@ For every chapter:
 1. Read the goal before opening the exercise.
 2. Run the starter program once and observe its output or diagnostic.
 3. Change only the marked code until the exercise passes.
-4. Run it again with `nyx run` when the lesson is complete.
+4. Run it again with `rove run` when the lesson is complete.
 5. Write one sentence explaining what changed and why.
 
 The expected command from the repository root is:
 
 ```text
-nyx run tour/exercises/<exercise>.nyx
+rove run tour/exercises/<exercise>.rove
 ```
 
-Nyx programs may use top-level statements; `fn main()` is not required for
+Rove programs may use top-level statements; `fn main()` is not required for
 these examples.
 
-## Chapter 1: Your first Nyx program
+## Chapter 1: Your first Rove program
 
 Goal: verify the toolchain, print a value, and understand the smallest
-possible Nyx program.
+possible Rove program.
 
 Exercises: `intro01`, `intro02`, `intro03`.
 
@@ -104,12 +104,12 @@ input while guaranteeing cleanup with `defer`.
 
 ## Chapter 8: Use the ecosystem
 
-Goal: turn a single file into a maintainable Nyx program.
+Goal: turn a single file into a maintainable Rove program.
 
 Exercises: `modules01` through `modules03`.
 
 Build result: a small CLI split across modules and using standard-library
-boundaries. This is the point where Nyx stops being only an exercise language
+boundaries. This is the point where Rove stops being only an exercise language
 and becomes useful for a real tool.
 
 ## Chapter 9: Add concurrency deliberately

@@ -1,9 +1,0 @@
-fn main() {
-    let first = "Nyx"
-    let last = "Language"
-    let full_name = first + " " + last
-    assert(full_name == "Nyx Language", "full_name must be 'Nyx Language'!")
-    print("Full name:", full_name)
-}
-
-main()

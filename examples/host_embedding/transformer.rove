@@ -1,0 +1,23 @@
+// Rove Host Embedding Example: Data Transformer
+// High-performance shared module embeddable in Node.js (WASM) and Python hosts.
+
+fn sum_floats(data: Array<float>) -> float {
+    var total = 0.0;
+    for x in data {
+        total = total + x;
+    }
+    return total;
+}
+
+fn mutate_add_in_place(data: Array<int>, offset: int) -> int {
+    var i = 0;
+    while i < data.len() {
+        set data[i] = data[i] + offset;
+        set i = i + 1;
+    }
+    return data.len();
+}
+
+fn format_summary(title: string) -> string {
+    return "Summary: " + title + " [OK]";
+}

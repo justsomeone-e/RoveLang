@@ -1,0 +1,9 @@
+// I AM NOT DONE
+// In Rove, functions are declared with the `fn` keyword.
+// TODO: Define a function named `call_me` that prints "Called successfully!".
+
+fn main() {
+    call_me()
+}
+
+main()

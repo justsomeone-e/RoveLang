@@ -1,6 +1,6 @@
-# Latency reports with one Nyx module
+# Latency reports with one Rove module
 
-`metrics.nyx` contains the shared calculations. The website passes measured
+`metrics.rove` contains the shared calculations. The website passes measured
 milliseconds into its generated WASM wrapper and renders a downloadable report.
 JavaScript/Python hosts import the same source compiled for their runtime.
 All commands below run from the repository root.
@@ -8,13 +8,13 @@ All commands below run from the repository root.
 ## Native CLI
 
 ```sh
-python src/cli.py build examples/metrics/cli.nyx --target cpp
+python src/cli.py build examples/metrics/cli.rove --target cpp
 ./build/cpp/cli.exe 42 95 380
 ```
 
 On Windows PowerShell use `./build/cpp/cli.exe`; the current CLI build also names
 its native artifact `.exe` on Unix. A C++20 compiler is needed for the build.
-Invoke the resulting executable directly: `nyx run` does not forward program
+Invoke the resulting executable directly: `rove run` does not forward program
 arguments. This application accepts 1–10,000 integer samples in the range
 0–1,000,000 ms; the budget is 200 ms. Invalid input prints an error without a
 report. Its current error path returns normally rather than a nonzero exit code.
@@ -32,17 +32,17 @@ over_200_ms: 1
 ## Node.js integration
 
 ```sh
-python src/cli.py build examples/metrics/metrics.nyx --target js --esm
+python src/cli.py build examples/metrics/metrics.rove --target js --esm
 node examples/metrics/use_metrics.mjs build/js/metrics.mjs
 ```
 
-Nyx `int` results use BigInt on JavaScript; the host converts bounded counts
+Rove `int` results use BigInt on JavaScript; the host converts bounded counts
 to Number for JSON. Float results are numbers.
 
 ## Python integration
 
 ```sh
-python src/cli.py build examples/metrics/metrics.nyx --target python
+python src/cli.py build examples/metrics/metrics.rove --target python
 python examples/metrics/use_metrics.py build/python/metrics.py
 ```
 

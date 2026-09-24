@@ -24,18 +24,18 @@ def run_bootstrap_typechecker_test() -> bool:
     print("⚡ NYX PHASE 4.0.6 EXHAUSTIVE SEMANTIC TYPECHECKER HARNESS")
     print("=" * 70)
 
-    with open(os.path.join(_root_dir, "compiler", "parser.nyx"), "r", encoding="utf-8") as f:
+    with open(os.path.join(_root_dir, "compiler", "parser.rove"), "r", encoding="utf-8") as f:
         parser_content = f.read()
     parser_lines = [l for l in parser_content.split("\n") if not (l.startswith("#target") or l.startswith("#native"))]
     parser_body = "\n".join(parser_lines)
 
-    with open(os.path.join(_root_dir, "compiler", "lexer.nyx"), "r", encoding="utf-8") as f:
+    with open(os.path.join(_root_dir, "compiler", "lexer.rove"), "r", encoding="utf-8") as f:
         lexer_content = f.read()
     lexer_impl_start = lexer_content.index("// NYX_LEXER_SUPPORT_BEGIN:")
     lexer_impl_end = lexer_content.index("fn main()") if "fn main()" in lexer_content else len(lexer_content)
     lexer_code = lexer_content[lexer_impl_start:lexer_impl_end].strip()
 
-    with open(os.path.join(_root_dir, "compiler", "type_checker.nyx"), "r", encoding="utf-8") as f:
+    with open(os.path.join(_root_dir, "compiler", "type_checker.rove"), "r", encoding="utf-8") as f:
         tc_content = f.read()
     tc_lines = [l for l in tc_content.split("\n") if not (l.startswith("#target") or l.startswith("#native"))]
     tc_body = "\n".join(tc_lines)
@@ -76,9 +76,9 @@ def run_bootstrap_typechecker_test() -> bool:
         print(f"[*] Validating: {name} ...", end=" ")
 
         # Python TypeChecker
-        py_tokens = PyLexer(src, f"{name}.nyx").tokenize()
-        py_ast = PyParser(py_tokens, src, f"{name}.nyx").parse()
-        py_tc = PyTypeChecker(py_ast, f"{name}.nyx", src)
+        py_tokens = PyLexer(src, f"{name}.rove").tokenize()
+        py_ast = PyParser(py_tokens, src, f"{name}.rove").parse()
+        py_tc = PyTypeChecker(py_ast, f"{name}.rove", src)
         py_accepted = True
         try:
             py_tc.check()
@@ -106,8 +106,8 @@ fn main() {{
 
 main()
 """
-        tokens_ast = PyLexer(runner_code, f"{name}_tc_driver.nyx").tokenize()
-        ast = PyParser(tokens_ast, runner_code, f"{name}_tc_driver.nyx").parse()
+        tokens_ast = PyLexer(runner_code, f"{name}_tc_driver.rove").tokenize()
+        ast = PyParser(tokens_ast, runner_code, f"{name}_tc_driver.rove").parse()
         cpp_code = UniversalCodeGen(ast).gen_cpp()
 
         temp_dir = tempfile.mkdtemp(prefix="nyx_tc_")
@@ -166,9 +166,9 @@ main()
         # Python TypeChecker Rejection
         py_rejected = False
         try:
-            py_tokens = PyLexer(src, f"{name}.nyx").tokenize()
-            py_ast = PyParser(py_tokens, src, f"{name}.nyx").parse()
-            py_tc = PyTypeChecker(py_ast, f"{name}.nyx", src)
+            py_tokens = PyLexer(src, f"{name}.rove").tokenize()
+            py_ast = PyParser(py_tokens, src, f"{name}.rove").parse()
+            py_tc = PyTypeChecker(py_ast, f"{name}.rove", src)
             try:
                 py_tc.check()
             except SystemExit:
@@ -197,8 +197,8 @@ fn main() {{
 
 main()
 """
-        tokens_ast = PyLexer(runner_code, f"{name}_tc_driver.nyx").tokenize()
-        ast = PyParser(tokens_ast, runner_code, f"{name}_tc_driver.nyx").parse()
+        tokens_ast = PyLexer(runner_code, f"{name}_tc_driver.rove").tokenize()
+        ast = PyParser(tokens_ast, runner_code, f"{name}_tc_driver.rove").parse()
         cpp_code = UniversalCodeGen(ast).gen_cpp()
 
         temp_dir = tempfile.mkdtemp(prefix="nyx_tc_rej_")

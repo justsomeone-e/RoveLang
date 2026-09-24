@@ -6,7 +6,7 @@ BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 if BASE not in sys.path:
     sys.path.insert(0, BASE)
 
-from src.api import NyxCompiler
+from src.api import RoveCompiler
 
 # =========================================================================
 # 138 EXHAUSTIVE EDGE-CASE TEST SUITE
@@ -187,15 +187,14 @@ def run_all_138():
     passed = 0
     failed = 0
     failures = []
-    compiler = NyxCompiler(BASE)
+    compiler = RoveCompiler(BASE)
 
     print("=" * 70)
-    print("⚡ NYX 138-POINT EXHAUSTIVE EDGE-CASE TEST HARNESS")
+    print("⚡ ROVE 138-POINT EXHAUSTIVE EDGE-CASE TEST HARNESS")
     print("=" * 70)
 
     for idx, (name, code, expected) in enumerate(test_cases, 1):
-        filename = os.path.join(BASE, "tests", "battery138", f"{name}.nyx")
-
+        filename = os.path.join(BASE, "tests", "battery138", f"{name}.rove")
         try:
             result = compiler.compile_source(
                 code,

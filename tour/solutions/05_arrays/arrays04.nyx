@@ -1,8 +1,0 @@
-fn main() {
-    let languages = ["Nyx", "C++", "Rust", "Python"]
-    let count = len(languages)
-    assert(count == 4, "languages array must have 4 items!")
-    print("Tracked languages count:", count)
-}
-
-main()

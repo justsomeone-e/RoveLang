@@ -30,7 +30,7 @@ def run_lsp_suite():
     diagnostics = []
     server.send_diagnostics = lambda uri, items: diagnostics.append((uri, items))
     unicode_source = 'print("😀"); var value: int = missing'
-    unicode_uri = "file:///unicode.nyx"
+    unicode_uri = "file:///unicode.rove"
     server.validate_document(unicode_uri, unicode_source)
     diagnostic = diagnostics[-1][1][0]
     assert "Help:" in diagnostic["message"] and "outside its scope" in diagnostic["message"]
@@ -38,7 +38,7 @@ def run_lsp_suite():
     assert diagnostic["range"]["start"]["character"] == expected_column
     assert server.get_word_at_position(unicode_source, 0, expected_column) == "missing"
     assert server.get_word_at_position(unicode_source, -1, 0) == ""
-    test_uri = "file:///C:/test_project/main.nyx"
+    test_uri = "file:///C:/test_project/main.rove"
     test_code = """import "std/math"
 
 struct Point { x: int, y: int }
@@ -84,7 +84,7 @@ print(calculate_distance(pt, pt))
     assert tuple(editor_surface["reservedKeywords"]) == RESERVED_KEYWORDS
     print(f"  [PASS] Autocompletion returned {len(comp_items)} verified symbols")
 
-    incomplete_uri = "file:///C:/test_project/incomplete.nyx"
+    incomplete_uri = "file:///C:/test_project/incomplete.rove"
     incomplete_source = "fn local_helper(value: int) -> int {\n    let local_value = value +\n"
     server.documents[incomplete_uri] = incomplete_source
     server.validate_document(incomplete_uri, incomplete_source)

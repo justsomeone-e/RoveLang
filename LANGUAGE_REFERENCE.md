@@ -67,7 +67,10 @@ accepted in its directly negated decimal or hexadecimal spelling.
 `float` is IEEE-754 binary64. Division by zero produces the corresponding
 infinity or NaN; `%` uses a truncating remainder with the dividend's sign.
 Canonical text uses `nan`, `inf`, `-inf`, normalized exponents such as `1e-7`,
-and renders negative zero as `0`.
+and renders negative zero as `0`. Finite values use a shortest round-tripping
+decimal without a redundant `.0`. Nonzero magnitudes from `1e-6` (inclusive)
+to `1e21` (exclusive) use fixed notation; other magnitudes use scientific
+notation with an explicit `+` for positive exponents and no exponent padding.
 
 An `int` widens to `float` by IEEE-754 binary64 conversion when required by an
 operator, parameter, field, or return type. The conversion can round integers
@@ -334,8 +337,9 @@ recursive dependency cycles are rejected.
 
 For WebAssembly browser programs, `std/web` provides opaque `WebElement`,
 `WebEvent`, and `WebListener` handles plus DOM, event, animation-frame, and
-Canvas 2D functions. These calls require the generated `rove_host_v1` adapter
-and are rejected on non-WASM targets.
+Canvas 2D functions. These calls require the generated `nyx_host_v1` adapter
+and are rejected on non-WASM targets. The namespace keeps its historical name
+for Bundle ABI v1 compatibility.
 
 ## 10. Tests and unsafe boundaries
 

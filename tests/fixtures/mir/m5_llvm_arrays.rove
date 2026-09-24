@@ -1,0 +1,20 @@
+fn first(values: Array<int>) -> int {
+  return values[0]
+}
+
+fn main() {
+  var original = [1, 2, 3]
+  var copied = original
+  set copied[0] = 9
+  print(original[0], copied[0], len(copied), first(original))
+
+  var flags = [true, false]
+  var flags_copy = flags
+  set flags_copy[0] = false
+  print(flags[0], flags_copy[0], len(flags_copy))
+
+  var words = ["nyx", "mir"]
+  var words_copy = words
+  set words_copy[0] = "llvm"
+  print(words[0], words_copy[0], len(words_copy))
+}

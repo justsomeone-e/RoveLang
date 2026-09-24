@@ -1,4 +1,4 @@
-"""Structural and type verification for experimental Nyx MIR."""
+"""Structural and type verification for experimental Rove MIR."""
 
 from __future__ import annotations
 
@@ -479,7 +479,7 @@ class MIRVerifier:
         *,
         report: bool,
     ) -> list[tuple[int, tuple[str, ...]]]:
-        for statement in block.statements:
+        for index, statement in enumerate(block.statements):
             span = statement.span
             if isinstance(statement, AssignStatement):
                 self._ownership_rvalue(statement.value, state, span, report)
@@ -494,7 +494,28 @@ class MIRVerifier:
             elif isinstance(statement, (RetainStatement, ReleaseStatement)):
                 self._ownership_require(statement.place, state, span, report, "ownership operation")
             elif isinstance(statement, DeinitStatement):
-                self._ownership_consume(statement.place, state, span, report, "deinit")
+                if statement.place.projections:
+                    self._ownership_require(
+                        statement.place, state, span, report, "deinit"
+                    )
+                    replacement = (
+                        block.statements[index + 1]
+                        if index + 1 < len(block.statements)
+                        else None
+                    )
+                    if not (
+                        isinstance(replacement, AssignStatement)
+                        and replacement.place == statement.place
+                    ) and report:
+                        self._ownership_issue(
+                            "MIR0805",
+                            "Projected deinit must be immediately followed by assignment to the same place",
+                            span,
+                        )
+                else:
+                    self._ownership_consume(
+                        statement.place, state, span, report, "deinit"
+                    )
 
         terminator = block.terminator
         span = terminator.span
@@ -639,6 +660,17 @@ class MIRVerifier:
         operation: str,
     ) -> None:
         if place.local < 0 or place.local >= len(state):
+            return
+        if place.projections and operation == "move":
+            if report:
+                self._ownership_issue(
+                    "MIR0806",
+                    "Projected move requires place-sensitive partial-move analysis; move the whole local instead",
+                    span,
+                )
+            # Keep the dataflow conservative after reporting: no later use of the
+            # base local may be accepted as initialized by accident.
+            state[place.local] = "moved"
             return
         if state[place.local] != "init":
             if report and operation in ("drop", "deinit") and state[place.local] == "moved":

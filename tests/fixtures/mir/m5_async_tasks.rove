@@ -1,0 +1,31 @@
+async fn compute() -> int {
+  print("compute")
+  return 21
+}
+
+async fn fail() -> int {
+  throw "async boom"
+  return 0
+}
+
+async fn unhandled_async(value: string) -> int {
+  defer print("unhandled-async-defer", value)
+  let result: int = await fail()
+  return result
+}
+
+async fn main() {
+  let task: Task<int> = compute()
+  let first: int = await task
+  let second: int = await task
+  print(first + second)
+
+  try {
+    let marker: string = "await-local"
+    defer print("await-defer", marker)
+    let ignored: int = await fail()
+    print(ignored)
+  } catch err {
+    print(err)
+  }
+}

@@ -44,6 +44,7 @@ from .model import (
     ReturnTerminator,
     StorageDeadStatement,
     StorageLiveStatement,
+    SuspendTerminator,
     SwitchIntTerminator,
     SwitchValueTerminator,
     ThrowTerminator,
@@ -216,23 +217,47 @@ MIR_BACKEND_PROFILES["cpp"] = replace(
         DeinitStatement.__name__, ReleaseStatement.__name__, RetainStatement.__name__,
     }),
     legal_terminators=MIR_BACKEND_PROFILES["cpp"].legal_terminators | frozenset({
-        DropTerminator.__name__, ThrowTerminator.__name__,
+        DropTerminator.__name__, SuspendTerminator.__name__, ThrowTerminator.__name__,
     }),
     legal_projections=frozenset({
         DerefProjection.__name__, FieldProjection.__name__, IndexProjection.__name__,
         ConstantIndexProjection.__name__,
     }),
-    legal_types=MIR_BACKEND_PROFILES["cpp"].legal_types | frozenset({"Array", "Option", "Result"}),
+    legal_types=MIR_BACKEND_PROFILES["cpp"].legal_types | frozenset({"Array", "Option", "Result", "Task"}),
     legal_runtime_calls=MIR_BACKEND_PROFILES["cpp"].legal_runtime_calls | frozenset({
         "builtin::len", "builtin::to_string",
     }),
     legal_effects=MIR_BACKEND_PROFILES["cpp"].legal_effects | frozenset({
-        "may_allocate", "may_throw", "unsafe",
+        "may_allocate", "may_suspend", "may_throw", "unsafe",
     }),
 )
 
-# The first MIR-to-Wasm slice is deliberately pure and integer-focused. Heap
-# values, host calls, casts, and aggregate ABI lowering stay behind the gate.
+# LLVM begins aggregate migration with nominal value structs and bounded
+# Array<int|bool|float|string> descriptors. Explicit non-unwinding destruction is
+# legal; tagged values and unwind behavior remain behind the gate.
+MIR_BACKEND_PROFILES["llvm"] = replace(
+    MIR_BACKEND_PROFILES["llvm"],
+    legal_rvalues=MIR_BACKEND_PROFILES["llvm"].legal_rvalues | frozenset({
+        AggregateRValue.__name__, DiscriminantRValue.__name__, PayloadRValue.__name__,
+    }),
+    legal_projections=frozenset({
+        ConstantIndexProjection.__name__, FieldProjection.__name__, IndexProjection.__name__,
+    }),
+    legal_statements=MIR_BACKEND_PROFILES["llvm"].legal_statements | frozenset({
+        DeinitStatement.__name__,
+    }),
+    legal_terminators=MIR_BACKEND_PROFILES["llvm"].legal_terminators | frozenset({
+        DropTerminator.__name__,
+    }),
+    legal_types=MIR_BACKEND_PROFILES["llvm"].legal_types | frozenset({"Array"}),
+    legal_runtime_calls=MIR_BACKEND_PROFILES["llvm"].legal_runtime_calls | frozenset({
+        "builtin::len",
+    }),
+    legal_effects=MIR_BACKEND_PROFILES["llvm"].legal_effects | frozenset({"may_allocate"}),
+)
+
+# The Wasm pilot consumes bounded aggregate MIR plus explicit non-unwinding
+# deinit/drop. Its bump arena does not reclaim individual allocations.
 MIR_BACKEND_PROFILES["wasm"] = replace(
     MIR_BACKEND_PROFILES["wasm"],
     legal_rvalues=frozenset({
@@ -241,19 +266,24 @@ MIR_BACKEND_PROFILES["wasm"] = replace(
     }),
     legal_terminators=frozenset({
         AssertTerminator.__name__, CallTerminator.__name__, GotoTerminator.__name__,
+        DropTerminator.__name__,
         ReturnTerminator.__name__, SwitchIntTerminator.__name__, SwitchValueTerminator.__name__,
         UnreachableTerminator.__name__,
+    }),
+    legal_statements=MIR_BACKEND_PROFILES["wasm"].legal_statements | frozenset({
+        DeinitStatement.__name__,
     }),
     legal_projections=frozenset({
         FieldProjection.__name__, IndexProjection.__name__, ConstantIndexProjection.__name__,
     }),
-    legal_types=frozenset({"void", "bool", "int", "string", "Array"}),
+    legal_types=frozenset({"void", "bool", "int", "float", "f64", "string", "Array"}),
     legal_runtime_calls=frozenset({"builtin::len"}),
     legal_effects=MIR_BACKEND_PROFILES["wasm"].legal_effects | frozenset({"may_allocate"}),
 )
 
-# Rust maps Nyx value ownership onto Rust moves/clones and non-unwinding drops.
-# Raw borrows/dereferences and unwind cleanup remain behind the legalization gate.
+# Rust maps Rove value ownership onto Rust moves/clones and non-unwinding drops.
+# User throw/catch uses an explicit Result carrier; raw panic and drop-unwind
+# behavior remain outside the language exception path.
 MIR_BACKEND_PROFILES["rust"] = replace(
     MIR_BACKEND_PROFILES["rust"],
     legal_rvalues=frozenset({
@@ -265,23 +295,23 @@ MIR_BACKEND_PROFILES["rust"] = replace(
         DeinitStatement.__name__, ReleaseStatement.__name__, RetainStatement.__name__,
     }),
     legal_terminators=MIR_BACKEND_PROFILES["rust"].legal_terminators | frozenset({
-        DropTerminator.__name__,
+        DropTerminator.__name__, SuspendTerminator.__name__, ThrowTerminator.__name__,
     }),
     legal_projections=frozenset({
         DerefProjection.__name__, FieldProjection.__name__, IndexProjection.__name__,
         ConstantIndexProjection.__name__,
     }),
-    legal_types=MIR_BACKEND_PROFILES["rust"].legal_types | frozenset({"Array"}),
+    legal_types=MIR_BACKEND_PROFILES["rust"].legal_types | frozenset({"Array", "Result", "Task"}),
     legal_runtime_calls=MIR_BACKEND_PROFILES["rust"].legal_runtime_calls | frozenset({
         "builtin::len", "builtin::to_string",
     }),
     legal_effects=MIR_BACKEND_PROFILES["rust"].legal_effects | frozenset({
-        "may_allocate", "unsafe",
+        "may_allocate", "may_suspend", "may_throw", "unsafe",
     }),
 )
 
-# JavaScript uses BigInt for the Nyx i64 contract. Casts and heap/aggregate
-# values remain excluded until their host representation is versioned.
+# JavaScript uses BigInt for the Rove i64 contract and clears explicit
+# non-unwinding deinit/drop places to release host references.
 MIR_BACKEND_PROFILES["js"] = replace(
     MIR_BACKEND_PROFILES["js"],
     legal_rvalues=frozenset({
@@ -292,20 +322,23 @@ MIR_BACKEND_PROFILES["js"] = replace(
     legal_projections=frozenset({
         FieldProjection.__name__, IndexProjection.__name__, ConstantIndexProjection.__name__,
     }),
-    legal_terminators=MIR_BACKEND_PROFILES["js"].legal_terminators | frozenset({
-        ThrowTerminator.__name__,
+    legal_statements=MIR_BACKEND_PROFILES["js"].legal_statements | frozenset({
+        DeinitStatement.__name__,
     }),
-    legal_types=MIR_BACKEND_PROFILES["js"].legal_types | frozenset({"Array", "Option", "Result"}),
+    legal_terminators=MIR_BACKEND_PROFILES["js"].legal_terminators | frozenset({
+        DropTerminator.__name__, SuspendTerminator.__name__, ThrowTerminator.__name__,
+    }),
+    legal_types=MIR_BACKEND_PROFILES["js"].legal_types | frozenset({"Array", "Option", "Result", "Task"}),
     legal_runtime_calls=MIR_BACKEND_PROFILES["js"].legal_runtime_calls | frozenset({
         "builtin::len", "builtin::to_string",
     }),
     legal_effects=MIR_BACKEND_PROFILES["js"].legal_effects | frozenset({
-        "may_allocate", "may_throw",
+        "may_allocate", "may_suspend", "may_throw",
     }),
 )
 
 # Python has arbitrary-precision integers, so the emitter inserts explicit
-# signed-i64 normalization. Casts and aggregate values remain gated.
+# signed-i64 normalization and clears explicit deinit/drop places.
 MIR_BACKEND_PROFILES["python"] = replace(
     MIR_BACKEND_PROFILES["python"],
     legal_rvalues=frozenset({
@@ -316,22 +349,26 @@ MIR_BACKEND_PROFILES["python"] = replace(
     legal_projections=frozenset({
         FieldProjection.__name__, IndexProjection.__name__, ConstantIndexProjection.__name__,
     }),
-    legal_terminators=MIR_BACKEND_PROFILES["python"].legal_terminators | frozenset({
-        ThrowTerminator.__name__,
+    legal_statements=MIR_BACKEND_PROFILES["python"].legal_statements | frozenset({
+        DeinitStatement.__name__,
     }),
-    legal_types=MIR_BACKEND_PROFILES["python"].legal_types | frozenset({"Array", "Option", "Result"}),
+    legal_terminators=MIR_BACKEND_PROFILES["python"].legal_terminators | frozenset({
+        DropTerminator.__name__, SuspendTerminator.__name__, ThrowTerminator.__name__,
+    }),
+    legal_types=MIR_BACKEND_PROFILES["python"].legal_types | frozenset({"Array", "Option", "Result", "Task"}),
     legal_runtime_calls=MIR_BACKEND_PROFILES["python"].legal_runtime_calls | frozenset({
         "builtin::len", "builtin::to_string",
     }),
     legal_effects=MIR_BACKEND_PROFILES["python"].legal_effects | frozenset({
-        "may_allocate", "may_throw",
+        "may_allocate", "may_suspend", "may_throw",
     }),
 )
 
 # C17 uses explicit bit conversions and a tiny tracked allocation runtime.
 # Supported acyclic value structs, recursive arrays, multi-primitive tagged
 # payloads, and one ownership-bearing tagged payload are legalized explicitly;
-# cleanup edges remain gated.
+# non-unwinding deinit/drop clears values while tracked allocations remain
+# process-owned; unwind cleanup edges remain gated.
 MIR_BACKEND_PROFILES["c"] = replace(
     MIR_BACKEND_PROFILES["c"],
     legal_rvalues=frozenset({
@@ -342,8 +379,16 @@ MIR_BACKEND_PROFILES["c"] = replace(
     legal_projections=frozenset({
         FieldProjection.__name__, IndexProjection.__name__, ConstantIndexProjection.__name__,
     }),
+    legal_statements=MIR_BACKEND_PROFILES["c"].legal_statements | frozenset({
+        DeinitStatement.__name__,
+    }),
+    legal_terminators=MIR_BACKEND_PROFILES["c"].legal_terminators | frozenset({
+        DropTerminator.__name__,
+    }),
     legal_types=MIR_BACKEND_PROFILES["c"].legal_types | frozenset({"Array", "Option", "Result"}),
-    legal_runtime_calls=MIR_BACKEND_PROFILES["c"].legal_runtime_calls | frozenset({"builtin::len"}),
+    legal_runtime_calls=MIR_BACKEND_PROFILES["c"].legal_runtime_calls | frozenset({
+        "builtin::len", "builtin::to_string",
+    }),
     legal_effects=MIR_BACKEND_PROFILES["c"].legal_effects | frozenset({"may_allocate"}),
 )
 
@@ -422,7 +467,7 @@ class _Legalizer:
                         self._issue(
                             "MIRG1002",
                             f"The C17 MIR struct pilot requires acyclic by-value int, bool, "
-                            f"string, or nominal-struct fields; "
+                            f"float, string, or nominal-struct fields; "
                             f"'{definition.name}.{field.name}' is '{field.type}'",
                             span,
                         )
@@ -434,7 +479,7 @@ class _Legalizer:
                         for payload_type in variant.payload_types
                     )
                     has_multi_object_payload = len(variant.payload_types) > 1 and any(
-                        payload_type.name not in ("int", "bool", "string")
+                        payload_type.name not in ("int", "bool", "string", "float", "f64")
                         or payload_type.arguments
                         or payload_type.optional
                         or payload_type.pointer
@@ -454,7 +499,8 @@ class _Legalizer:
                 for field in definition.fields:
                     nested = self.type_definitions.get(field.type.name)
                     if field.type not in (
-                        MIRType("int"), MIRType("bool"), MIRType("string")
+                        MIRType("int"), MIRType("bool"), MIRType("float"),
+                        MIRType("f64"), MIRType("string"),
                     ) and not (
                         isinstance(nested, MIRStructDef)
                         and not field.type.arguments
@@ -463,7 +509,7 @@ class _Legalizer:
                     ):
                         self._issue(
                             "MIRG1002",
-                            f"The Wasm MIR struct pilot requires int, bool, string, or nominal struct fields; "
+                            f"The Wasm MIR struct pilot requires int, bool, float, string, or nominal struct fields; "
                             f"'{definition.name}.{field.name}' is '{field.type}'",
                             span,
                         )
@@ -473,13 +519,14 @@ class _Legalizer:
                     for payload_type in variant.payload_types:
                         if (
                             payload_type not in (
-                                MIRType("int"), MIRType("bool"), MIRType("string")
+                                MIRType("int"), MIRType("bool"), MIRType("float"),
+                                MIRType("f64"), MIRType("string"),
                             )
                             and not isinstance(self.type_definitions.get(payload_type.name), MIRStructDef)
                         ):
                             self._issue(
                                 "MIRG1002",
-                                f"The Wasm MIR enum pilot requires int, bool, string, or nominal struct payloads; "
+                                f"The Wasm MIR enum pilot requires int, bool, float, string, or nominal struct payloads; "
                                 f"'{definition.name}.{variant.name}' contains '{payload_type}'",
                                 span,
                             )
@@ -490,6 +537,31 @@ class _Legalizer:
                             "MIRG1002",
                             f"The Wasm MIR enum pilot permits non-int payloads only as a single payload; "
                             f"'{definition.name}.{variant.name}' has {len(variant.payload_types)} payloads",
+                            span,
+                        )
+                continue
+            if self.target == "llvm" and isinstance(definition, MIRStructDef):
+                for field in definition.fields:
+                    if not self._llvm_value_field_compatible(
+                        field.type, (definition.name,)
+                    ):
+                        self._issue(
+                            "MIRG1002",
+                            "The LLVM MIR struct pilot requires acyclic by-value "
+                            "scalar, Array<int|bool|float|string|acyclic-struct>, or nominal-struct fields; "
+                            f"'{definition.name}.{field.name}' is '{field.type}'",
+                            span,
+                        )
+                continue
+            if self.target == "llvm" and isinstance(definition, MIREnumDef):
+                for variant in definition.variants:
+                    if not self._llvm_tag_variant_compatible(variant.payload_types):
+                        self._issue(
+                            "MIRG1002",
+                            "The LLVM MIR tagged-value pilot permits at most four "
+                            "primitive/string or supported array/nominal-struct payloads; "
+                            f"'{definition.name}.{variant.name}' has "
+                            f"{', '.join(str(item) for item in variant.payload_types) or 'no payload'}",
                             span,
                         )
                 continue
@@ -586,6 +658,33 @@ class _Legalizer:
                     f"Binary operation '{value.op}' is not legal for target '{self.target}'",
                     span,
                 )
+            if self.target == "wasm":
+                left_type = self._operand_mir_type(value.left)
+                right_type = self._operand_mir_type(value.right)
+                if left_type != right_type or not self._wasm_binary_compatible(
+                    left_type, value.op, value.type
+                ):
+                    self._issue(
+                        "MIRG1010",
+                        f"Wasm operation '{value.op}' is not legal for "
+                        f"'{left_type}' and '{right_type}' with result '{value.type}'",
+                        span,
+                    )
+            if self.target == "llvm":
+                operand_type = self._operand_mir_type(value.left)
+                right_type = self._operand_mir_type(value.right)
+                if operand_type != right_type:
+                    self._issue(
+                        "MIRG1010",
+                        f"LLVM binary operands must have the same type, got '{operand_type}' and '{right_type}'",
+                        span,
+                    )
+                if not self._llvm_binary_compatible(operand_type, value.op):
+                    self._issue(
+                        "MIRG1010",
+                        f"LLVM operation '{value.op}' is not legal for '{operand_type}'",
+                        span,
+                    )
         elif isinstance(value, UnaryRValue):
             self._operand(value.operand, span)
             self._type(value.type, span)
@@ -595,13 +694,59 @@ class _Legalizer:
                     f"Unary operation '{value.op}' is not legal for target '{self.target}'",
                     span,
                 )
+            if self.target == "wasm" and not self._wasm_unary_compatible(
+                self._operand_mir_type(value.operand), value.op, value.type
+            ):
+                self._issue(
+                    "MIRG1010",
+                    f"Wasm unary operation '{value.op}' is not legal for "
+                    f"'{self._operand_mir_type(value.operand)}' with result '{value.type}'",
+                    span,
+                )
+            if self.target == "llvm":
+                operand_type = self._operand_mir_type(value.operand)
+                if not self._llvm_unary_compatible(operand_type, value.op):
+                    self._issue(
+                        "MIRG1010",
+                        f"LLVM unary operation '{value.op}' is not legal for '{operand_type}'",
+                        span,
+                    )
         elif isinstance(value, CastRValue):
             self._operand(value.operand, span)
             self._type(value.type, span)
+            if self.target == "llvm":
+                source_type = self._operand_mir_type(value.operand)
+                if (
+                    self._llvm_type_shape_supported(source_type)
+                    and self._llvm_type_shape_supported(value.type)
+                    and not self._llvm_cast_compatible(source_type, value.type)
+                ):
+                    self._issue(
+                        "MIRG1004",
+                        f"LLVM MIR cast '{source_type}' -> '{value.type}' is not legalized",
+                        span,
+                    )
             if self.target == "wasm":
                 source_type = self._operand_mir_type(value.operand)
                 if not (
                     source_type == value.type
+                    or (
+                        source_type == MIRType("int")
+                        and value.type.name in {"float", "f64"}
+                        and not value.type.arguments
+                        and not value.type.optional
+                        and not value.type.pointer
+                    )
+                    or (
+                        source_type.name in {"float", "f64"}
+                        and value.type.name in {"float", "f64"}
+                        and not source_type.arguments
+                        and not value.type.arguments
+                        and not source_type.optional
+                        and not value.type.optional
+                        and not source_type.pointer
+                        and not value.type.pointer
+                    )
                     or (
                         self._wasm_result_compatible(source_type)
                         and self._wasm_result_compatible(value.type)
@@ -615,8 +760,9 @@ class _Legalizer:
         elif isinstance(value, AggregateRValue):
             allowed_kinds = {
                 "cpp": {"array", "struct", "enum", "option", "result"},
+                "llvm": {"array", "struct", "enum", "option", "result"},
                 "wasm": {"array", "struct", "enum", "result"},
-                "rust": {"array", "struct", "enum"},
+                "rust": {"array", "struct", "enum", "result"},
                 "js": {"array", "struct", "enum", "option", "result"},
                 "python": {"array", "struct", "enum", "option", "result"},
                 "c": {"array", "struct", "enum", "option", "result"},
@@ -661,15 +807,121 @@ class _Legalizer:
         elif isinstance(value, CallTerminator):
             for argument in value.arguments:
                 self._operand(argument, value.span)
+            if value.function in {"builtin::print", "builtin::to_string"}:
+                struct_arguments = tuple(
+                    argument_type
+                    for argument in value.arguments
+                    for argument_type in (self._operand_mir_type(argument),)
+                    if self._contains_nominal_struct(argument_type)
+                    and not (
+                        self.target in {"js", "python"}
+                        or self.target == "cpp"
+                        and self._cpp_display_compatible(argument_type)
+                        or self.target == "rust"
+                        and self._rust_display_compatible(argument_type)
+                        or self.target == "llvm"
+                        and value.function == "builtin::print"
+                        and self._llvm_print_compatible(argument_type)
+                        or self.target == "c"
+                        and self._c_display_compatible(argument_type)
+                    )
+                )
+                if struct_arguments:
+                    self._issue(
+                        "MIRG1007",
+                        f"Nominal struct display is not legalized for target '{self.target}'; "
+                        "print its fields explicitly instead of displaying "
+                        f"{', '.join(str(item) for item in struct_arguments)}",
+                        value.span,
+                    )
+            if (
+                self.target == "llvm"
+                and value.function == "builtin::print"
+                and any(
+                    self._llvm_is_tagged_type(self._operand_mir_type(argument))
+                    and not self._llvm_tagged_display_compatible(
+                        self._operand_mir_type(argument)
+                    )
+                    for argument in value.arguments
+                )
+            ):
+                self._issue(
+                    "MIRG1007",
+                    "LLVM tagged-value printing requires concrete primitive/string/array "
+                    "payload types; match this value and print its payload instead",
+                    value.span,
+                )
+            if self.target == "llvm" and value.function == "builtin::print":
+                unsupported = tuple(
+                    argument_type
+                    for argument in value.arguments
+                    for argument_type in (self._operand_mir_type(argument),)
+                    if not self._llvm_print_compatible(argument_type)
+                )
+                if unsupported:
+                    self._issue(
+                        "MIRG1007",
+                        "LLVM print supports scalar and concrete primitive/string/array "
+                        f"tagged values, got {', '.join(str(item) for item in unsupported)}",
+                        value.span,
+                    )
+            if self.target == "c" and value.function in {
+                "builtin::print", "builtin::to_string"
+            }:
+                unsupported = tuple(
+                    argument_type
+                    for argument in value.arguments
+                    for argument_type in (self._operand_mir_type(argument),)
+                    if not self._c_display_compatible(argument_type)
+                )
+                if unsupported:
+                    self._issue(
+                        "MIRG1007",
+                        "C17 display cannot format "
+                        f"{', '.join(str(item) for item in unsupported)}",
+                        value.span,
+                    )
+                if value.function == "builtin::to_string" and (
+                    len(value.arguments) != 1
+                    or value.destination is None
+                    or self._place_mir_type(value.destination) != MIRType("string")
+                ):
+                    self._issue(
+                        "MIRG1007",
+                        "C17 to_string requires one value and a string destination",
+                        value.span,
+                    )
+            if self.target == "llvm" and value.function == "builtin::len":
+                valid_argument = (
+                    len(value.arguments) == 1
+                    and (
+                        self._operand_mir_type(value.arguments[0]) == MIRType("string")
+                        or self._llvm_array_compatible(
+                            self._operand_mir_type(value.arguments[0])
+                        )
+                    )
+                )
+                destination_type = (
+                    self._place_mir_type(value.destination)
+                    if value.destination is not None
+                    else None
+                )
+                if not valid_argument or destination_type != MIRType("int"):
+                    self._issue(
+                        "MIRG1007",
+                        "LLVM builtin::len requires one string or supported Array value "
+                        "argument and an int destination",
+                        value.span,
+                    )
             if value.destination is not None:
                 self._place(value.destination, value.span)
             has_unwind = value.unwind is not None or value.error_destination is not None
-            valid_cpp_unwind = (
-                self.target in {"cpp", "js", "python"}
+            valid_call_unwind = (
+                self.target in {"cpp", "rust", "js", "python"}
                 and value.unwind is not None
                 and value.error_destination is not None
             )
-            if has_unwind and not valid_cpp_unwind:
+            if has_unwind and not valid_call_unwind:
                 self._issue(
                     "MIRG1008",
                     f"Unwind edges are not legalized by the '{self.target}' MIR pilot",
@@ -693,6 +945,23 @@ class _Legalizer:
             self._operand(value.value, value.span)
             if value.destination is not None:
                 self._place(value.destination, value.span)
+        elif isinstance(value, SuspendTerminator):
+            self._operand(value.task, value.span)
+            self._place(value.destination, value.span)
+            has_unwind = value.unwind is not None or value.error_destination is not None
+            valid_suspend_unwind = (
+                self.target in {"cpp", "rust", "js", "python"}
+                and value.unwind is not None
+                and value.error_destination is not None
+            )
+            if value.error_destination is not None:
+                self._place(value.error_destination, value.span)
+            if has_unwind and not valid_suspend_unwind:
+                self._issue(
+                    "MIRG1008",
+                    f"Suspend unwind edges are not legalized by the '{self.target}' MIR pilot",
+                    value.span,
+                )
         elif isinstance(value, DropTerminator):
             self._place(value.place, value.span)
             if value.unwind is not None:
@@ -710,6 +979,44 @@ class _Legalizer:
 
     def _place(self, place: Place, span: MIRSpan) -> None:
         assert self.profile is not None
+        if self.target == "llvm" and place.projections:
+            value_type = self.local_types.get(place.local)
+            for projection in place.projections:
+                if isinstance(projection, (IndexProjection, ConstantIndexProjection)):
+                    if not self._llvm_array_compatible(value_type):
+                        self._issue(
+                            "MIRG1005",
+                            "The LLVM MIR index pilot requires "
+                            f"Array<int|bool|float|string|acyclic-struct>, got '{value_type}'",
+                            span,
+                        )
+                        break
+                    assert value_type is not None
+                    value_type = value_type.arguments[0]
+                elif isinstance(projection, FieldProjection):
+                    definition = self.type_definitions.get(
+                        value_type.name if value_type is not None else ""
+                    )
+                    field = next(
+                        (item for item in definition.fields if item.name == projection.name),
+                        None,
+                    ) if isinstance(definition, MIRStructDef) else None
+                    if field is None:
+                        self._issue(
+                            "MIRG1005",
+                            f"The LLVM MIR field pilot requires a known field, got "
+                            f"'{value_type}.{projection.name}'",
+                            span,
+                        )
+                        break
+                    value_type = field.type
+                else:
+                    self._issue(
+                        "MIRG1005",
+                        f"Projection '{type(projection).__name__}' is not legal for target 'llvm'",
+                        span,
+                    )
+                    break
         if self.target == "wasm" and place.projections:
             if all(isinstance(projection, FieldProjection) for projection in place.projections):
                 value_type = self.local_types.get(place.local)
@@ -804,14 +1111,40 @@ class _Legalizer:
         if self.target in {"cpp", "rust", "js", "python"} and value.optional:
             self._type(replace(value, optional=False), span)
             return
+        if self.target == "llvm" and value.name == "Array" and len(value.arguments) == 1:
+            if not self._llvm_array_compatible(value):
+                self._issue(
+                    "MIRG1002",
+                    "The LLVM MIR array pilot supports "
+                    f"Array<int|bool|float|string|acyclic-struct>, got '{value}'",
+                    span,
+                )
+            return
+        if self.target == "llvm" and value.name in {"Option", "Result"} and value.arguments:
+            if not all(
+                argument.name == "any" or self._llvm_tag_payload_compatible(argument)
+                for argument in value.arguments
+            ):
+                self._issue(
+                    "MIRG1002",
+                    "The LLVM MIR tagged-value pilot supports primitive/string or supported "
+                    f"array/nominal-struct payloads, got '{value}'",
+                    span,
+                )
+            return
         if self.target == "wasm" and value.name == "Array" and len(value.arguments) == 1:
             element_type = value.arguments[0]
             if (
-                element_type not in (MIRType("int"), MIRType("bool"), MIRType("string"))
+                element_type not in (
+                    MIRType("int"), MIRType("bool"), MIRType("float"),
+                    MIRType("f64"), MIRType("string"),
+                )
                 and not isinstance(self.type_definitions.get(element_type.name), MIRStructDef)
                 and element_type not in (
                     MIRType("Array", (MIRType("int"),)),
                     MIRType("Array", (MIRType("bool"),)),
+                    MIRType("Array", (MIRType("float"),)),
+                    MIRType("Array", (MIRType("f64"),)),
                     MIRType("Array", (MIRType("string"),)),
                 )
                 and not (
@@ -822,7 +1155,7 @@ class _Legalizer:
             ):
                 self._issue(
                     "MIRG1002",
-                    f"The Wasm MIR pilot supports primitive/struct arrays and nested int/string arrays, got '{value}'",
+                    f"The Wasm MIR pilot supports int, bool, float, string, or struct arrays and one nested array level, got '{value}'",
                     span,
                 )
             return
@@ -830,9 +1163,25 @@ class _Legalizer:
             if not self._wasm_result_compatible(value):
                 self._issue(
                     "MIRG1002",
-                    f"The Wasm MIR Result pilot supports int, bool, string, and nominal struct payloads, got '{value}'",
+                    f"The Wasm MIR Result pilot supports int, bool, float, string, and nominal struct payloads, got '{value}'",
                     span,
                 )
+            return
+        if (
+            self.target == "llvm"
+            and isinstance(self.type_definitions.get(value.name), MIRStructDef)
+            and not value.arguments
+            and not value.optional
+            and not value.pointer
+        ):
+            return
+        if (
+            self.target == "llvm"
+            and isinstance(self.type_definitions.get(value.name), MIREnumDef)
+            and not value.arguments
+            and not value.optional
+            and not value.pointer
+        ):
             return
         if (
             self.target == "wasm"
@@ -865,6 +1214,14 @@ class _Legalizer:
         ):
             return
         if self.target in {"cpp", "rust", "js", "python"} and value.name == "Array" and len(value.arguments) == 1:
+            self._type(value.arguments[0], span)
+            return
+        if self.target == "rust" and value.name == "Result" and len(value.arguments) == 2:
+            for argument in value.arguments:
+                if argument.name != "any":
+                    self._type(argument, span)
+            return
+        if self.target in {"cpp", "rust", "js", "python"} and value.name == "Task" and len(value.arguments) == 1:
             self._type(value.arguments[0], span)
             return
         if self.target in {"cpp", "js", "python"} and value.name in ("Option", "Result") and value.arguments:
@@ -941,11 +1298,404 @@ class _Legalizer:
             return value_type
         return None
 
+    def _place_mir_type(self, place: Place | None) -> MIRType | None:
+        if place is None:
+            return None
+        return self._operand_mir_type(CopyOperand(place))
+
+    def _llvm_array_compatible(
+        self, value_type: MIRType | None, stack: tuple[str, ...] = ()
+    ) -> bool:
+        if (
+            value_type is None
+            or value_type.name != "Array"
+            or len(value_type.arguments) != 1
+            or value_type.optional
+            or value_type.pointer
+        ):
+            return False
+        element = value_type.arguments[0]
+        if element in {
+            MIRType("int"), MIRType("bool"), MIRType("float"),
+            MIRType("f64"), MIRType("string"),
+        }:
+            return True
+        if element.name == "Array":
+            return self._llvm_array_compatible(element, stack)
+        if (
+            element.arguments
+            or element.optional
+            or element.pointer
+            or element.name in stack
+        ):
+            return False
+        definition = self.type_definitions.get(element.name)
+        return bool(
+            isinstance(definition, MIRStructDef)
+            and all(
+                self._llvm_value_field_compatible(
+                    field.type, stack + (element.name,)
+                )
+                for field in definition.fields
+            )
+        )
+
+    def _llvm_printable_array_compatible(self, value_type: MIRType | None) -> bool:
+        return bool(
+            value_type is not None
+            and value_type.name == "Array"
+            and self._llvm_printable_value_compatible(value_type)
+        )
+
+    def _llvm_printable_value_compatible(
+        self, value_type: MIRType, stack: tuple[str, ...] = ()
+    ) -> bool:
+        if value_type.optional or value_type.pointer:
+            return False
+        if not value_type.arguments and value_type.name in {
+            "int", "bool", "float", "f64", "string"
+        }:
+            return True
+        if value_type.name == "Array" and len(value_type.arguments) == 1:
+            return bool(
+                self._llvm_array_compatible(value_type, stack)
+                and self._llvm_printable_value_compatible(
+                    value_type.arguments[0], stack
+                )
+            )
+        if value_type.arguments or value_type.name in stack:
+            return False
+        definition = self.type_definitions.get(value_type.name)
+        return bool(
+            isinstance(definition, MIRStructDef)
+            and all(
+                self._llvm_printable_value_compatible(
+                    field.type, stack + (value_type.name,)
+                )
+                for field in definition.fields
+            )
+        )
+
+    @staticmethod
+    def _wasm_binary_compatible(
+        value_type: MIRType | None, operation: str, result_type: MIRType
+    ) -> bool:
+        if value_type is None or value_type.arguments or value_type.optional or value_type.pointer:
+            return False
+        comparisons = {"==", "!=", "<", "<=", ">", ">="}
+        if value_type.name == "string":
+            return (operation == "+" and result_type == MIRType("string")) or (
+                operation in comparisons and result_type == MIRType("bool")
+            )
+        if value_type.name == "bool":
+            return operation in comparisons and result_type == MIRType("bool")
+        if value_type.name == "int":
+            return operation in _SCALAR_BINARY_OPS and result_type == MIRType(
+                "bool" if operation in comparisons else "int"
+            )
+        if value_type.name in {"float", "f64"}:
+            return operation in comparisons | {"+", "-", "*", "/"} and result_type == MIRType(
+                "bool" if operation in comparisons else value_type.name
+            )
+        return False
+
+    @staticmethod
+    def _wasm_unary_compatible(
+        value_type: MIRType | None, operation: str, result_type: MIRType
+    ) -> bool:
+        if value_type is None or value_type.arguments or value_type.optional or value_type.pointer:
+            return False
+        return (
+            value_type.name == "bool"
+            and operation in {"!", "not"}
+            and result_type == MIRType("bool")
+        ) or (
+            value_type.name == "int"
+            and operation in {"+", "-", "~"}
+            and result_type == MIRType("int")
+        ) or (
+            value_type.name in {"float", "f64"}
+            and operation in {"+", "-"}
+            and result_type == value_type
+        )
+
+    @staticmethod
+    def _llvm_binary_compatible(value_type: MIRType | None, operation: str) -> bool:
+        if value_type is None or value_type.arguments or value_type.optional or value_type.pointer:
+            return False
+        comparisons = {"==", "!=", "<", "<=", ">", ">="}
+        if value_type.name == "string":
+            return operation in comparisons
+        if value_type.name == "bool":
+            return operation in {"==", "!="}
+        if value_type.name in {"float", "f64"}:
+            return operation in comparisons | {"+", "-", "*", "/", "%"}
+        if value_type.name == "int":
+            return operation in _SCALAR_BINARY_OPS
+        return False
+
+    @staticmethod
+    def _llvm_unary_compatible(value_type: MIRType | None, operation: str) -> bool:
+        if value_type is None or value_type.arguments or value_type.optional or value_type.pointer:
+            return False
+        if value_type.name == "bool":
+            return operation in {"!", "not"}
+        if value_type.name == "int":
+            return operation in {"+", "-", "~"}
+        if value_type.name in {"float", "f64"}:
+            return operation in {"+", "-"}
+        return False
+
+    def _llvm_cast_compatible(
+        self, source_type: MIRType | None, target_type: MIRType
+    ) -> bool:
+        if source_type is None:
+            return False
+        if source_type == target_type:
+            return True
+        if source_type.name in {"float", "f64"} and target_type.name in {"float", "f64"}:
+            return True
+        if (source_type.name, target_type.name) in {
+            ("int", "float"), ("int", "f64"),
+            ("float", "int"), ("f64", "int"),
+            ("bool", "int"), ("int", "bool"),
+        }:
+            return not (
+                source_type.arguments or source_type.optional or source_type.pointer
+                or target_type.arguments or target_type.optional or target_type.pointer
+            )
+        return bool(
+            source_type.name == target_type.name
+            and source_type.name in {"Result", "Option"}
+            and self._llvm_is_tagged_type(source_type)
+            and self._llvm_is_tagged_type(target_type)
+        )
+
+    def _llvm_type_shape_supported(self, value_type: MIRType | None) -> bool:
+        if value_type is None or value_type.optional or value_type.pointer:
+            return False
+        if not value_type.arguments and value_type.name in {
+            "void", "bool", "string", "int", "float", "f64"
+        }:
+            return True
+        if self._llvm_printable_array_compatible(value_type):
+            return True
+        if self._llvm_is_tagged_type(value_type):
+            if value_type.name in {"Result", "Option"}:
+                return all(
+                    argument.name == "any"
+                    or self._llvm_tag_payload_compatible(argument)
+                    for argument in value_type.arguments
+                )
+            return True
+        return bool(
+            not value_type.arguments
+            and isinstance(self.type_definitions.get(value_type.name), MIRStructDef)
+            and self._llvm_value_field_compatible(value_type)
+        )
+
+    def _llvm_print_compatible(self, value_type: MIRType | None) -> bool:
+        if value_type is None:
+            return False
+        if self._llvm_printable_value_compatible(value_type):
+            return True
+        return self._llvm_is_tagged_type(value_type) and self._llvm_tagged_display_compatible(
+            value_type
+        )
+
+    def _llvm_value_field_compatible(
+        self, value_type: MIRType, stack: tuple[str, ...] = ()
+    ) -> bool:
+        if value_type.optional or value_type.pointer:
+            return False
+        if self._llvm_array_compatible(value_type, stack):
+            return True
+        if not value_type.arguments and value_type.name in {
+            "int", "bool", "float", "f64", "string"
+        }:
+            return True
+        if value_type.arguments or value_type.name in stack:
+            return False
+        definition = self.type_definitions.get(value_type.name)
+        return bool(
+            isinstance(definition, MIRStructDef)
+            and all(
+                self._llvm_value_field_compatible(
+                    field.type, stack + (value_type.name,)
+                )
+                for field in definition.fields
+            )
+        )
+
+    @staticmethod
+    def _llvm_scalar_tag_payload_compatible(value_type: MIRType) -> bool:
+        return bool(
+            value_type.name in {"int", "bool", "float", "f64", "string"}
+            and not value_type.arguments
+            and not value_type.optional
+            and not value_type.pointer
+        )
+
+    def _llvm_boxed_tag_payload_compatible(self, value_type: MIRType) -> bool:
+        return bool(
+            self._llvm_array_compatible(value_type)
+            or (
+                not value_type.arguments
+                and isinstance(self.type_definitions.get(value_type.name), MIRStructDef)
+                and self._llvm_value_field_compatible(value_type)
+            )
+        )
+
+    def _llvm_tag_payload_compatible(self, value_type: MIRType) -> bool:
+        return bool(
+            self._llvm_scalar_tag_payload_compatible(value_type)
+            or self._llvm_boxed_tag_payload_compatible(value_type)
+        )
+
+    def _llvm_tag_variant_compatible(self, payloads: tuple[MIRType, ...]) -> bool:
+        return bool(
+            len(payloads) <= 4
+            and all(self._llvm_tag_payload_compatible(payload) for payload in payloads)
+        )
+
+    def _llvm_is_tagged_type(self, value_type: MIRType | None) -> bool:
+        return bool(
+            value_type is not None
+            and (
+                (value_type.name in {"Option", "Result"} and value_type.arguments)
+                or isinstance(self.type_definitions.get(value_type.name), MIREnumDef)
+            )
+        )
+
+    def _contains_nominal_struct(
+        self, value_type: MIRType | None, visited: frozenset[str] = frozenset()
+    ) -> bool:
+        if value_type is None:
+            return False
+        definition = self.type_definitions.get(value_type.name)
+        if isinstance(definition, MIRStructDef):
+            return True
+        if any(
+            self._contains_nominal_struct(argument, visited)
+            for argument in value_type.arguments
+        ):
+            return True
+        if isinstance(definition, MIREnumDef) and definition.name not in visited:
+            nested = visited | {definition.name}
+            return any(
+                self._contains_nominal_struct(payload, nested)
+                for variant in definition.variants
+                for payload in variant.payload_types
+            )
+        return False
+
+    def _cpp_display_compatible(
+        self, value_type: MIRType | None, stack: tuple[str, ...] = ()
+    ) -> bool:
+        if value_type is None or value_type.optional or value_type.pointer:
+            return False
+        if not value_type.arguments and value_type.name in {
+            "bool", "int", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64",
+            "float", "f32", "f64", "string",
+        }:
+            return True
+        if value_type.name in {"Array", "Option"} and len(value_type.arguments) == 1:
+            return self._cpp_display_compatible(value_type.arguments[0], stack)
+        if value_type.name == "Result" and len(value_type.arguments) == 2:
+            return all(
+                self._cpp_display_compatible(argument, stack)
+                for argument in value_type.arguments
+            )
+        if value_type.arguments or value_type.name in stack:
+            return False
+        definition = self.type_definitions.get(value_type.name)
+        if isinstance(definition, MIRStructDef):
+            return all(
+                self._cpp_display_compatible(field.type, stack + (value_type.name,))
+                for field in definition.fields
+            )
+        if isinstance(definition, MIREnumDef):
+            return all(
+                self._cpp_display_compatible(payload, stack + (value_type.name,))
+                for variant in definition.variants
+                for payload in variant.payload_types
+            )
+        return False
+
+    def _rust_display_compatible(
+        self, value_type: MIRType | None, stack: tuple[str, ...] = ()
+    ) -> bool:
+        if value_type is None or value_type.pointer:
+            return False
+        if value_type.optional:
+            return self._rust_display_compatible(
+                replace(value_type, optional=False), stack
+            )
+        if not value_type.arguments and value_type.name in {
+            "bool", "int", "float", "f64", "string",
+        }:
+            return True
+        if value_type.name in {"Array", "Option"} and len(value_type.arguments) == 1:
+            return self._rust_display_compatible(value_type.arguments[0], stack)
+        if value_type.name == "Result" and len(value_type.arguments) == 2:
+            return all(
+                self._rust_display_compatible(argument, stack)
+                for argument in value_type.arguments
+            )
+        if value_type.arguments or value_type.name in stack:
+            return False
+        definition = self.type_definitions.get(value_type.name)
+        if isinstance(definition, MIRStructDef):
+            return all(
+                self._rust_display_compatible(field.type, stack + (value_type.name,))
+                for field in definition.fields
+            )
+        if isinstance(definition, MIREnumDef):
+            return all(
+                self._rust_display_compatible(payload, stack + (value_type.name,))
+                for variant in definition.variants
+                for payload in variant.payload_types
+            )
+        return False
+
+    def _llvm_tagged_display_compatible(self, value_type: MIRType | None) -> bool:
+        if value_type is None:
+            return False
+        payloads: tuple[MIRType, ...]
+        if value_type.name == "Result" and len(value_type.arguments) == 2:
+            payloads = value_type.arguments
+        elif value_type.name == "Option" and len(value_type.arguments) == 1:
+            payloads = value_type.arguments
+        else:
+            definition = self.type_definitions.get(value_type.name)
+            if not isinstance(definition, MIREnumDef):
+                return False
+            payloads = tuple(
+                payload
+                for variant in definition.variants
+                for payload in variant.payload_types
+            )
+        return bool(
+            all(
+                payload.name != "any"
+                and self._llvm_printable_value_compatible(payload)
+                for payload in payloads
+            )
+        )
+
     def _wasm_result_compatible(self, value_type: MIRType | None) -> bool:
         def compatible(argument: MIRType) -> bool:
             return (
-                argument.name in ("int", "bool", "string", "any")
-                or isinstance(self.type_definitions.get(argument.name), MIRStructDef)
+                argument in (
+                    MIRType("int"), MIRType("bool"), MIRType("float"),
+                    MIRType("f64"), MIRType("string"), MIRType("any"),
+                )
+                or (
+                    isinstance(self.type_definitions.get(argument.name), MIRStructDef)
+                    and not argument.arguments
+                    and not argument.optional
+                    and not argument.pointer
+                )
             )
 
         return bool(
@@ -967,7 +1717,7 @@ class _Legalizer:
         return bool(
             not element.arguments
             and (
-                element.name in ("int", "bool", "string")
+                element.name in ("int", "bool", "string", "float", "f64")
                 or self._c_value_field_compatible(element)
             )
         )
@@ -977,13 +1727,59 @@ class _Legalizer:
             return True
         return bool(
             (
-                value_type.name in ("int", "bool", "string")
+                value_type.name in ("int", "bool", "string", "float", "f64")
                 or self._c_value_field_compatible(value_type)
             )
             and not value_type.arguments
             and not value_type.optional
             and not value_type.pointer
         )
+
+    def _c_display_compatible(
+        self, value_type: MIRType | None, stack: tuple[str, ...] = ()
+    ) -> bool:
+        if value_type is None or value_type.optional or value_type.pointer:
+            return False
+        if not value_type.arguments and value_type.name in {
+            "int", "bool", "string", "float", "f64"
+        }:
+            return True
+        if value_type.name == "Array" and len(value_type.arguments) == 1:
+            return self._c_array_compatible(value_type) and self._c_display_compatible(
+                value_type.arguments[0], stack
+            )
+        definition = self.type_definitions.get(value_type.name)
+        if isinstance(definition, MIRStructDef) and not value_type.arguments:
+            return bool(
+                value_type.name not in stack
+                and all(
+                    self._c_display_compatible(field.type, stack + (value_type.name,))
+                    for field in definition.fields
+                )
+            )
+        if value_type.name == "Option" and len(value_type.arguments) == 1:
+            return value_type.arguments[0].name == "any" or (
+                self._c_payload_compatible(value_type.arguments[0])
+                and self._c_display_compatible(value_type.arguments[0], stack)
+            )
+        if value_type.name == "Result" and len(value_type.arguments) == 2:
+            return all(
+                argument.name == "any" or (
+                    self._c_payload_compatible(argument)
+                    and self._c_display_compatible(argument, stack)
+                )
+                for argument in value_type.arguments
+            )
+        if isinstance(definition, MIREnumDef) and not value_type.arguments:
+            return all(
+                all(
+                    self._c_payload_compatible(payload)
+                    and self._c_display_compatible(payload, stack + (value_type.name,))
+                    for payload in variant.payload_types
+                )
+                for variant in definition.variants
+            )
+        return False
 
     def _c_value_field_compatible(
         self, value_type: MIRType, stack: tuple[str, ...] = ()
@@ -998,12 +1794,12 @@ class _Legalizer:
                     return False
             if element.arguments:
                 return False
-            if element.name in ("int", "bool", "string"):
+            if element.name in ("int", "bool", "string", "float", "f64"):
                 return True
             return self._c_value_field_compatible(element, stack)
         if value_type.arguments:
             return False
-        if value_type.name in ("int", "bool", "string"):
+        if value_type.name in ("int", "bool", "string", "float", "f64"):
             return True
         definition = self.type_definitions.get(value_type.name)
         if not isinstance(definition, MIRStructDef) or definition.name in stack:

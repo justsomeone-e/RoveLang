@@ -1,7 +1,0 @@
-# Auto-generated lockfile for nyx package manager
-# Manual modifications will be overwritten
-manifest_version = "5.0.3"
-target = "cpp"
-
-[resolved_dependencies]
-std = "5.0.3"

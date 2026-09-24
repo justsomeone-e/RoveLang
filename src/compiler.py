@@ -40,7 +40,7 @@ class Compiler:
             out_file = base_name + ".cpp"
             with open(out_file, 'w', encoding='utf-8') as f:
                 f.write(cpp_out)
-            print(f"[*] Nyx Compiling: {self.filepath} -> [Target: cpp]")
+            print(f"[*] Rove Compiling: {self.filepath} -> [Target: cpp]")
             print(f"[+] Output generated: {out_file}")
 
         elif target == "react":
@@ -48,7 +48,7 @@ class Compiler:
             out_file = base_name + ".tsx"
             with open(out_file, 'w', encoding='utf-8') as f:
                 f.write(tsx_out)
-            print(f"[*] Nyx Compiling: {self.filepath} -> [Target: react]")
+            print(f"[*] Rove Compiling: {self.filepath} -> [Target: react]")
             print(f"[+] Output generated: {out_file}")
 
         elif target == "wasm":
@@ -56,13 +56,13 @@ class Compiler:
             out_file = base_name + ".wat"
             with open(out_file, 'w', encoding='utf-8') as f:
                 f.write(wat_out)
-            print(f"[*] Nyx Compiling: {self.filepath} -> [Target: wasm]")
+            print(f"[*] Rove Compiling: {self.filepath} -> [Target: wasm]")
             print(f"[+] Output generated: {out_file}")
 
         elif target in ("c", "llvm"):
-            from src.api import NyxCompiler
+            from src.api import RoveCompiler
 
-            result = NyxCompiler(os.path.dirname(os.path.abspath(self.filepath))).compile_source(
+            result = RoveCompiler(os.path.dirname(os.path.abspath(self.filepath))).compile_source(
                 source,
                 filename=self.filepath,
                 target=target,
@@ -74,7 +74,7 @@ class Compiler:
             out_file = base_name + result.artifact.extension
             with open(out_file, "w", encoding="utf-8") as f:
                 f.write(result.artifact.content)
-            print(f"[*] Nyx Compiling: {self.filepath} -> [Target: {target}]")
+            print(f"[*] Rove Compiling: {self.filepath} -> [Target: {target}]")
             print(f"[+] Output generated: {out_file}")
             if not run_immediately:
                 return 0
@@ -100,7 +100,7 @@ class Compiler:
             out_file = base_name + ".py"
             with open(out_file, 'w', encoding='utf-8') as f:
                 f.write(py_out)
-            print(f"[*] Nyx Compiling: {self.filepath} -> [Target: python]")
+            print(f"[*] Rove Compiling: {self.filepath} -> [Target: python]")
             print(f"[+] Output generated: {out_file}")
 
         elif target == "js":
@@ -108,7 +108,7 @@ class Compiler:
             out_file = base_name + ".js"
             with open(out_file, 'w', encoding='utf-8') as f:
                 f.write(js_out)
-            print(f"[*] Nyx Compiling: {self.filepath} -> [Target: js]")
+            print(f"[*] Rove Compiling: {self.filepath} -> [Target: js]")
             print(f"[+] Output generated: {out_file}")
 
         if run_immediately:

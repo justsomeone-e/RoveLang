@@ -1,21 +1,21 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Nyx / Browser Pong</title><link rel="stylesheet" href="../home.css"><style>body{max-width:800px;padding:30px;margin:auto}h1{font-size:48px;letter-spacing:-2px;margin:24px 0}p{color:var(--muted);margin:20px 0}canvas{display:block;max-width:100%;height:auto;margin:24px auto;border:1px solid var(--line)}.controls{display:flex;gap:12px;margin-top:20px}</style></head>
-<body><a class="text-link" href="../index.html#applications">← Back to applications</a><h1>Pong, written in Nyx.</h1><p>Game state, physics, input dispatch and Canvas calls live in <a class="text-link" href="../generated/pong/pong.nyx">pong.nyx</a>. The generated JavaScript wrapper connects WebAssembly to the browser.</p><button class="button primary" id="start">Start game</button><p id="status" role="status">Use W / S, or the buttons below. Reload to restart.</p><div class="controls"><button class="button" id="up" disabled>Move up (W)</button><button class="button" id="down" disabled>Move down (S)</button></div><script type="module">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Rove / Browser Pong</title><link rel="stylesheet" href="../home.css"><style>body{max-width:800px;padding:30px;margin:auto}h1{font-size:48px;letter-spacing:-2px;margin:24px 0}p{color:var(--muted);margin:20px 0}canvas{display:block;max-width:100%;height:auto;margin:24px auto;border:1px solid var(--line)}.controls{display:flex;gap:12px;margin-top:20px}</style></head>
+<body><a class="text-link" href="../index.html#applications">← Back to applications</a><h1>Pong, written in Rove.</h1><p>Game state, physics, input dispatch and Canvas calls live in <a class="text-link" href="../generated/pong/pong.rove">pong.rove</a>. The generated JavaScript wrapper connects WebAssembly to the browser.</p><button class="button primary" id="start">Start game</button><p id="status" role="status">Use W / S, or the buttons below. Reload to restart.</p><div class="controls"><button class="button" id="up" disabled>Move up (W)</button><button class="button" id="down" disabled>Move down (S)</button></div><script type="module">
 const start = document.getElementById('start');
 start.addEventListener('click', async () => {
   start.disabled = true;
   document.getElementById('status').textContent = 'Loading WASM…';
   try {
-    const { initNyxModule } = await import('../generated/pong/pong.mjs');
-    const nyx = await initNyxModule();
-    nyx.pong_start();
+    const { initRoveModule } = await import('../generated/pong/pong.mjs');
+    const rove = await initRoveModule();
+    rove.pong_start();
     start.hidden = true;
     for (const [id, key] of [['up', 'w'], ['down', 's']]) {
       const button = document.getElementById(id);
       button.disabled = false;
       button.addEventListener('click', () => document.body.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true })));
     }
-    document.getElementById('status').textContent = 'Running compiled Nyx. Use W / S or the movement buttons.';
+    document.getElementById('status').textContent = 'Running compiled Rove. Use W / S or the movement buttons.';
   } catch {
     document.getElementById('status').textContent = 'WASM could not load. Serve docs over HTTP, then try again.';
     start.disabled = false;

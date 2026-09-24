@@ -18,6 +18,11 @@
     "target": "wasm32"
   },
   "private": true,
+  "rove": {
+    "abi": 1,
+    "hostAbi": 1,
+    "target": "wasm32"
+  },
   "sideEffects": false,
   "type": "module",
   "types": "./metrics.d.ts",

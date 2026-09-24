@@ -1,0 +1,17 @@
+// I AM NOT DONE
+// Decoding external text can fail, so the API returns Result<string, string>.
+// TODO: decode the encoded message rather than malformed input.
+
+import "std/encoding"
+
+fn main() {
+    let original = "Rove 🌙"
+    let encoded = base64_encode(original)
+    let decoded = base64_decode("%%%")
+
+    assert(decoded.is_ok, "the generated Base64 text must decode")
+    assert(decoded.unwrap() == original, "valid encoded text must round-trip")
+    print(encoded, decoded.unwrap())
+}
+
+main()

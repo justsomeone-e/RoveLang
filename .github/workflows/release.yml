@@ -1,4 +1,4 @@
-name: Nyx Release
+name: Rove Release
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 concurrency:
-  group: nyx-release-${{ github.ref }}
+  group: rove-release-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -63,7 +63,7 @@ jobs:
           npm ci --ignore-scripts
           npm test
           mkdir -p ../dist
-          npm run package -- --out "../dist/nyx-language-support-${{ github.ref_name }}.vsix"
+          npm run package -- --out "../dist/rove-language-support-${{ github.ref_name }}.vsix"
 
       - name: Upload VS Code extension package
         if: runner.os == 'Linux'
@@ -89,13 +89,13 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            asset: nyxc-linux-x86_64
+            asset: rovec-linux-x86_64
           - os: windows-latest
-            asset: nyxc-windows-x86_64.exe
+            asset: rovec-windows-x86_64.exe
           - os: macos-15-intel
-            asset: nyxc-macos-x86_64
+            asset: rovec-macos-x86_64
           - os: macos-latest
-            asset: nyxc-macos-arm64
+            asset: rovec-macos-arm64
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
@@ -128,9 +128,9 @@ jobs:
           python -u src/cli.py self-host build -o "dist/${{ matrix.asset }}"
           chmod +x "dist/${{ matrix.asset }}"
           "dist/${{ matrix.asset }}" --version
-          printf '%s\n' 'fn main() { print(42); }' > dist/native-smoke.nyx
-          "dist/${{ matrix.asset }}" check dist/native-smoke.nyx
-          "dist/${{ matrix.asset }}" compile dist/native-smoke.nyx -o dist/native-smoke
+          printf '%s\n' 'fn main() { print(42); }' > dist/native-smoke.rove
+          "dist/${{ matrix.asset }}" check dist/native-smoke.rove
+          "dist/${{ matrix.asset }}" compile dist/native-smoke.rove -o dist/native-smoke
           test "$(dist/native-smoke)" = "42"
           if command -v sha256sum >/dev/null 2>&1; then
             (cd dist && sha256sum "${{ matrix.asset }}" > "${{ matrix.asset }}.sha256")
@@ -146,10 +146,10 @@ jobs:
           python -u src/cli.py self-host build -o "dist/${{ matrix.asset }}"
           & "dist/${{ matrix.asset }}" --version
           if ($LASTEXITCODE -ne 0) { throw "Native compiler version probe failed." }
-          [IO.File]::WriteAllText("dist/native-smoke.nyx", "fn main() { print(42); }`n", [Text.UTF8Encoding]::new($false))
-          & "dist/${{ matrix.asset }}" check "dist/native-smoke.nyx"
+          [IO.File]::WriteAllText("dist/native-smoke.rove", "fn main() { print(42); }`n", [Text.UTF8Encoding]::new($false))
+          & "dist/${{ matrix.asset }}" check "dist/native-smoke.rove"
           if ($LASTEXITCODE -ne 0) { throw "Native compiler check smoke test failed." }
-          & "dist/${{ matrix.asset }}" compile "dist/native-smoke.nyx" -o "dist/native-smoke.exe"
+          & "dist/${{ matrix.asset }}" compile "dist/native-smoke.rove" -o "dist/native-smoke.exe"
           if ($LASTEXITCODE -ne 0) { throw "Native compiler build smoke test failed." }
           $output = & "dist/native-smoke.exe"
           if ($LASTEXITCODE -ne 0 -or $output.Trim() -ne "42") { throw "Native compiler runtime smoke test failed." }
@@ -212,8 +212,8 @@ jobs:
         with:
           path: .
           format: spdx-json
-          output-file: dist/nyx-${{ github.ref_name }}.spdx.json
-          artifact-name: nyx-${{ github.ref_name }}-sbom.spdx.json
+          output-file: dist/rove-${{ github.ref_name }}.spdx.json
+          artifact-name: rove-${{ github.ref_name }}-sbom.spdx.json
           upload-artifact: false
           upload-release-assets: false
 
@@ -242,17 +242,17 @@ jobs:
             dist/*.zip
             dist/*.tar.gz
             dist/*.vsix
-            dist/native/nyxc-linux-x86_64
-            dist/native/nyxc-windows-x86_64.exe
-            dist/native/nyxc-macos-x86_64
-            dist/native/nyxc-macos-arm64
-          sbom-path: dist/nyx-${{ github.ref_name }}.spdx.json
+            dist/native/rovec-linux-x86_64
+            dist/native/rovec-windows-x86_64.exe
+            dist/native/rovec-macos-x86_64
+            dist/native/rovec-macos-arm64
+          sbom-path: dist/rove-${{ github.ref_name }}.spdx.json
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: "Nyx ${{ github.ref_name }}"
+          name: "Rove ${{ github.ref_name }}"
           draft: false
           prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') || contains(github.ref_name, 'alpha') }}
           files: |

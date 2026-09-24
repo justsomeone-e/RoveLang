@@ -101,7 +101,7 @@ class HttpAPI:
     @staticmethod
     def get(url: str) -> HttpResponse:
         try:
-            req = urllib.request.Request(url, headers={'User-Agent': 'Nyx/4.0'})
+            req = urllib.request.Request(url, headers={'User-Agent': 'Rove/5'})
             with urllib.request.urlopen(req, timeout=5) as response:
                 body = response.read().decode('utf-8')
                 return HttpResponse(response.status, body)
@@ -111,7 +111,7 @@ class HttpAPI:
     @staticmethod
     def post(url: str, data: str) -> HttpResponse:
         try:
-            req = urllib.request.Request(url, data=str(data).encode('utf-8'), headers={'User-Agent': 'Nyx/4.0'})
+            req = urllib.request.Request(url, data=str(data).encode('utf-8'), headers={'User-Agent': 'Rove/5'})
             with urllib.request.urlopen(req, timeout=5) as response:
                 body = response.read().decode('utf-8')
                 return HttpResponse(response.status, body)
@@ -149,7 +149,7 @@ def peek(a):
     return 1337
 
 def memdump(a, length=16):
-    print(f"0x{a:016X}: 48 6F 6C 79 45 61 73 79 4C 61 6E 67 20 54 69 74  | Nyx Tit")
+    print(f"0x{a:016X}: 52 6F 76 65                                      | Rove")
 
 def delay_ms(ms):
     time.sleep(ms / 1000.0)

@@ -1,0 +1,14 @@
+// I AM NOT DONE
+// Rove has first-class unit tests using `test "name" { assert(...) }`.
+// When run with `rove test`, all assertions are verified.
+// TODO: Fix the broken assertion below so the test passes.
+
+fn add(a: int, b: int) -> int {
+    return a + b
+}
+
+test "verify addition" {
+    var result = add(2, 2)
+    assert(result == 5, "2 + 2 must equal 4!")
+    print("  [PASS] 2 + 2 == 4")
+}

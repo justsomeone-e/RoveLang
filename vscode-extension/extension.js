@@ -3,26 +3,26 @@ const fs = require('fs');
 const path = require('path');
 const { LanguageClient } = require('vscode-languageclient/node');
 const { createServerOptions } = require('./server_options');
-const { registerNyxCommands } = require('./nyx_commands');
+const { registerRoveCommands } = require('./rove_commands');
 const languageSurface = require('./language-surface.json');
 
 let languageClient;
 
 async function activate(context) {
-    const serverConfig = vscode.workspace.getConfiguration('nyx.server');
+    const serverConfig = vscode.workspace.getConfiguration('rove.server');
     if (serverConfig.get('enabled', true)) {
-        const configuredPath = serverConfig.get('path', 'nyx');
+        const configuredPath = serverConfig.get('path', 'rove');
         const serverOptions = createServerOptions(configuredPath);
         const clientOptions = {
             documentSelector: [
-                { scheme: 'file', language: 'nyxlang' },
-                { scheme: 'untitled', language: 'nyxlang' }
+                { scheme: 'file', language: 'rovelang' },
+                { scheme: 'untitled', language: 'rovelang' }
             ],
-            outputChannelName: 'Nyx Language Server'
+            outputChannelName: 'Rove Language Server'
         };
         const client = new LanguageClient(
-            'nyxLanguageServer',
-            'Nyx Language Server',
+            'roveLanguageServer',
+            'Rove Language Server',
             serverOptions,
             clientOptions
         );
@@ -32,11 +32,11 @@ async function activate(context) {
         });
         client.start().catch(error => {
             if (languageClient === client) languageClient = undefined;
-            console.warn(`Nyx language server could not start: ${error.message}`);
+            console.warn(`Rove language server could not start: ${error.message}`);
         });
     }
 
-    registerNyxCommands(vscode, context);
+    registerRoveCommands(vscode, context);
 
     // ---------------------------------------------------------
     // 1. TOP PRIORITY NATIVE SYSTEM HEADERS (ALWAYS AT TOP)
@@ -129,7 +129,7 @@ async function activate(context) {
 
     // 3. Optionally scan the explicitly configured native toolchain. Never
     // embed a developer-machine path in the extension package.
-    const configuredCompiler = process.env.NYX_CXX || '';
+    const configuredCompiler = process.env.ROVE_CXX || '';
     const includeRoots = [];
     if (configuredCompiler && path.isAbsolute(configuredCompiler)) {
         const toolchainRoot = path.resolve(path.dirname(configuredCompiler), '..');
@@ -162,7 +162,7 @@ async function activate(context) {
     }
 
     // ---------------------------------------------------------
-    // 3. STANDARD NYX MODULES & COMPILER TARGETS
+    // 3. STANDARD ROVE MODULES & COMPILER TARGETS
     // ---------------------------------------------------------
     const completionModules = languageSurface.stdlibModules.map(module => ({
         name: module.name,
@@ -181,7 +181,7 @@ async function activate(context) {
     // 4. COMPLETION PROVIDER
     // ---------------------------------------------------------
     const completionProvider = vscode.languages.registerCompletionItemProvider(
-        'nyxlang',
+        'rovelang',
         {
             provideCompletionItems(document, position, token, completionContext) {
                 const items = [];
@@ -320,15 +320,15 @@ async function activate(context) {
                     addSurfaceItem(
                         keyword,
                         vscode.CompletionItemKind.Keyword,
-                        'Nyx stable keyword',
-                        'Supported by the stable Nyx frontend language surface.'
+                        'Rove stable keyword',
+                        'Supported by the stable Rove frontend language surface.'
                     );
                 });
                 languageSurface.experimentalKeywords.forEach(keyword => {
                     addSurfaceItem(
                         keyword,
                         vscode.CompletionItemKind.Keyword,
-                        'Nyx experimental keyword',
+                        'Rove experimental keyword',
                         'Frontend support exists, but cross-target semantics are not stable yet.'
                     );
                 });
@@ -341,7 +341,7 @@ async function activate(context) {
                     );
                 });
                 languageSurface.typeNames.forEach(name => {
-                    addSurfaceItem(name, vscode.CompletionItemKind.TypeParameter, 'Nyx type', 'Nyx language type.');
+                    addSurfaceItem(name, vscode.CompletionItemKind.TypeParameter, 'Rove type', 'Rove language type.');
                 });
 
                 const importedModules = new Set(
@@ -370,7 +370,7 @@ async function activate(context) {
                     addSurfaceItem(
                         target.name,
                         vscode.CompletionItemKind.EnumMember,
-                        `Nyx target · ${target.detail}`,
+                        `Rove target · ${target.detail}`,
                         target.documentation
                     );
                 });
@@ -378,7 +378,7 @@ async function activate(context) {
                     addSurfaceItem(
                         board.name,
                         vscode.CompletionItemKind.EnumMember,
-                        `Nyx board · ${board.detail}`,
+                        `Rove board · ${board.detail}`,
                         board.documentation
                     );
                 });

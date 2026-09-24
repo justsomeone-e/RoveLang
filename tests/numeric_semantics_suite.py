@@ -116,7 +116,7 @@ def run_numeric_semantics_suite() -> bool:
     outputs = {}
     with tempfile.TemporaryDirectory(prefix="nyx_numeric_semantics_") as directory:
         for target in ("cpp", "js", "python"):
-            result = compiler.compile_source(SOURCE, target=target, filename="numeric_semantics.nyx")
+            result = compiler.compile_source(SOURCE, target=target, filename="numeric_semantics.rove")
             assert result.success, result.diagnostics
             assert result.artifact is not None
             output = _run(target, result.artifact.content, directory)
@@ -131,7 +131,7 @@ def run_numeric_semantics_suite() -> bool:
         rejected = compiler.check_source(
             f"fn main() {{ let invalid: int = {literal} }}",
             target="cpp",
-            filename="invalid_integer_literal.nyx",
+            filename="invalid_integer_literal.rove",
         )
         assert not rejected.success, literal
         assert rejected.diagnostics and rejected.diagnostics[0].code == "E2012", rejected.diagnostics

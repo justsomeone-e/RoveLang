@@ -1,0 +1,19 @@
+// I AM NOT DONE
+// std/json_lite intentionally extracts flat top-level string and int fields.
+// TODO: request the real `version` key and preserve the missing-field error.
+
+import "std/json_lite"
+
+fn main() {
+    let document = "{\"name\":\"rove\",\"version\":4}"
+    let name = get_string(document, "name").unwrap()
+    let version = get_int(document, "release").unwrap()
+    let missing = get_string(document, "channel")
+
+    assert(name == "rove", "name must be extracted")
+    assert(version == 4, "version must be extracted as an int")
+    assert(not missing.is_ok, "the absent field must remain an error")
+    print(name, version)
+}
+
+main()

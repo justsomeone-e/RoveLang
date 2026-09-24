@@ -1,7 +1,7 @@
 {
   "intro01": {
     "why": "Every program needs a first observable result.",
-    "learn": "Nyx allows top-level code, and a function can be called explicitly.",
+    "learn": "Rove allows top-level code, and a function can be called explicitly.",
     "task": "Run the starter program, then change the greeting and run it again.",
     "expected": "A greeting appears in the terminal."
   },
@@ -55,7 +55,7 @@
   },
   "loops01": {
     "why": "Repetition is clearer and safer when the range is explicit.",
-    "learn": "`for i in 1..5` visits an inclusive numeric range in Nyx.",
+    "learn": "`for i in 1..5` visits an inclusive numeric range in Rove.",
     "task": "Sum the numbers in the range and print the accumulated result.",
     "expected": "The total is 15."
   },

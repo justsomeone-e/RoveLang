@@ -1,15 +1,15 @@
-# Learn Nyx in 15 Minutes
+# Learn Rove in 15 Minutes
 
-> **Nyx**: Designed to combine **Python's simplicity**, **Rust's memory safety**, and **C++20's bare-metal execution speed**.
+> **Rove**: Designed to combine **Python's simplicity**, **Rust's memory safety**, and **C++20's bare-metal execution speed**.
 
 ---
 
 ## 1. Variables and Types
 
-Nyx provides strong static typing with local type inference:
+Rove provides strong static typing with local type inference:
 
-```nyx
-var name: string = "Nyx";
+```rove
+var name: string = "Rove";
 var count: int = 42;
 var pi: float = 3.14159;
 var is_active: bool = true;
@@ -24,7 +24,7 @@ var total = 100; // int inferred
 
 Functions are declared with `fn`, typed parameters, and `->` for return types:
 
-```nyx
+```rove
 fn multiply(a: int, b: int) -> int {
     return a * b;
 }
@@ -40,7 +40,7 @@ fn greet(person: string) -> string {
 
 Avoid pyramid-of-doom nested `if` statements with `guard`:
 
-```nyx
+```rove
 fn process_order(quantity: int) -> int {
     guard quantity > 0 else {
         print("Invalid quantity!");
@@ -57,7 +57,7 @@ fn process_order(quantity: int) -> int {
 
 Optional variables are declared with `?` and unwrapped with `??` (coalescing) or `?.` (safe navigation):
 
-```nyx
+```rove
 var nickname: string? = null;
 
 // Null-coalescing default
@@ -71,9 +71,9 @@ var length = nickname?.len() ?? 0;
 
 ## 5. Structs and Implementation Blocks
 
-Nyx separates pure state definition (`struct`) from behavioral methods (`impl`):
+Rove separates pure state definition (`struct`) from behavioral methods (`impl`):
 
-```nyx
+```rove
 struct Rectangle {
     width: int,
     height: int
@@ -96,7 +96,7 @@ impl Rectangle {
 
 Use exhaustive `match` expressions for branching:
 
-```nyx
+```rove
 var status_code = 200;
 
 match status_code {
@@ -111,18 +111,18 @@ match status_code {
 
 ## 7. Multi-Target Compilation
 
-The same clean Nyx source code compiles without changes across any target:
+The same clean Rove source code compiles without changes across any target:
 
 ```bash
 # 1. Native C++20 Executable
-nyx run main.nyx --target cpp
+rove run main.rove --target cpp
 
 # 2. Node.js ES2022 Module
-nyx run main.nyx --target js
+rove run main.rove --target js
 
 # 3. Python 3 Reference Module
-nyx run main.nyx --target python
+rove run main.rove --target python
 
 # 4. WebAssembly & React 19 Bundle
-nyx bundle main.nyx -o dist/
+rove bundle main.rove -o dist/
 ```

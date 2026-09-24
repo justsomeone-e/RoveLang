@@ -11,10 +11,10 @@ from .codegen_cpp import MIRCodegenError
 from .legalization import legalize_mir
 from .model import (
     AggregateRValue, AssertTerminator, AssignStatement, BinaryRValue, CallTerminator,
-    CastRValue, ConstOperand, ConstantIndexProjection, CopyOperand, DiscriminantRValue, FieldProjection,
-    GotoTerminator, IndexProjection, MIRFunction, MIRModule, MIRStructDef,
+    CastRValue, ConstOperand, ConstantIndexProjection, CopyOperand, DeinitStatement, DiscriminantRValue, FieldProjection,
+    DropTerminator, GotoTerminator, IndexProjection, MIRFunction, MIRModule, MIRStructDef,
     MoveOperand, NopStatement, Operand, PayloadRValue, Place, ReturnTerminator,
-    StorageDeadStatement, StorageLiveStatement, SwitchIntTerminator,
+    StorageDeadStatement, StorageLiveStatement, SuspendTerminator, SwitchIntTerminator,
     SwitchValueTerminator, ThrowTerminator, UnaryRValue, UnreachableTerminator, UseRValue,
 )
 from .types import MIRType
@@ -23,8 +23,21 @@ from .types import MIRType
 _RUNTIME = r'''"use strict";
 
 const nyxI64 = value => BigInt.asIntN(64, value);
-class NyxUserThrow {
+class RoveUserThrow {
   constructor(value) { this.value = value; }
+}
+class RoveTask {
+  constructor(run) {
+    this.run = run;
+    this.promise = null;
+  }
+  awaitResult() {
+    if (this.promise === null) {
+      this.promise = Promise.resolve().then(this.run);
+      this.run = null;
+    }
+    return this.promise;
+  }
 }
 const nyxDiv = (left, right) => {
   if (right === 0n) throw new Error("division by zero");
@@ -35,6 +48,7 @@ const nyxRem = (left, right) => {
   return nyxI64(left % right);
 };
 const nyxClone = value => {
+  if (value instanceof RoveTask) return value;
   if (Array.isArray(value)) return value.map(nyxClone);
   if (value !== null && typeof value === "object") {
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, nyxClone(item)]));
@@ -57,9 +71,16 @@ const nyxSetIndex = (value, index, item) => {
 };
 const nyxField = (value, name) => value.fields[name];
 const nyxSetField = (value, name, item) => { value.fields[name] = item; };
-const nyxDisplay = value => {
+const roveDisplay = value => {
   if (value === true) return "true";
   if (value === false) return "false";
+  if (Array.isArray(value)) return `[${value.map(roveDisplay).join(", ")}]`;
+  if (value !== null && typeof value === "object" && typeof value.tag === "string" && Array.isArray(value.payload)) {
+    return `${value.tag}(${value.payload.map(roveDisplay).join(", ")})`;
+  }
+  if (value !== null && typeof value === "object" && typeof value.__type__ === "string" && value.fields) {
+    return `${value.__type__}(${Object.values(value.fields).map(roveDisplay).join(", ")})`;
+  }
   if (typeof value === "number") {
     if (Number.isNaN(value)) return "nan";
     if (value === Infinity) return "inf";
@@ -99,19 +120,33 @@ class _JavaScriptEmitter:
         self.local_types: dict[int, MIRType] = {}
 
     def emit(self) -> str:
-        parts = ["// Experimental Nyx legalized MIR -> Node.js ES2022 output.", _RUNTIME, ""]
+        parts = ["// Experimental Rove legalized MIR -> Node.js ES2022 output.", _RUNTIME, ""]
         parts.extend(self._function(function) + "\n" for function in self.module.functions)
         by_name = {function.name: function for function in self.module.functions}
         entry = by_name.get("main") or by_name.get("__nyx_top_level")
         if entry is not None:
-            parts.append(f"{self.function_names[entry.symbol]}();")
+            call = f"{self.function_names[entry.symbol]}()"
+            if entry.is_async:
+                parts.append(
+                    f"{call}.awaitResult().catch(error => {{\n"
+                    "  if (error instanceof RoveUserThrow) {\n"
+                    "    console.error(error.value);\n"
+                    "    process.exitCode = 1;\n"
+                    "    return;\n"
+                    "  }\n"
+                    "  throw error;\n"
+                    "});"
+                )
+            else:
+                parts.append(f"{call};")
         return "\n".join(parts).rstrip() + "\n"
 
     def _function(self, function: MIRFunction) -> str:
         self.current = function
         self.local_types = {local.id: local.type for local in function.locals}
         parameters = ", ".join(f"l{local}" for local in function.parameters)
-        lines = [f"function {self.function_names[function.symbol]}({parameters}) {{"]
+        signature = f"function {self.function_names[function.symbol]}({parameters}) {{"
+        lines: list[str] = []
         parameter_ids = set(function.parameters)
         for local in function.locals:
             if local.id in parameter_ids or local.type.name in ("void", "any"):
@@ -124,10 +159,16 @@ class _JavaScriptEmitter:
                 lines.extend(f"        {line}" for line in self._statement(statement))
             lines.extend(f"        {line}" for line in self._terminator(block.terminator))
             lines.append("      }")
-        lines.extend(("      default: throw new Error(\"invalid MIR block\");", "    }", "  }", "}"))
+        lines.extend(("      default: throw new Error(\"invalid MIR block\");", "    }", "  }"))
+        if function.is_async:
+            rendered_lines = [signature, "  return new RoveTask(async () => {"]
+            rendered_lines.extend(f"  {line}" for line in lines)
+            rendered_lines.extend(("  });", "}"))
+        else:
+            rendered_lines = [signature, *lines, "}"]
         self.current = None
         self.local_types = {}
-        return "\n".join(lines)
+        return "\n".join(rendered_lines)
 
     def _statement(self, value: object) -> list[str]:
         if isinstance(value, AssignStatement):
@@ -136,6 +177,8 @@ class _JavaScriptEmitter:
             return [self._assign_place(value.place, self._rvalue(value.value))]
         if isinstance(value, (StorageLiveStatement, StorageDeadStatement, NopStatement)):
             return []
+        if isinstance(value, DeinitStatement):
+            return [self._assign_place(value.place, "undefined")]
         raise MIRCodegenError(f"illegal statement reached JavaScript emitter: {type(value).__name__}")
 
     def _terminator(self, value: object) -> list[str]:
@@ -166,7 +209,7 @@ class _JavaScriptEmitter:
                 raise MIRCodegenError(f"call '{value.function}' has no continuation")
             arguments = ", ".join(self._operand(argument) for argument in value.arguments)
             if value.function == "builtin::print":
-                line = f"console.log([{arguments}].map(nyxDisplay).join(\" \"));"
+                line = f"console.log([{arguments}].map(roveDisplay).join(\" \"));"
             elif value.function == "builtin::len":
                 if len(value.arguments) != 1 or value.destination is None:
                     raise MIRCodegenError("builtin::len requires one argument and a destination")
@@ -174,7 +217,7 @@ class _JavaScriptEmitter:
             elif value.function == "builtin::to_string":
                 if len(value.arguments) != 1 or value.destination is None:
                     raise MIRCodegenError("builtin::to_string requires one argument and a destination")
-                line = f"{self._place(value.destination)} = nyxDisplay({self._operand(value.arguments[0])});"
+                line = f"{self._place(value.destination)} = roveDisplay({self._operand(value.arguments[0])});"
             elif value.function in self.function_names:
                 call = f"{self.function_names[value.function]}({arguments})"
                 callee = self.functions[value.function]
@@ -191,25 +234,46 @@ class _JavaScriptEmitter:
                     "try {",
                     f"  {line}",
                     "} catch (error) {",
-                    "  if (!(error instanceof NyxUserThrow)) throw error;",
+                    "  if (!(error instanceof RoveUserThrow)) throw error;",
                     f"  {self._place(value.error_destination)} = error.value;",
                     f"  pc = {value.unwind};",
                     "  continue;",
                     "}",
                 ] + self._goto(value.target)
             return [line] + self._goto(value.target)
+        if isinstance(value, SuspendTerminator):
+            task = self._operand(value.task)
+            lines = ["try {", f"  {self._assign_place(value.destination, f'await {task}.awaitResult()')}",
+                     "} catch (error) {", "  if (!(error instanceof RoveUserThrow)) throw error;"]
+            if value.unwind is not None:
+                if value.error_destination is None:
+                    raise MIRCodegenError("JavaScript MIR suspend unwind requires an error destination")
+                lines.extend((
+                    f"  {self._assign_place(value.error_destination, 'error.value')}",
+                    f"  pc = {value.unwind};",
+                    "  continue;",
+                ))
+            else:
+                lines.append("  throw error;")
+            lines.append("}")
+            lines.extend(self._goto(value.resume))
+            return lines
         if isinstance(value, AssertTerminator):
             expected = "true" if value.expected else "false"
             return [
                 f"if (Boolean({self._operand(value.condition)}) !== {expected}) throw new Error({json.dumps(value.message)});"
             ] + self._goto(value.target)
+        if isinstance(value, DropTerminator):
+            if value.unwind is not None:
+                raise MIRCodegenError("JavaScript MIR drop unwind edge was not legalized")
+            return [self._assign_place(value.place, "undefined")] + self._goto(value.target)
         if isinstance(value, ThrowTerminator):
             rendered = self._operand(value.value)
             if value.target is not None and value.destination is not None:
-                return [self._assign_place(value.destination, f"nyxDisplay({rendered})")] + self._goto(
+                return [self._assign_place(value.destination, f"roveDisplay({rendered})")] + self._goto(
                     value.target
                 )
-            return [f"throw new NyxUserThrow(nyxDisplay({rendered}));"]
+            return [f"throw new RoveUserThrow(roveDisplay({rendered}));"]
         if isinstance(value, ReturnTerminator):
             assert self.current is not None
             result = self.current.locals[self.current.return_local].type
@@ -238,7 +302,7 @@ class _JavaScriptEmitter:
             if value.type.name == "bool":
                 return f"Boolean({operand})"
             if value.type.name == "string":
-                return f"nyxDisplay({operand})"
+                return f"roveDisplay({operand})"
             return operand
         if isinstance(value, AggregateRValue):
             operands = [self._operand(operand) for operand in value.operands]

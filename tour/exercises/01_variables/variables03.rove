@@ -1,0 +1,10 @@
+// I AM NOT DONE
+// Rove is statically typed. You can annotate variables with `: type`.
+// Types include `int`, `float`, `string`, `bool`.
+// TODO: Fix the type mismatch below so the compiler is satisfied.
+
+fn check_types() {
+    let age: int = "twenty"
+    let name: string = "Rove"
+    let active: bool = true
+}

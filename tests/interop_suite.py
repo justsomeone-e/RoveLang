@@ -174,9 +174,9 @@ main()
     for name, source, expected in tests:
         print(f"[*] Testing {name}...")
         try:
-            tokens = Lexer(source, f"{name}.nyx").tokenize()
-            ast = Parser(tokens, source, f"{name}.nyx").parse()
-            TypeChecker(ast, f"{name}.nyx", source).check()
+            tokens = Lexer(source, f"{name}.rove").tokenize()
+            ast = Parser(tokens, source, f"{name}.rove").parse()
+            TypeChecker(ast, f"{name}.rove", source).check()
 
             codegen = UniversalCodeGen(ast)
             cpp_code = codegen.gen_cpp()

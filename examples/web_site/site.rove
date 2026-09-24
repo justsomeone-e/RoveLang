@@ -1,0 +1,1814 @@
+import "std/web"
+
+// =============================================================================
+// Rove WebAssembly Interactive Portal & Arcade (site.rove)
+// Rove v4.0.0-rc.2 "Bodhi" — WASM ABI v1
+// =============================================================================
+
+// --- Global State ---
+var counter: int = 0
+var click_count: int = 0
+var tick: int = 0
+var anim_mode: int = 0      // 0: Spectrum, 1: Matrix, 2: Orbit, 3: Pong, 4: Dodge, 5: Shibuya Fireworks, 6: Vortex, 7: Aurora, 8: Neural Cosmos
+var is_running: int = 1
+var canvas: WebElement = 0
+var rng_state: int = 4281729
+var sfx_event: int = 0      // 1: paddle, 2: cpu/p2, 3: bounce/wall, 4: crash/goal, 5: firework, 6: orb/powerup, 7: warp
+
+// --- Music State ---
+var music_beat_pulse: float = 0.0
+
+// --- Multi-Burst Fireworks Engine State ---
+var fw1_active: int = 0
+var fw1_x: float = 340.0
+var fw1_y: float = 120.0
+var fw1_timer: int = 0
+var fw1_type: int = 0
+
+var fw2_active: int = 0
+var fw2_x: float = 200.0
+var fw2_y: float = 100.0
+var fw2_timer: int = 0
+var fw2_type: int = 1
+
+var fw3_active: int = 0
+var fw3_x: float = 480.0
+var fw3_y: float = 140.0
+var fw3_timer: int = 0
+var fw3_type: int = 2
+
+var fw_auto_show: int = 0
+
+// --- Pong 2.0 Game State (Mode 3) ---
+var pong_paddle_y: float = 115.0
+var pong_paddle_h: float = 65.0
+var pong_cpu_y: float = 115.0
+var pong_cpu_speed: float = 2.9
+var pong_ball_x: float = 340.0
+var pong_ball_y: float = 150.0
+var pong_ball_dx: float = 4.4
+var pong_ball_dy: float = 2.6
+var pong_ball_size: float = 10.0
+var player_score: int = 0
+var cpu_score: int = 0
+var pong_rally: int = 0
+var pong_mode_2p: int = 0         // 0: Player vs CPU, 1: 2-Player on same keyboard
+var pong_difficulty: int = 1      // 0: Easy, 1: Normal, 2: Insane
+
+var pong_powerup_x: float = 340.0
+var pong_powerup_y: float = 150.0
+var pong_powerup_active: int = 1
+var pong_powerup_type: int = 0    // 0: Speed Ball, 1: Mega Paddle
+var pong_powerup_timer: int = 0
+
+// --- Cyber Space Dodge 2.0 Game State (Mode 4) ---
+var dodge_player_y: float = 135.0
+var dodge_player_x: float = 42.0
+var dodge_score: int = 0
+var dodge_high_score: int = 0
+var dodge_game_over: int = 0
+var dodge_shields: int = 3
+var dodge_invuln: int = 0
+
+// Obstacles
+var obs1_x: float = 720.0
+var obs1_y: float = 30.0
+var obs1_h: float = 60.0
+var obs1_speed: float = 5.2
+
+var obs2_x: float = 980.0
+var obs2_y: float = 170.0
+var obs2_h: float = 54.0
+var obs2_speed: float = 6.2
+
+var obs3_x: float = 1240.0
+var obs3_y: float = 100.0
+var obs3_h: float = 48.0
+var obs3_speed: float = 5.6
+
+// Collectible Cyber Energy Orb
+var orb_x: float = 850.0
+var orb_y: float = 150.0
+var orb_active: int = 1
+
+// --- Quantum Gravity Vortex Sandbox (Mode 6) ---
+var vortex_mx: float = 340.0
+var vortex_my: float = 150.0
+var vortex_repel: int = 0
+var vortex_pulse: float = 0.0
+
+// --- Pseudo-Random Generator ---
+
+fn next_rand(max_val: int) -> int {
+    set rng_state = (rng_state * 1103515245 + 12345) % 2147483647
+    if rng_state < 0 {
+        set rng_state = -rng_state
+    }
+    return if max_val > 0 { rng_state % max_val } else { 0 }
+}
+
+// --- Fast High-Accuracy Trigonometric Approximation (Bhaskara I) ---
+
+fn fast_sin_deg(deg_in: int) -> float {
+    var deg: int = deg_in % 360
+    if deg < 0 { set deg = deg + 360 }
+    if deg < 180 {
+        let d: float = deg * 1.0
+        let num: float = 4.0 * d * (180.0 - d)
+        let den: float = 40500.0 - d * (180.0 - d)
+        return num / den
+    } else {
+        let d: float = (deg - 180) * 1.0
+        let num: float = 4.0 * d * (180.0 - d)
+        let den: float = 40500.0 - d * (180.0 - d)
+        return -(num / den)
+    }
+}
+
+fn fast_cos_deg(deg_in: int) -> float {
+    return fast_sin_deg(deg_in + 90)
+}
+
+// --- Sound Effects Event Bridge ---
+
+fn get_and_clear_sfx() -> int {
+    let current: int = sfx_event
+    set sfx_event = 0
+    return current
+}
+
+fn trigger_firework(x: float, y: float) -> void {
+    trigger_firework_type(x, y, next_rand(4))
+}
+
+fn trigger_firework_type(x: float, y: float, f_type: int) -> void {
+    if fw1_active == 0 {
+        set fw1_active = 1
+        set fw1_x = x
+        set fw1_y = y
+        set fw1_timer = 26
+        set fw1_type = f_type % 4
+    } else if fw2_active == 0 {
+        set fw2_active = 1
+        set fw2_x = x
+        set fw2_y = y
+        set fw2_timer = 26
+        set fw2_type = f_type % 4
+    } else if fw3_active == 0 {
+        set fw3_active = 1
+        set fw3_x = x
+        set fw3_y = y
+        set fw3_timer = 26
+        set fw3_type = f_type % 4
+    } else {
+        set fw1_active = 1
+        set fw1_x = x
+        set fw1_y = y
+        set fw1_timer = 26
+        set fw1_type = f_type % 4
+    }
+    set sfx_event = 5
+}
+
+fn toggle_auto_fireworks() -> int {
+    set fw_auto_show = 1 - fw_auto_show
+    return fw_auto_show
+}
+
+fn is_auto_fireworks() -> int {
+    return fw_auto_show
+}
+
+// --- Counter & State Management ---
+
+fn get_counter() -> int {
+    return counter
+}
+
+fn get_click_count() -> int {
+    return click_count
+}
+
+fn inc_counter() -> int {
+    set counter = counter + 1
+    set click_count = click_count + 1
+    return counter
+}
+
+fn dec_counter() -> int {
+    set counter = counter - 1
+    set click_count = click_count + 1
+    return counter
+}
+
+fn double_counter() -> int {
+    set counter = counter * 2
+    set click_count = click_count + 1
+    return counter
+}
+
+fn reset_counter() -> int {
+    set counter = 0
+    set click_count = click_count + 1
+    return counter
+}
+
+fn get_anim_mode() -> int {
+    return anim_mode
+}
+
+fn set_anim_mode(mode: int) -> int {
+    set anim_mode = mode % 9
+    return anim_mode
+}
+
+fn cycle_anim_mode() -> int {
+    set anim_mode = (anim_mode + 1) % 9
+    return anim_mode
+}
+
+fn toggle_anim() -> int {
+    if is_running == 1 {
+        set is_running = 0
+    } else {
+        set is_running = 1
+        web_request_animation_frame(100)
+    }
+    return is_running
+}
+
+fn is_anim_running() -> int {
+    return is_running
+}
+
+fn get_tick() -> int {
+    return tick
+}
+
+// --- Procedural Chiptune & Synthwave Synthesizer in WASM (5 Tracks) ---
+
+fn music_lead_note(track: int, step: int) -> float {
+    let s: int = step % 16
+    if track == 0 {
+        // Track 0: Cyberpunk Synthwave (A minor driving groove)
+        if s == 0 or s == 8 { return 440.0 }       // A4
+        if s == 1 or s == 9 { return 523.25 }      // C5
+        if s == 2 or s == 10 { return 659.25 }     // E5
+        if s == 3 or s == 7 { return 783.99 }      // G5
+        if s == 4 or s == 12 { return 880.0 }      // A5
+        if s == 5 or s == 13 { return 659.25 }     // E5
+        if s == 6 or s == 14 { return 587.33 }     // D5
+        return 523.25                              // C5
+    } else if track == 1 {
+        // Track 1: 8-Bit Retro Arcade (Upbeat Chip)
+        if s == 0 or s == 4 { return 523.25 }      // C5
+        if s == 1 or s == 5 { return 587.33 }      // D5
+        if s == 2 or s == 6 { return 659.25 }      // E5
+        if s == 3 or s == 7 { return 783.99 }      // G5
+        if s == 8 or s == 12 { return 1046.5 }     // C6
+        if s == 9 or s == 13 { return 880.0 }      // A5
+        if s == 10 or s == 14 { return 783.99 }    // G5
+        return 659.25                              // E5
+    } else if track == 2 {
+        // Track 2: Neon Chillwave (Melodic progression)
+        let bar: int = (step / 8) % 4
+        if bar == 0 {
+            if s % 2 == 0 { return 349.23 } else { return 523.25 } // F4, C5
+        } else if bar == 1 {
+            if s % 2 == 0 { return 392.00 } else { return 587.33 } // G4, D5
+        } else if bar == 2 {
+            if s % 2 == 0 { return 440.00 } else { return 659.25 } // A4, E5
+        } else {
+            if s % 2 == 0 { return 329.63 } else { return 493.88 } // E4, B4
+        }
+    } else if track == 3 {
+        // Track 3: Tokyo Neon Drift (144 BPM Pentatonic Hook)
+        if s == 0 or s == 4 { return 587.33 }       // D5
+        if s == 1 or s == 5 { return 659.25 }       // E5
+        if s == 2 or s == 8 { return 783.99 }       // G5
+        if s == 3 or s == 9 { return 880.00 }       // A5
+        if s == 6 or s == 12 { return 1174.66 }     // D6
+        if s == 7 or s == 13 { return 1046.50 }     // C6
+        if s == 10 or s == 14 { return 880.00 }     // A5
+        return 659.25                               // E5
+    } else {
+        // Track 4: Arcade Boss Battle (152 BPM Aggressive Minor Theme)
+        if s == 0 or s == 2 { return 440.00 }       // A4
+        if s == 1 or s == 3 { return 466.16 }       // Bb4
+        if s == 4 or s == 6 { return 523.25 }       // C5
+        if s == 5 or s == 7 { return 587.33 }       // D5
+        if s == 8 or s == 10 { return 698.46 }      // F5
+        if s == 9 or s == 11 { return 659.25 }      // E5
+        if s == 12 or s == 14 { return 880.00 }     // A5
+        return 783.99                               // G5
+    }
+    return 440.0
+}
+
+fn music_bass_note(track: int, step: int) -> float {
+    let bar: int = (step / 8) % 4
+    if track == 0 {
+        if bar == 0 { return 110.0 }  // A2
+        if bar == 1 { return 130.81 } // C3
+        if bar == 2 { return 98.0 }   // G2
+        return 87.31                  // F2
+    } else if track == 1 {
+        if bar == 0 { return 130.81 } // C3
+        if bar == 1 { return 146.83 } // D3
+        if bar == 2 { return 164.81 } // E3
+        return 196.00                 // G3
+    } else if track == 2 {
+        if bar == 0 { return 87.31 }  // F2
+        if bar == 1 { return 98.00 }  // G2
+        if bar == 2 { return 110.00 } // A2
+        return 82.41                  // E2
+    } else if track == 3 {
+        if bar == 0 { return 146.83 } // D3
+        if bar == 1 { return 174.61 } // F3
+        if bar == 2 { return 196.00 } // G3
+        return 110.00                 // A2
+    } else {
+        if bar == 0 { return 110.00 } // A2
+        if bar == 1 { return 116.54 } // Bb2
+        if bar == 2 { return 130.81 } // C3
+        return 146.83                 // D3
+    }
+}
+
+fn music_drum_beat(step: int) -> int {
+    let s: int = step % 8
+    if s == 0 or s == 4 { return 1 } // Kick
+    if s == 2 or s == 6 { return 2 } // Snare
+    if s % 2 == 1 { return 3 }       // Hi-Hat
+    return 0
+}
+
+fn set_music_beat_pulse(pulse: float) -> void {
+    set music_beat_pulse = pulse
+}
+
+fn piano_note_freq(note_idx: int) -> float {
+    if note_idx == 0 { return 261.63 } // C4 (Do)
+    if note_idx == 1 { return 293.66 } // D4 (Re)
+    if note_idx == 2 { return 329.63 } // E4 (Mi)
+    if note_idx == 3 { return 349.23 } // F4 (Fa)
+    if note_idx == 4 { return 392.00 } // G4 (Sol)
+    if note_idx == 5 { return 440.00 } // A4 (La)
+    if note_idx == 6 { return 493.88 } // B4 (Si)
+    return 523.25                      // C5 (Do)
+}
+
+fn track_name(track: int) -> string {
+    return if track == 0 {
+        "Cyberpunk Synthwave (128 BPM)"
+    } else if track == 1 {
+        "8-Bit Retro Arcade (140 BPM)"
+    } else if track == 2 {
+        "Neon Chillwave (110 BPM)"
+    } else if track == 3 {
+        "Tokyo Neon Drift (144 BPM)"
+    } else {
+        "Arcade Boss Battle (152 BPM)"
+    }
+}
+
+// --- Pong 2.0 Game Control & Accessors (Mode 3) ---
+
+fn pong_move_paddle(delta: float) -> float {
+    set pong_paddle_y = pong_paddle_y + delta
+    if pong_paddle_y < 6.0 {
+        set pong_paddle_y = 6.0
+    }
+    if pong_paddle_y > 294.0 - pong_paddle_h {
+        set pong_paddle_y = 294.0 - pong_paddle_h
+    }
+    return pong_paddle_y
+}
+
+fn pong_set_paddle_y(y: float) -> float {
+    set pong_paddle_y = y - pong_paddle_h / 2.0
+    if pong_paddle_y < 6.0 {
+        set pong_paddle_y = 6.0
+    }
+    if pong_paddle_y > 294.0 - pong_paddle_h {
+        set pong_paddle_y = 294.0 - pong_paddle_h
+    }
+    return pong_paddle_y
+}
+
+fn pong_move_p2(delta: float) -> float {
+    set pong_cpu_y = pong_cpu_y + delta
+    if pong_cpu_y < 6.0 {
+        set pong_cpu_y = 6.0
+    }
+    if pong_cpu_y > 294.0 - pong_paddle_h {
+        set pong_cpu_y = 294.0 - pong_paddle_h
+    }
+    return pong_cpu_y
+}
+
+fn pong_set_p2_y(y: float) -> float {
+    set pong_cpu_y = y - pong_paddle_h / 2.0
+    if pong_cpu_y < 6.0 {
+        set pong_cpu_y = 6.0
+    }
+    if pong_cpu_y > 294.0 - pong_paddle_h {
+        set pong_cpu_y = 294.0 - pong_paddle_h
+    }
+    return pong_cpu_y
+}
+
+fn pong_set_2p_mode(enabled: int) -> void {
+    set pong_mode_2p = enabled
+}
+
+fn pong_is_2p_mode() -> int {
+    return pong_mode_2p
+}
+
+fn pong_set_difficulty(diff: int) -> void {
+    set pong_difficulty = diff % 3
+    if pong_difficulty == 0 {
+        set pong_cpu_speed = 2.0
+    } else if pong_difficulty == 1 {
+        set pong_cpu_speed = 2.9
+    } else {
+        set pong_cpu_speed = 4.8
+    }
+}
+
+fn pong_get_difficulty() -> int {
+    return pong_difficulty
+}
+
+fn pong_reset_game() -> void {
+    set player_score = 0
+    set cpu_score = 0
+    set pong_rally = 0
+    set pong_ball_x = 340.0
+    set pong_ball_y = 150.0
+    set pong_ball_dx = 4.4
+    set pong_ball_dy = 2.6
+    set pong_paddle_y = 115.0
+    set pong_paddle_h = 65.0
+    set pong_cpu_y = 115.0
+    set pong_powerup_active = 1
+    set pong_powerup_type = 0
+    set pong_powerup_x = 340.0
+    set pong_powerup_y = 150.0
+    set pong_powerup_timer = 0
+}
+
+fn get_player_score() -> int {
+    return player_score
+}
+
+fn get_cpu_score() -> int {
+    return cpu_score
+}
+
+fn get_pong_rally() -> int {
+    return pong_rally
+}
+
+fn get_pong_powerup_type() -> int {
+    return if pong_powerup_active == 1 { pong_powerup_type + 1 } else { 0 }
+}
+
+// --- Cyber Space Dodge 2.0 Game Controls & Accessors (Mode 4) ---
+
+fn dodge_move(delta: float) -> float {
+    if dodge_game_over == 1 { return dodge_player_y }
+    set dodge_player_y = dodge_player_y + delta
+    if dodge_player_y < 12.0 { set dodge_player_y = 12.0 }
+    if dodge_player_y > 268.0 { set dodge_player_y = 268.0 }
+    return dodge_player_y
+}
+
+fn dodge_set_y(y: float) -> float {
+    if dodge_game_over == 1 { return dodge_player_y }
+    set dodge_player_y = y - 12.0
+    if dodge_player_y < 12.0 { set dodge_player_y = 12.0 }
+    if dodge_player_y > 268.0 { set dodge_player_y = 268.0 }
+    return dodge_player_y
+}
+
+fn dodge_reset() -> void {
+    set dodge_player_y = 135.0
+    set dodge_score = 0
+    set dodge_game_over = 0
+    set dodge_shields = 3
+    set dodge_invuln = 0
+    set obs1_x = 720.0
+    set obs1_y = 25.0 + next_rand(180) * 1.0
+    set obs2_x = 980.0
+    set obs2_y = 25.0 + next_rand(180) * 1.0
+    set obs3_x = 1240.0
+    set obs3_y = 25.0 + next_rand(180) * 1.0
+    set orb_x = 850.0
+    set orb_y = 40.0 + next_rand(200) * 1.0
+    set orb_active = 1
+}
+
+fn get_dodge_score() -> int {
+    return dodge_score
+}
+
+fn get_dodge_high_score() -> int {
+    return dodge_high_score
+}
+
+fn get_dodge_shields() -> int {
+    return dodge_shields
+}
+
+fn is_dodge_game_over() -> int {
+    return dodge_game_over
+}
+
+// --- Quantum Gravity Vortex Sandbox (Mode 6) ---
+
+fn vortex_set_mouse(x: float, y: float) -> void {
+    set vortex_mx = x
+    set vortex_my = y
+}
+
+fn vortex_toggle_repel() -> int {
+    set vortex_repel = 1 - vortex_repel
+    return vortex_repel
+}
+
+fn vortex_is_repel() -> int {
+    return vortex_repel
+}
+
+fn vortex_trigger_shockwave() -> void {
+    set vortex_pulse = 1.0
+    set sfx_event = 5
+}
+
+// --- High-Performance Algorithmic Calculations in WASM ---
+
+fn calc_fibonacci(n: int) -> int {
+    if n <= 0 { return 0 }
+    if n == 1 { return 1 }
+    var a: int = 0
+    var b: int = 1
+    for i in 2..n {
+        let next: int = a + b
+        set a = b
+        set b = next
+    }
+    return b
+}
+
+fn is_prime(n: int) -> bool {
+    if n <= 1 { return false }
+    if n <= 3 { return true }
+    if n % 2 == 0 or n % 3 == 0 { return false }
+    var i: int = 5
+    while i * i <= n {
+        if n % i == 0 or n % (i + 2) == 0 {
+            return false
+        }
+        set i = i + 6
+    }
+    return true
+}
+
+fn count_primes(limit: int) -> int {
+    var count: int = 0
+    for n in 2..limit {
+        if is_prime(n) {
+            set count = count + 1
+        }
+    }
+    return count
+}
+
+fn collatz_steps(n: int) -> int {
+    if n <= 0 { return 0 }
+    var current: int = n
+    var steps: int = 0
+    while current > 1 and steps < 100000 {
+        if current % 2 == 0 {
+            set current = current / 2
+        } else {
+            set current = current * 3 + 1
+        }
+        set steps = steps + 1
+    }
+    return steps
+}
+
+fn fast_gcd(a: int, b: int) -> int {
+    var x: int = a
+    var y: int = b
+    while y != 0 {
+        let temp: int = y
+        set y = x % y
+        set x = temp
+    }
+    return x
+}
+
+fn sum_array(values: Array<int>) -> int {
+    var total: int = 0
+    for val in values {
+        set total = total + val
+    }
+    return total
+}
+
+fn greet_user(name: string) -> string {
+    return "Merhaba, " + name + "! Rove WebAssembly ve Ses Sistemi aktif."
+}
+
+fn mode_name(mode: int) -> string {
+    return if mode == 0 {
+        "Spektrum Dalgasi (Spectrum Waveform)"
+    } else if mode == 1 {
+        "Siber Matris Akisi (Cyber Matrix Flow)"
+    } else if mode == 2 {
+        "Kuantum Yorunge Alani (Quantum Orbit Field)"
+    } else if mode == 3 {
+        "Retro Rove Pong 2.0 (Arcade & 2P)"
+    } else if mode == 4 {
+        "Siber Uzay Kosusu 2.0 (Cyber Space Dodge)"
+    } else if mode == 5 {
+        "Shibuya Havai Fisek Festivali (Romantic Night)"
+    } else if mode == 6 {
+        "Kuantum Cekim Girdabi (Gravity Vortex Sandbox)"
+    } else if mode == 7 {
+        "Aurora Plazma Kafesi (Aurora Plasma Lattice)"
+    } else {
+        "Derin Uzay Sinir Agi (Deep Space Neural Constellation)"
+    }
+}
+
+fn system_status() -> string {
+    return "Rove WASM v4.0.0-rc.2 Bodhi | 60 FPS Canvas | WebAudio Synth | 9 Modes"
+}
+
+// --- Canvas Graphics & Animation Engine (std/web) ---
+
+fn wave_height(bar_index: int, t: int) -> float {
+    let phase: int = (t * 3 + bar_index * 15) % 360
+    var norm: float = 0.0
+    if phase < 180 {
+        set norm = phase / 180.0
+    } else {
+        set norm = (360 - phase) / 180.0
+    }
+    let smooth: float = norm * norm * (3.0 - 2.0 * norm)
+    let pulse_boost: float = music_beat_pulse * 45.0
+    return 18.0 + smooth * 180.0 + pulse_boost
+}
+
+fn draw_equalizer() -> void {
+    web_canvas_set_blend_mode(canvas, "source-over")
+    web_canvas_set_global_alpha(canvas, 1.0)
+    web_canvas_set_fill_style(canvas, "#040714")
+    web_canvas_fill_rect(canvas, 0.0, 0.0, 680.0, 300.0)
+
+    // 3D Tron Perspective Floor Grid
+    web_canvas_set_global_alpha(canvas, 0.22)
+    for fl in 0..12 {
+        let fx: float = fl * 60.0 + 10.0
+        web_canvas_draw_line(canvas, fx, 240.0, 340.0 + (fx - 340.0) * 0.1, 160.0, "#00f0ff", 1.0)
+    }
+    web_canvas_draw_line(canvas, 0.0, 240.0, 680.0, 240.0, "#00f0ff", 1.5)
+    web_canvas_draw_line(canvas, 60.0, 205.0, 620.0, 205.0, "#7000ff", 1.0)
+    web_canvas_draw_line(canvas, 160.0, 180.0, 520.0, 180.0, "#7000ff", 1.0)
+
+    // 24 Holographic Equalizer Columns
+    web_canvas_set_blend_mode(canvas, "lighter")
+    web_canvas_set_global_alpha(canvas, 0.9)
+
+    for i in 0..24 {
+        let h: float = wave_height(i, tick)
+        let x: float = 24.0 + i * 26.0
+        let y: float = 238.0 - h
+
+        let color_idx: int = (i + tick / 10) % 4
+        if color_idx == 0 {
+            web_canvas_set_fill_style(canvas, "#00f0ff")
+        } else if color_idx == 1 {
+            web_canvas_set_fill_style(canvas, "#7000ff")
+        } else if color_idx == 2 {
+            web_canvas_set_fill_style(canvas, "#ff007f")
+        } else {
+            web_canvas_set_fill_style(canvas, "#00ffaa")
+        }
+
+        // Main Column
+        web_canvas_fill_rect(canvas, x + 2.0, y, 16.0, h)
+
+        // Blinding Laser Cap & Glow
+        web_canvas_draw_glow_circle(canvas, x + 10.0, y, 12.0, "#ffffff", "rgba(0,0,0,0)")
+        web_canvas_draw_circle(canvas, x + 10.0, y, 3.5, "#ffffff")
+
+        // Floor Mirror Reflection (Fading Alpha)
+        web_canvas_set_global_alpha(canvas, 0.2)
+        web_canvas_fill_rect(canvas, x + 3.0, 242.0, 14.0, h * 0.4)
+        web_canvas_set_global_alpha(canvas, 0.9)
+    }
+
+    // Floating Beat Embers
+    if music_beat_pulse > 0.1 {
+        for eb in 0..8 {
+            let ex: float = 40.0 + eb * 80.0 + fast_cos_deg(tick * 5 + eb * 40) * 18.0
+            let ey: float = 120.0 - (music_beat_pulse * 60.0) - eb * 6.0
+            web_canvas_draw_glow_circle(canvas, ex, ey, 8.0, "#00f0ff", "rgba(0,0,0,0)")
+        }
+    }
+
+    web_canvas_set_global_alpha(canvas, 1.0)
+    web_canvas_set_blend_mode(canvas, "source-over")
+}
+
+fn draw_matrix_flow() -> void {
+    web_canvas_set_blend_mode(canvas, "source-over")
+    web_canvas_set_global_alpha(canvas, 1.0)
+    web_canvas_set_fill_style(canvas, "#02050e")
+    web_canvas_fill_rect(canvas, 0.0, 0.0, 680.0, 300.0)
+
+    // 3D Perspective Digital Cyber Tunnel Wireframe
+    web_canvas_set_global_alpha(canvas, 0.25)
+    web_canvas_draw_line(canvas, 0.0, 0.0, 340.0, 150.0, "#00ffaa", 1.0)
+    web_canvas_draw_line(canvas, 680.0, 0.0, 340.0, 150.0, "#00ffaa", 1.0)
+    web_canvas_draw_line(canvas, 0.0, 300.0, 340.0, 150.0, "#00ffaa", 1.0)
+    web_canvas_draw_line(canvas, 680.0, 300.0, 340.0, 150.0, "#00ffaa", 1.0)
+
+    // Tunnel Rings
+    for tr in 1..5 {
+        let t_ratio: float = tr * 0.22 + ((tick % 40) * 0.005)
+        let rw: float = 680.0 * (1.0 - t_ratio)
+        let rh: float = 300.0 * (1.0 - t_ratio)
+        let rx: float = 340.0 - rw / 2.0
+        let ry: float = 150.0 - rh / 2.0
+        web_canvas_draw_line(canvas, rx, ry, rx + rw, ry, "rgba(0, 255, 170, 0.2)", 1.0)
+        web_canvas_draw_line(canvas, rx + rw, ry, rx + rw, ry + rh, "rgba(0, 255, 170, 0.2)", 1.0)
+        web_canvas_draw_line(canvas, rx + rw, ry + rh, rx, ry + rh, "rgba(0, 255, 170, 0.2)", 1.0)
+        web_canvas_draw_line(canvas, rx, ry + rh, rx, ry, "rgba(0, 255, 170, 0.2)", 1.0)
+    }
+
+    // 3D Cascading Phosphor Data Streamers
+    web_canvas_set_blend_mode(canvas, "lighter")
+    web_canvas_set_global_alpha(canvas, 0.9)
+
+    for col in 0..26 {
+        let speed: int = (col % 5) + 3
+        let y_raw: int = (tick * speed + col * 31) % 330
+        let x: float = 18.0 + col * 25.5
+        let y: float = y_raw * 1.0 - 15.0
+
+        // Phosphor Trail
+        web_canvas_draw_line(canvas, x, y - 40.0, x, y, "#00ffaa", 2.2)
+        web_canvas_draw_line(canvas, x, y - 20.0, x, y, "#38bdf8", 1.5)
+
+        // White-Hot Head Node
+        web_canvas_draw_glow_circle(canvas, x, y, 10.0, "#ffffff", "rgba(0,0,0,0)")
+        web_canvas_draw_circle(canvas, x, y, 3.2, "#ffffff")
+    }
+
+    web_canvas_set_global_alpha(canvas, 1.0)
+    web_canvas_set_blend_mode(canvas, "source-over")
+}
+
+fn draw_orbital() -> void {
+    web_canvas_set_blend_mode(canvas, "source-over")
+    web_canvas_set_global_alpha(canvas, 1.0)
+    web_canvas_set_fill_style(canvas, "#03040e")
+    web_canvas_fill_rect(canvas, 0.0, 0.0, 680.0, 300.0)
+
+    let cx: float = 340.0
+    let cy: float = 150.0
+
+    // Central Pulsating Solar Plasma Core
+    web_canvas_set_blend_mode(canvas, "lighter")
+    let p_pulse: float = fast_sin_deg((tick * 6) % 360) * 4.0
+    web_canvas_draw_glow_circle(canvas, cx, cy, 55.0 + p_pulse, "rgba(112, 0, 255, 0.7)", "rgba(0,0,0,0)")
+    web_canvas_draw_glow_circle(canvas, cx, cy, 32.0 + p_pulse, "rgba(0, 240, 255, 0.85)", "rgba(0,0,0,0)")
+    web_canvas_draw_circle(canvas, cx, cy, 14.0, "#ffffff")
+
+    // 3 Concentric 3D Gyroscope Gimbal Rings (Rotating on X, Y, Z axes)
+    for g in 0..3 {
+        let g_deg: int = (tick * (g + 1) * 2 + g * 55) % 360
+        let g_rad: float = 65.0 + g * 35.0
+
+        for seg in 0..24 {
+            let a1: int = seg * 15 + g_deg
+            let a2: int = (seg + 1) * 15 + g_deg
+
+            // 3D rotation coordinates
+            let x1: float = cx + fast_cos_deg(a1) * g_rad
+            let y1: float = cy + fast_sin_deg(a1) * (g_rad * (0.35 + g * 0.22))
+            let x2: float = cx + fast_cos_deg(a2) * g_rad
+            let y2: float = cy + fast_sin_deg(a2) * (g_rad * (0.35 + g * 0.22))
+
+            if g == 0 {
+                web_canvas_draw_line(canvas, x1, y1, x2, y2, "#00f0ff", 1.8)
+            } else if g == 1 {
+                web_canvas_draw_line(canvas, x1, y1, x2, y2, "#a855f7", 1.8)
+            } else {
+                web_canvas_draw_line(canvas, x1, y1, x2, y2, "#ff007f", 1.8)
+            }
+        }
+
+        // Orbiting Electron on this ring
+        let el_deg: int = (tick * (4 + g * 2) + g * 90) % 360
+        let ex: float = cx + fast_cos_deg(el_deg) * g_rad
+        let ey: float = cy + fast_sin_deg(el_deg) * (g_rad * (0.35 + g * 0.22))
+        web_canvas_draw_glow_circle(canvas, ex, ey, 14.0, "#ffffff", "rgba(0,0,0,0)")
+        web_canvas_draw_circle(canvas, ex, ey, 4.0, "#ffffff")
+        web_canvas_draw_line(canvas, ex, ey, cx, cy, "rgba(255, 255, 255, 0.18)", 1.0)
+    }
+
+    web_canvas_set_global_alpha(canvas, 1.0)
+    web_canvas_set_blend_mode(canvas, "source-over")
+}
+
+// --- Pong 2.0 Game Loop & Renderer (Mode 3) ---
+
+fn update_and_draw_pong() -> void {
+    // 1. Move Ball
+    set pong_ball_x = pong_ball_x + pong_ball_dx
+    set pong_ball_y = pong_ball_y + pong_ball_dy
+
+    // 2. Wall Bounce (Top & Bottom)
+    if pong_ball_y <= 6.0 {
+        set pong_ball_y = 6.0
+        set pong_ball_dy = -pong_ball_dy
+        set sfx_event = 3
+    }
+    if pong_ball_y >= 284.0 {
+        set pong_ball_y = 284.0
+        set pong_ball_dy = -pong_ball_dy
+        set sfx_event = 3
+    }
+
+    // 3. Paddle 1 Hit (Left)
+    if pong_ball_x <= 36.0 and pong_ball_x >= 18.0 {
+        if pong_ball_y + pong_ball_size >= pong_paddle_y and pong_ball_y <= pong_paddle_y + pong_paddle_h {
+            set pong_ball_x = 36.0
+            set pong_ball_dx = -pong_ball_dx
+            let hit_offset: float = (pong_ball_y + 5.0) - (pong_paddle_y + pong_paddle_h / 2.0)
+            set pong_ball_dy = hit_offset * 0.12
+            set pong_rally = pong_rally + 1
+            set sfx_event = 1
+        }
+    }
+
+    // 4. Paddle 2 Hit (Right - CPU or Player 2)
+    if pong_ball_x + pong_ball_size >= 644.0 and pong_ball_x <= 662.0 {
+        if pong_ball_y + pong_ball_size >= pong_cpu_y and pong_ball_y <= pong_cpu_y + pong_paddle_h {
+            set pong_ball_x = 644.0 - pong_ball_size
+            set pong_ball_dx = -pong_ball_dx
+            let hit_offset: float = (pong_ball_y + 5.0) - (pong_cpu_y + pong_paddle_h / 2.0)
+            set pong_ball_dy = hit_offset * 0.12
+            set pong_rally = pong_rally + 1
+            set sfx_event = 2
+        }
+    }
+
+    // 5. Scoring & Resets
+    if pong_ball_x < 0.0 {
+        set cpu_score = cpu_score + 1
+        set pong_ball_x = 340.0
+        set pong_ball_y = 150.0
+        set pong_ball_dx = 4.2
+        set pong_ball_dy = 2.0
+        set pong_rally = 0
+        set sfx_event = 4
+    }
+    if pong_ball_x > 678.0 {
+        set player_score = player_score + 1
+        set pong_ball_x = 340.0
+        set pong_ball_y = 150.0
+        set pong_ball_dx = -4.2
+        set pong_ball_dy = -2.0
+        set pong_rally = 0
+        set sfx_event = 4
+    }
+
+    // 6. CPU Movement (Only active when NOT in 2-Player mode)
+    if pong_mode_2p == 0 {
+        let target_cpu: float = pong_ball_y - pong_paddle_h / 2.0
+        if pong_cpu_y < target_cpu - 4.0 {
+            set pong_cpu_y = pong_cpu_y + pong_cpu_speed
+        }
+        if pong_cpu_y > target_cpu + 4.0 {
+            set pong_cpu_y = pong_cpu_y - pong_cpu_speed
+        }
+    }
+    if pong_cpu_y < 6.0 { set pong_cpu_y = 6.0 }
+    if pong_cpu_y > 294.0 - pong_paddle_h { set pong_cpu_y = 294.0 - pong_paddle_h }
+
+    // 7. Power-Up Mechanics
+    if pong_powerup_timer > 0 {
+        set pong_powerup_timer = pong_powerup_timer - 1
+        if pong_powerup_timer <= 0 {
+            set pong_paddle_h = 65.0
+        }
+    }
+
+    if pong_powerup_active == 1 {
+        // Bobbing floating motion
+        let phase: int = (tick * 4) % 360
+        var b_norm: float = 0.0
+        if phase < 180 { set b_norm = phase / 180.0 } else { set b_norm = (360 - phase) / 180.0 }
+        let pow_y: float = pong_powerup_y + (b_norm * 24.0 - 12.0)
+
+        // Ball collision with powerup (box 18x18)
+        if pong_ball_x + pong_ball_size >= pong_powerup_x and pong_ball_x <= pong_powerup_x + 18.0 {
+            if pong_ball_y + pong_ball_size >= pow_y and pong_ball_y <= pow_y + 18.0 {
+                set pong_powerup_active = 0
+                set sfx_event = 6 // Chime!
+                if pong_powerup_type == 0 {
+                    // Speed Ball
+                    set pong_ball_dx = pong_ball_dx * 1.35
+                    set pong_ball_dy = pong_ball_dy * 1.35
+                } else {
+                    // Mega Paddle
+                    set pong_paddle_h = 95.0
+                    set pong_powerup_timer = 240
+                }
+            }
+        }
+    } else {
+        // Re-spawn power-up every 4 rally hits
+        if pong_rally > 0 and pong_rally % 4 == 0 and pong_ball_x > 250.0 and pong_ball_x < 430.0 {
+            set pong_powerup_active = 1
+            set pong_powerup_type = next_rand(2)
+            set pong_powerup_x = 320.0 + next_rand(40) * 1.0
+            set pong_powerup_y = 60.0 + next_rand(170) * 1.0
+        }
+    }
+
+    // --- Render Arena (680x300) 3D Tron Court ---
+    web_canvas_set_blend_mode(canvas, "source-over")
+    web_canvas_set_global_alpha(canvas, 1.0)
+    web_canvas_set_fill_style(canvas, "#030614")
+    web_canvas_fill_rect(canvas, 0.0, 0.0, 680.0, 300.0)
+
+    // 3D Tron Court Floor Grid
+    web_canvas_set_global_alpha(canvas, 0.2)
+    for pg in 0..9 {
+        let px_top: float = 340.0 + (pg - 4) * 50.0
+        let px_bot: float = 340.0 + (pg - 4) * 85.0
+        web_canvas_draw_line(canvas, px_top, 8.0, px_bot, 292.0, "#00f0ff", 1.0)
+    }
+    web_canvas_draw_line(canvas, 20.0, 75.0, 660.0, 75.0, "#7000ff", 1.0)
+    web_canvas_draw_line(canvas, 20.0, 150.0, 660.0, 150.0, "#7000ff", 1.0)
+    web_canvas_draw_line(canvas, 20.0, 225.0, 660.0, 225.0, "#7000ff", 1.0)
+
+    // Neon Laser Court Boundaries
+    web_canvas_set_global_alpha(canvas, 0.85)
+    web_canvas_draw_line(canvas, 0.0, 4.0, 680.0, 4.0, "#00f0ff", 2.5)
+    web_canvas_draw_line(canvas, 0.0, 296.0, 680.0, 296.0, "#00f0ff", 2.5)
+
+    // Center Laser Net
+    web_canvas_set_global_alpha(canvas, 0.5)
+    for i in 0..15 {
+        web_canvas_draw_line(canvas, 340.0, i * 20.0 + 4.0, 340.0, i * 20.0 + 14.0, "#ffffff", 2.0)
+    }
+
+    // Draw Power-Up Orb (Spinning Energy Shield)
+    if pong_powerup_active == 1 {
+        let phase: int = (tick * 5) % 360
+        let pow_y: float = pong_powerup_y + fast_sin_deg(phase) * 10.0
+        let pow_cx: float = pong_powerup_x + 8.0
+        let pow_cy: float = pow_y + 8.0
+
+        web_canvas_set_blend_mode(canvas, "lighter")
+        if pong_powerup_type == 0 {
+            web_canvas_draw_glow_circle(canvas, pow_cx, pow_cy, 22.0, "rgba(245, 158, 11, 0.8)", "rgba(0,0,0,0)")
+            web_canvas_draw_circle(canvas, pow_cx, pow_cy, 7.0, "#ffffff")
+            // Rotating ring
+            let ring_x: float = fast_cos_deg(phase * 2) * 12.0
+            web_canvas_draw_line(canvas, pow_cx - ring_x, pow_cy - 6.0, pow_cx + ring_x, pow_cy + 6.0, "#f59e0b", 2.0)
+        } else {
+            web_canvas_draw_glow_circle(canvas, pow_cx, pow_cy, 22.0, "rgba(16, 185, 129, 0.8)", "rgba(0,0,0,0)")
+            web_canvas_draw_circle(canvas, pow_cx, pow_cy, 7.0, "#ffffff")
+            let ring_x: float = fast_cos_deg(phase * 2) * 12.0
+            web_canvas_draw_line(canvas, pow_cx - ring_x, pow_cy - 6.0, pow_cx + ring_x, pow_cy + 6.0, "#10b981", 2.0)
+        }
+        web_canvas_set_blend_mode(canvas, "source-over")
+    }
+
+    // 3D Holographic Left Paddle (Player 1 - Cyan Laser)
+    web_canvas_set_global_alpha(canvas, 0.95)
+    web_canvas_set_fill_style(canvas, "#00f0ff")
+    web_canvas_fill_rect(canvas, 24.0, pong_paddle_y, 12.0, pong_paddle_h)
+    web_canvas_draw_line(canvas, 24.0, pong_paddle_y, 24.0, pong_paddle_y + pong_paddle_h, "#ffffff", 2.0)
+    web_canvas_draw_line(canvas, 36.0, pong_paddle_y, 36.0, pong_paddle_y + pong_paddle_h, "#38bdf8", 2.0)
+
+    // 3D Holographic Right Paddle (CPU / Player 2 - Magenta Laser)
+    web_canvas_set_fill_style(canvas, "#ff007f")
+    web_canvas_fill_rect(canvas, 644.0, pong_cpu_y, 12.0, pong_paddle_h)
+    web_canvas_draw_line(canvas, 644.0, pong_cpu_y, 644.0, pong_cpu_y + pong_paddle_h, "#ffffff", 2.0)
+    web_canvas_draw_line(canvas, 656.0, pong_cpu_y, 656.0, pong_cpu_y + pong_paddle_h, "#ec4899", 2.0)
+
+    // Glowing Plasma Ball & Comet Tail
+    web_canvas_set_blend_mode(canvas, "lighter")
+    let bx: float = pong_ball_x + 5.0
+    let by: float = pong_ball_y + 5.0
+
+    // Comet Tail Particles
+    web_canvas_draw_glow_circle(canvas, bx - pong_ball_dx * 2.0, by - pong_ball_dy * 2.0, 8.0, "#005577", "rgba(0,0,0,0)")
+    web_canvas_draw_glow_circle(canvas, bx - pong_ball_dx * 1.0, by - pong_ball_dy * 1.0, 12.0, "#00aaff", "rgba(0,0,0,0)")
+
+    // Main Glowing Ball
+    if pong_powerup_timer > 0 or pong_ball_dx > 5.5 or pong_ball_dx < -5.5 {
+        web_canvas_draw_glow_circle(canvas, bx, by, 20.0, "#fbbf24", "rgba(0,0,0,0)")
+    } else {
+        web_canvas_draw_glow_circle(canvas, bx, by, 18.0, "#00f0ff", "rgba(0,0,0,0)")
+    }
+    web_canvas_draw_circle(canvas, bx, by, 5.0, "#ffffff")
+
+    web_canvas_set_global_alpha(canvas, 1.0)
+    web_canvas_set_blend_mode(canvas, "source-over")
+}
+
+// --- Cyber Space Dodge 2.0 Loop & Enhanced Renderer (Mode 4) ---
+
+fn update_and_draw_dodge() -> void {
+    // 1. Dark Hyperspace Void
+    web_canvas_set_fill_style(canvas, "#010309")
+    web_canvas_fill_rect(canvas, 0.0, 0.0, 680.0, 300.0)
+
+    // 2. Parallax Hyperspace Starfield (3 Layers)
+    web_canvas_set_fill_style(canvas, "#1e293b")
+    for s in 0..16 {
+        let sx: float = ((s * 43 + tick) % 680) * 1.0
+        let sy: float = ((s * 37) % 270 + 15) * 1.0
+        web_canvas_fill_rect(canvas, 680.0 - sx, sy, 2.0, 2.0)
+    }
+
+    web_canvas_set_fill_style(canvas, "#0284c7")
+    for m in 0..12 {
+        let mx: float = ((m * 61 + tick * 3) % 680) * 1.0
+        let my: float = ((m * 41) % 270 + 15) * 1.0
+        web_canvas_fill_rect(canvas, 680.0 - mx, my, 3.0, 3.0)
+    }
+
+    web_canvas_set_fill_style(canvas, "#38bdf8")
+    for w in 0..8 {
+        let wx: float = ((w * 89 + tick * 7) % 680) * 1.0
+        let wy: float = ((w * 53) % 270 + 15) * 1.0
+        web_canvas_fill_rect(canvas, 680.0 - wx, wy, 10.0, 2.0)
+    }
+
+    // Boundary Rails
+    web_canvas_set_fill_style(canvas, "#0f172a")
+    web_canvas_fill_rect(canvas, 0.0, 0.0, 680.0, 5.0)
+    web_canvas_fill_rect(canvas, 0.0, 295.0, 680.0, 5.0)
+
+    let rail_pos: float = ((tick * 8) % 680) * 1.0
+    web_canvas_set_fill_style(canvas, "#00f0ff")
+    web_canvas_fill_rect(canvas, rail_pos, 0.0, 45.0, 4.0)
+    web_canvas_fill_rect(canvas, 680.0 - rail_pos, 296.0, 45.0, 4.0)
+
+    if dodge_game_over == 0 {
+        if dodge_invuln > 0 {
+            set dodge_invuln = dodge_invuln - 1
+        }
+
+        set obs1_x = obs1_x - (obs1_speed + (dodge_score / 15) * 0.3)
+        set obs2_x = obs2_x - (obs2_speed + (dodge_score / 15) * 0.3)
+        set obs3_x = obs3_x - (obs3_speed + (dodge_score / 15) * 0.3)
+
+        if obs1_x < -50.0 {
+            set obs1_x = 680.0 + next_rand(70) * 1.0
+            set obs1_y = 15.0 + next_rand(210) * 1.0
+            set dodge_score = dodge_score + 1
+        }
+        if obs2_x < -50.0 {
+            set obs2_x = 680.0 + next_rand(90) * 1.0
+            set obs2_y = 15.0 + next_rand(210) * 1.0
+            set dodge_score = dodge_score + 1
+        }
+        if obs3_x < -50.0 {
+            set obs3_x = 680.0 + next_rand(110) * 1.0
+            set obs3_y = 15.0 + next_rand(210) * 1.0
+            set dodge_score = dodge_score + 1
+        }
+
+        if dodge_score > dodge_high_score {
+            set dodge_high_score = dodge_score
+        }
+
+        // Energy Orb
+        if orb_active == 1 {
+            set orb_x = orb_x - 3.4
+            let orb_dist_x: float = orb_x - dodge_player_x
+            let orb_dist_y: float = (orb_y + 8.0) - (dodge_player_y + 12.0)
+            if orb_dist_x > -14.0 and orb_dist_x < 36.0 and orb_dist_y > -18.0 and orb_dist_y < 18.0 {
+                set orb_active = 0
+                set dodge_score = dodge_score + 5
+                if dodge_shields < 3 {
+                    set dodge_shields = dodge_shields + 1
+                }
+                set sfx_event = 6 // Chime!
+            }
+            if orb_x < -30.0 {
+                set orb_active = 0
+            }
+        } else {
+            if tick % 150 == 0 {
+                set orb_x = 720.0 + next_rand(80) * 1.0
+                set orb_y = 35.0 + next_rand(210) * 1.0
+                set orb_active = 1
+            }
+        }
+
+        // Collisions
+        if dodge_invuln == 0 {
+            var collided: int = 0
+            // Obs 1: Laser Gate
+            if obs1_x < dodge_player_x + 38.0 and obs1_x + 22.0 > dodge_player_x {
+                if dodge_player_y + 20.0 > obs1_y and dodge_player_y + 4.0 < obs1_y + obs1_h {
+                    set collided = 1
+                }
+            }
+            // Obs 2: Asteroid
+            if obs2_x < dodge_player_x + 36.0 and obs2_x + 30.0 > dodge_player_x {
+                if dodge_player_y + 20.0 > obs2_y and dodge_player_y + 4.0 < obs2_y + obs2_h {
+                    set collided = 1
+                }
+            }
+            // Obs 3: Drone
+            if obs3_x < dodge_player_x + 36.0 and obs3_x + 28.0 > dodge_player_x {
+                if dodge_player_y + 20.0 > obs3_y and dodge_player_y + 4.0 < obs3_y + obs3_h {
+                    set collided = 1
+                }
+            }
+
+            if collided == 1 {
+                if dodge_shields > 1 {
+                    set dodge_shields = dodge_shields - 1
+                    set dodge_invuln = 45
+                    set sfx_event = 3 // Shield hit
+                } else {
+                    set dodge_shields = 0
+                    set dodge_game_over = 1
+                    set sfx_event = 4 // Explosion
+                }
+            }
+        }
+    }
+
+    // --- Draw Obstacles ---
+    // Obs 1: Crimson Plasma Laser Gate
+    web_canvas_set_fill_style(canvas, "#64748b")
+    web_canvas_fill_rect(canvas, obs1_x, obs1_y - 6.0, 22.0, 6.0)
+    web_canvas_fill_rect(canvas, obs1_x, obs1_y + obs1_h, 22.0, 6.0)
+    web_canvas_set_fill_style(canvas, "#ef4444")
+    web_canvas_fill_rect(canvas, obs1_x + 4.0, obs1_y, 14.0, obs1_h)
+    web_canvas_set_fill_style(canvas, "#ffffff")
+    web_canvas_fill_rect(canvas, obs1_x + 8.0, obs1_y + 2.0, 6.0, obs1_h - 4.0)
+
+    // Obs 2: Quantum Crystal Asteroid
+    web_canvas_set_fill_style(canvas, "#8b5cf6")
+    web_canvas_fill_rect(canvas, obs2_x, obs2_y, 30.0, obs2_h)
+    web_canvas_set_fill_style(canvas, "#c084fc")
+    web_canvas_fill_rect(canvas, obs2_x + 5.0, obs2_y + 5.0, 20.0, obs2_h - 10.0)
+    web_canvas_set_fill_style(canvas, "#ffffff")
+    web_canvas_fill_rect(canvas, obs2_x + 9.0, obs2_y + 9.0, 8.0, 8.0)
+
+    // Obs 3: Cyber Drone Mine
+    web_canvas_set_fill_style(canvas, "#f59e0b")
+    web_canvas_fill_rect(canvas, obs3_x, obs3_y, 28.0, obs3_h)
+    web_canvas_set_fill_style(canvas, "#000000")
+    web_canvas_fill_rect(canvas, obs3_x + 6.0, obs3_y + 6.0, 16.0, obs3_h - 12.0)
+    if (tick / 8) % 2 == 0 {
+        web_canvas_set_fill_style(canvas, "#ef4444")
+    } else {
+        web_canvas_set_fill_style(canvas, "#fbbf24")
+    }
+    web_canvas_fill_rect(canvas, obs3_x + 10.0, obs3_y + (obs3_h / 2.0) - 4.0, 8.0, 8.0)
+
+    // Draw Collectible Energy Orb
+    if orb_active == 1 {
+        let phase: int = (tick * 6) % 360
+        var o_norm: float = 0.0
+        if phase < 180 { set o_norm = phase / 180.0 } else { set o_norm = (360 - phase) / 180.0 }
+        let orb_float_y: float = orb_y + (o_norm * 16.0 - 8.0)
+
+        web_canvas_set_fill_style(canvas, "#f59e0b")
+        web_canvas_fill_rect(canvas, orb_x - 3.0, orb_float_y - 3.0, 22.0, 22.0)
+        web_canvas_set_fill_style(canvas, "#fbbf24")
+        web_canvas_fill_rect(canvas, orb_x, orb_float_y, 16.0, 16.0)
+        web_canvas_set_fill_style(canvas, "#ffffff")
+        web_canvas_fill_rect(canvas, orb_x + 4.0, orb_float_y + 4.0, 8.0, 8.0)
+    }
+
+    // Draw Player Ship
+    if dodge_game_over == 0 {
+        let blink: int = (dodge_invuln / 4) % 2
+        if blink == 0 {
+            let px: float = dodge_player_x
+            let py: float = dodge_player_y
+
+            // Plasma Thruster Flames
+            let flame_len: float = 8.0 + ((tick % 4) * 3.0)
+            web_canvas_set_fill_style(canvas, "#f97316")
+            web_canvas_fill_rect(canvas, px - flame_len, py + 5.0, flame_len, 4.0)
+            web_canvas_fill_rect(canvas, px - flame_len, py + 15.0, flame_len, 4.0)
+            web_canvas_set_fill_style(canvas, "#00f0ff")
+            web_canvas_fill_rect(canvas, px - (flame_len * 0.5), py + 6.0, flame_len * 0.5, 2.0)
+            web_canvas_fill_rect(canvas, px - (flame_len * 0.5), py + 16.0, flame_len * 0.5, 2.0)
+
+            // Aerodynamic Hull
+            web_canvas_set_fill_style(canvas, "#0284c7")
+            web_canvas_fill_rect(canvas, px, py + 4.0, 16.0, 16.0)
+            web_canvas_set_fill_style(canvas, "#0ea5e9")
+            web_canvas_fill_rect(canvas, px + 8.0, py + 7.0, 18.0, 10.0)
+            web_canvas_set_fill_style(canvas, "#38bdf8")
+            web_canvas_fill_rect(canvas, px + 22.0, py + 9.0, 16.0, 6.0)
+
+            // Wings
+            web_canvas_set_fill_style(canvas, "#0369a1")
+            web_canvas_fill_rect(canvas, px + 4.0, py, 10.0, 4.0)
+            web_canvas_fill_rect(canvas, px + 4.0, py + 20.0, 10.0, 4.0)
+
+            // Cockpit Canopy
+            web_canvas_set_fill_style(canvas, "#00f0ff")
+            web_canvas_fill_rect(canvas, px + 14.0, py + 9.0, 10.0, 6.0)
+            web_canvas_set_fill_style(canvas, "#ffffff")
+            web_canvas_fill_rect(canvas, px + 18.0, py + 10.0, 4.0, 3.0)
+
+            // Wingtip beacons
+            web_canvas_set_fill_style(canvas, "#ff007f")
+            web_canvas_fill_rect(canvas, px + 2.0, py, 3.0, 2.0)
+            web_canvas_fill_rect(canvas, px + 2.0, py + 22.0, 3.0, 2.0)
+
+            // Shield Bubble Aura
+            if dodge_shields > 0 {
+                let shield_pulse: int = (tick * 5) % 360
+                var sp_norm: float = 0.0
+                if shield_pulse < 180 { set sp_norm = shield_pulse / 180.0 } else { set sp_norm = (360 - shield_pulse) / 180.0 }
+                let s_aura: float = sp_norm * 3.0
+
+                if dodge_shields == 3 { web_canvas_set_fill_style(canvas, "#00f0ff") }
+                else if dodge_shields == 2 { web_canvas_set_fill_style(canvas, "#38bdf8") }
+                else { web_canvas_set_fill_style(canvas, "#f59e0b") }
+
+                web_canvas_fill_rect(canvas, px - 6.0 - s_aura, py - 4.0 - s_aura, 48.0 + s_aura * 2.0, 2.0)
+                web_canvas_fill_rect(canvas, px - 6.0 - s_aura, py + 26.0 + s_aura, 48.0 + s_aura * 2.0, 2.0)
+                web_canvas_fill_rect(canvas, px + 42.0 + s_aura, py - 4.0 - s_aura, 2.0, 32.0 + s_aura * 2.0)
+            }
+        }
+    } else {
+        // Crash explosion
+        let px: float = dodge_player_x
+        let py: float = dodge_player_y
+        for ep in 0..12 {
+            let angle: int = ep * 30
+            var ex_n: float = 0.0
+            if angle < 180 { set ex_n = angle / 180.0 } else { set ex_n = (360 - angle) / 180.0 }
+            let edx: float = (ex_n * 2.0 - 1.0) * 36.0
+            let edy: float = (if ep % 2 == 0 { 1.0 } else { -1.0 }) * 24.0
+
+            if ep % 3 == 0 { web_canvas_set_fill_style(canvas, "#ff0055") }
+            else if ep % 3 == 1 { web_canvas_set_fill_style(canvas, "#f59e0b") }
+            else { web_canvas_set_fill_style(canvas, "#ffffff") }
+            web_canvas_fill_rect(canvas, px + edx, py + edy, 6.0, 6.0)
+        }
+    }
+}
+
+// --- Mode 5: Shibuya Fireworks Festival (Peaceful Romantic Night) ---
+
+fn draw_fireworks_show() -> void {
+    web_canvas_set_blend_mode(canvas, "source-over")
+    web_canvas_set_global_alpha(canvas, 1.0)
+
+    // Layered indigo night, warmer at the city horizon.
+    web_canvas_set_fill_style(canvas, "#030513")
+    web_canvas_fill_rect(canvas, 0.0, 0.0, 680.0, 300.0)
+    web_canvas_set_fill_style(canvas, "#08091d")
+    web_canvas_fill_rect(canvas, 0.0, 96.0, 680.0, 204.0)
+    web_canvas_set_fill_style(canvas, "#111128")
+    web_canvas_fill_rect(canvas, 0.0, 174.0, 680.0, 126.0)
+
+    // Moonlight and a sparse, calm star field.
+    web_canvas_set_blend_mode(canvas, "lighter")
+    web_canvas_draw_glow_circle(canvas, 548.0, 52.0, 34.0, "rgba(255,224,190,0.42)", "rgba(0,0,0,0)")
+    web_canvas_draw_circle(canvas, 548.0, 52.0, 13.0, "#fff4dc")
+    for st in 0..10 {
+        let sx: float = ((st * 89 + 31) % 640 + 20) * 1.0
+        let sy: float = ((st * 47 + 13) % 126 + 12) * 1.0
+        let star_r: float = 0.7 + ((st + tick / 18) % 3) * 0.45
+        web_canvas_draw_circle(canvas, sx, sy, star_r, "rgba(226,232,255,0.8)")
+    }
+
+    // Shibuya skyline: irregular towers, warm apartments, and neon signage.
+    web_canvas_set_blend_mode(canvas, "source-over")
+    for bld in 0..8 {
+        let bx: float = bld * 94.0 - 18.0
+        let bh: float = 50.0 + ((bld * 31) % 54) * 1.0
+        let by: float = 238.0 - bh
+        web_canvas_set_fill_style(canvas, "#080b18")
+        web_canvas_fill_rect(canvas, bx, by, 86.0, bh)
+
+        if bld % 3 == 0 {
+            web_canvas_set_fill_style(canvas, "#00b8c6")
+        } else if bld % 3 == 1 {
+            web_canvas_set_fill_style(canvas, "#db3a79")
+        } else {
+            web_canvas_set_fill_style(canvas, "#d99a2b")
+        }
+        web_canvas_fill_rect(canvas, bx + 9.0, by + 11.0, 27.0, 5.0)
+        web_canvas_set_fill_style(canvas, "#293044")
+        web_canvas_fill_rect(canvas, bx + 49.0, by + 31.0, 18.0, 4.0)
+    }
+
+    // Famous crossing geometry and rain-polished neon reflections.
+    web_canvas_set_fill_style(canvas, "#0a0d18")
+    web_canvas_fill_rect(canvas, 0.0, 238.0, 680.0, 62.0)
+    web_canvas_set_global_alpha(canvas, 0.42)
+    for stripe in 0..7 {
+        let x1: float = stripe * 112.0 - 52.0
+        web_canvas_draw_line(canvas, x1, 300.0, x1 + 86.0, 240.0, "#d9e1ec", 8.0)
+    }
+    web_canvas_draw_line(canvas, 0.0, 268.0, 680.0, 268.0, "rgba(0,240,255,0.2)", 1.0)
+    web_canvas_draw_line(canvas, 0.0, 276.0, 680.0, 276.0, "rgba(236,72,153,0.18)", 1.0)
+
+    // A quiet couple beneath one umbrella in the foreground.
+    web_canvas_set_global_alpha(canvas, 1.0)
+    web_canvas_set_fill_style(canvas, "#02030a")
+    web_canvas_draw_circle(canvas, 319.0, 251.0, 6.0, "#02030a")
+    web_canvas_draw_circle(canvas, 340.0, 252.0, 6.0, "#02030a")
+    web_canvas_fill_rect(canvas, 313.0, 257.0, 12.0, 31.0)
+    web_canvas_fill_rect(canvas, 334.0, 258.0, 12.0, 30.0)
+    web_canvas_draw_line(canvas, 300.0, 245.0, 360.0, 245.0, "#0b1020", 8.0)
+    web_canvas_draw_line(canvas, 330.0, 244.0, 330.0, 289.0, "#11182b", 2.0)
+
+    // Slow sakura-like light petals crossing the scene.
+    web_canvas_set_blend_mode(canvas, "lighter")
+    for petal in 0..5 {
+        let px: float = ((petal * 101 + tick) % 720) * 1.0 - 20.0
+        let py: float = 38.0 + ((petal * 43 + tick / 2) % 176) * 1.0
+        web_canvas_draw_line(canvas, px, py, px + 4.0, py + 2.0, "rgba(255,148,190,0.65)", 1.5)
+    }
+
+    web_canvas_set_global_alpha(canvas, 1.0)
+    web_canvas_set_blend_mode(canvas, "source-over")
+
+    // A paced show keeps the scene romantic instead of visually noisy.
+    if fw_auto_show == 1 {
+        if tick % 44 == 0 {
+            let rx: float = 90.0 + next_rand(470) * 1.0
+            let ry: float = 42.0 + next_rand(105) * 1.0
+            trigger_firework_type(rx, ry, next_rand(4))
+        }
+    }
+}
+
+// --- Mode 6: Quantum Gravity Vortex Sandbox (3D Relativistic Singularity) ---
+
+fn draw_gravity_vortex() -> void {
+    // 1. Deep Space Void
+    web_canvas_set_blend_mode(canvas, "source-over")
+    web_canvas_set_global_alpha(canvas, 1.0)
+    web_canvas_set_fill_style(canvas, "#020309")
+    web_canvas_fill_rect(canvas, 0.0, 0.0, 680.0, 300.0)
+
+    // 2. 3D Warping Spacetime Grid (Relativistic Gravitational Funnel)
+    web_canvas_set_global_alpha(canvas, 0.35)
+    for k in 0..12 {
+        let spoke_deg: int = k * 30 + (tick / 3) % 360
+        let ex: float = vortex_mx + fast_cos_deg(spoke_deg) * 380.0
+        let ey: float = vortex_my + fast_sin_deg(spoke_deg) * 220.0
+        let sx: float = vortex_mx + fast_cos_deg(spoke_deg) * 22.0
+        let sy: float = vortex_my + fast_sin_deg(spoke_deg) * 22.0
+        if vortex_repel == 1 {
+            web_canvas_draw_line(canvas, sx, sy, ex, ey, "#ef4444", 1.0)
+        } else {
+            web_canvas_draw_line(canvas, sx, sy, ex, ey, "#7000ff", 1.0)
+        }
+    }
+
+    for gr in 1..6 {
+        let g_rad: float = gr * 38.0 + (if vortex_repel == 1 { (tick * 2) % 38 } else { 38 - (tick * 2) % 38 }) * 1.0
+        if vortex_repel == 1 {
+            web_canvas_draw_circle(canvas, vortex_mx, vortex_my, g_rad, "rgba(239, 68, 68, 0.15)")
+        } else {
+            web_canvas_draw_circle(canvas, vortex_mx, vortex_my, g_rad, "rgba(0, 240, 255, 0.12)")
+        }
+    }
+
+    // 3. Relativistic Accretion Disk (3D Tilted Perspective with Additive Bloom)
+    web_canvas_set_blend_mode(canvas, "lighter")
+    web_canvas_set_global_alpha(canvas, 0.85)
+
+    // Back Einstein Gravitational Lensing Arc (Bends UP over the black hole)
+    for arc in 0..12 {
+        let aa1: int = 170 + arc * 18
+        let aa2: int = 170 + (arc + 1) * 18
+        let lx1: float = vortex_mx + fast_cos_deg(aa1) * 44.0
+        let ly1: float = vortex_my + fast_sin_deg(aa1) * 34.0 - 12.0
+        let lx2: float = vortex_mx + fast_cos_deg(aa2) * 44.0
+        let ly2: float = vortex_my + fast_sin_deg(aa2) * 34.0 - 12.0
+        if vortex_repel == 1 {
+            web_canvas_draw_line(canvas, lx1, ly1, lx2, ly2, "#f59e0b", 2.2)
+        } else {
+            web_canvas_draw_line(canvas, lx1, ly1, lx2, ly2, "#38bdf8", 2.2)
+        }
+    }
+
+    // Tilted Plasma Bands (Perspective tilt 0.36)
+    for b in 0..3 {
+        let band_r: float = 46.0 + b * 20.0
+        let rot_off: int = tick * (4 - b) * 2
+        for seg in 0..15 {
+            let a1: int = seg * 24 + rot_off
+            let a2: int = (seg + 1) * 24 + rot_off
+            let x1: float = vortex_mx + fast_cos_deg(a1) * band_r
+            let y1: float = vortex_my + fast_sin_deg(a1) * (band_r * 0.36)
+            let x2: float = vortex_mx + fast_cos_deg(a2) * band_r
+            let y2: float = vortex_my + fast_sin_deg(a2) * (band_r * 0.36)
+            if vortex_repel == 1 {
+                if seg < 8 {
+                    web_canvas_draw_line(canvas, x1, y1, x2, y2, "#ef4444", 2.0)
+                } else {
+                    web_canvas_draw_line(canvas, x1, y1, x2, y2, "#fbbf24", 1.5)
+                }
+            } else {
+                if seg < 8 {
+                    web_canvas_draw_line(canvas, x1, y1, x2, y2, "#00f0ff", 2.0)
+                } else {
+                    web_canvas_draw_line(canvas, x1, y1, x2, y2, "#ec4899", 1.5)
+                }
+            }
+        }
+    }
+
+    // 4. Relativistic Polar Plasma Jets
+    if vortex_repel == 1 {
+        web_canvas_draw_line(canvas, vortex_mx, vortex_my - 14.0, vortex_mx, 0.0, "rgba(239, 68, 68, 0.8)", 3.2)
+        web_canvas_draw_line(canvas, vortex_mx, vortex_my - 14.0, vortex_mx, 0.0, "#ffffff", 1.0)
+        web_canvas_draw_line(canvas, vortex_mx, vortex_my + 14.0, vortex_mx, 300.0, "rgba(239, 68, 68, 0.8)", 3.2)
+        web_canvas_draw_line(canvas, vortex_mx, vortex_my + 14.0, vortex_mx, 300.0, "#ffffff", 1.0)
+    } else {
+        web_canvas_draw_line(canvas, vortex_mx, vortex_my - 14.0, vortex_mx, 0.0, "rgba(0, 240, 255, 0.8)", 3.2)
+        web_canvas_draw_line(canvas, vortex_mx, vortex_my - 14.0, vortex_mx, 0.0, "#ffffff", 1.0)
+        web_canvas_draw_line(canvas, vortex_mx, vortex_my + 14.0, vortex_mx, 300.0, "rgba(0, 240, 255, 0.8)", 3.2)
+        web_canvas_draw_line(canvas, vortex_mx, vortex_my + 14.0, vortex_mx, 300.0, "#ffffff", 1.0)
+    }
+
+    // 5. Singularity Event Horizon & Einstein Photon Ring
+    if vortex_repel == 1 {
+        web_canvas_draw_glow_circle(canvas, vortex_mx, vortex_my, 52.0, "rgba(239, 68, 68, 0.7)", "rgba(0, 0, 0, 0)")
+        web_canvas_draw_glow_circle(canvas, vortex_mx, vortex_my, 28.0, "rgba(245, 158, 11, 0.9)", "rgba(239, 68, 68, 0.1)")
+    } else {
+        web_canvas_draw_glow_circle(canvas, vortex_mx, vortex_my, 52.0, "rgba(0, 240, 255, 0.7)", "rgba(0, 0, 0, 0)")
+        web_canvas_draw_glow_circle(canvas, vortex_mx, vortex_my, 28.0, "rgba(168, 85, 247, 0.9)", "rgba(0, 240, 255, 0.1)")
+    }
+    web_canvas_draw_circle(canvas, vortex_mx, vortex_my, 17.0, "#ffffff")
+    web_canvas_set_blend_mode(canvas, "source-over")
+    web_canvas_draw_circle(canvas, vortex_mx, vortex_my, 14.0, "#020308")
+
+    // 6. 32 Quantum Nodes Orbiting in True 3D with Perspective
+    web_canvas_set_blend_mode(canvas, "lighter")
+    for i in 0..32 {
+        let orbit_speed: int = (i % 4) + 2
+        let base_angle: int = (tick * orbit_speed + i * 27) % 360
+        let orbit_tilt: int = (i * 37) % 180 - 90
+        let base_r: float = 44.0 + ((i * 17) % 150) * 1.0 + (if vortex_repel == 1 { 85.0 } else { 0.0 })
+        let shock_r: float = vortex_pulse * 100.0
+        let r: float = base_r + shock_r
+
+        let cos_a: float = fast_cos_deg(base_angle)
+        let sin_a: float = fast_sin_deg(base_angle)
+        let cos_t: float = fast_cos_deg(orbit_tilt)
+        let sin_t: float = fast_sin_deg(orbit_tilt)
+
+        let x3d: float = r * cos_a * cos_t
+        let y3d: float = r * sin_a * 0.42 + r * sin_t * 0.72
+        let z3d: float = r * cos_a * sin_t - r * sin_a * 0.65
+
+        let p_scale: float = 240.0 / (280.0 + z3d)
+        let px: float = vortex_mx + x3d * p_scale
+        let py: float = vortex_my + y3d * p_scale
+        let node_rad: float = 2.5 + p_scale * 2.8
+
+        if z3d > 0.0 {
+            // Foreground: Intense glow and white specular core
+            let c_mod: int = i % 4
+            if c_mod == 0 {
+                web_canvas_draw_glow_circle(canvas, px, py, node_rad * 2.5, "#00f0ff", "rgba(0, 0, 0, 0)")
+            } else if c_mod == 1 {
+                web_canvas_draw_glow_circle(canvas, px, py, node_rad * 2.5, "#ec4899", "rgba(0, 0, 0, 0)")
+            } else if c_mod == 2 {
+                web_canvas_draw_glow_circle(canvas, px, py, node_rad * 2.5, "#fbbf24", "rgba(0, 0, 0, 0)")
+            } else {
+                web_canvas_draw_glow_circle(canvas, px, py, node_rad * 2.5, "#10b981", "rgba(0, 0, 0, 0)")
+            }
+            web_canvas_draw_circle(canvas, px, py, node_rad, "#ffffff")
+
+            // Quantum entanglement laser cord
+            if i % 3 == 0 {
+                web_canvas_draw_line(canvas, px, py, vortex_mx, vortex_my, "rgba(0, 240, 255, 0.2)", 1.0)
+            }
+        } else {
+            // Background: Occluded, smaller, darker
+            web_canvas_draw_circle(canvas, px, py, 2.0, "rgba(112, 0, 255, 0.45)")
+        }
+    }
+
+    // 7. Supernova Shockwave Rings
+    if vortex_pulse > 0.02 {
+        let pulse_r1: float = (1.0 - vortex_pulse) * 220.0 + 30.0
+        let pulse_r2: float = pulse_r1 * 0.85
+        web_canvas_draw_circle(canvas, vortex_mx, vortex_my, pulse_r1, "rgba(0, 240, 255, 0.35)")
+        web_canvas_draw_circle(canvas, vortex_mx, vortex_my, pulse_r2, "rgba(255, 0, 128, 0.45)")
+        set vortex_pulse = vortex_pulse * 0.91
+    }
+
+    // Restore canvas state
+    web_canvas_set_global_alpha(canvas, 1.0)
+    web_canvas_set_blend_mode(canvas, "source-over")
+}
+
+// --- Mode 7: Aurora Plasma Lattice ---
+
+fn draw_aurora_lattice() -> void {
+    web_canvas_set_blend_mode(canvas, "source-over")
+    web_canvas_set_global_alpha(canvas, 1.0)
+    web_canvas_set_fill_style(canvas, "#020611")
+    web_canvas_fill_rect(canvas, 0.0, 0.0, 680.0, 300.0)
+
+    web_canvas_set_global_alpha(canvas, 0.18)
+    for row in 0..5 {
+        let gy: float = 164.0 + row * row * 2.5
+        web_canvas_draw_line(canvas, 0.0, gy, 680.0, gy, "#00f0ff", 1.0)
+    }
+    for col in 0..10 {
+        let gx: float = col * 75.5
+        web_canvas_draw_line(canvas, 340.0, 152.0, gx, 300.0, "#8b5cf6", 1.0)
+    }
+
+    web_canvas_set_blend_mode(canvas, "lighter")
+    web_canvas_set_global_alpha(canvas, 0.82)
+    for ribbon in 0..3 {
+        for seg in 0..20 {
+            let x1: float = seg * 35.8
+            let x2: float = (seg + 1) * 35.8
+            let phase1: int = (seg * 30 + tick * (2 + ribbon) + ribbon * 71) % 360
+            let phase2: int = ((seg + 1) * 30 + tick * (2 + ribbon) + ribbon * 71) % 360
+            let depth1: float = fast_sin_deg((seg * 11 + tick * 2 + ribbon * 50) % 360) * 20.0
+            let depth2: float = fast_sin_deg(((seg + 1) * 11 + tick * 2 + ribbon * 50) % 360) * 20.0
+            let base_y: float = 72.0 + ribbon * 35.0
+            let y1: float = base_y + fast_sin_deg(phase1) * (24.0 + ribbon * 4.0) + depth1
+            let y2: float = base_y + fast_sin_deg(phase2) * (24.0 + ribbon * 4.0) + depth2
+
+            if ribbon == 0 {
+                web_canvas_draw_line(canvas, x1, y1, x2, y2, "#00f0ff", 2.4)
+            } else if ribbon == 1 {
+                web_canvas_draw_line(canvas, x1, y1, x2, y2, "#8b5cf6", 2.2)
+            } else if ribbon == 2 {
+                web_canvas_draw_line(canvas, x1, y1, x2, y2, "#ff007f", 2.0)
+            } else {
+                web_canvas_draw_line(canvas, x1, y1, x2, y2, "#ff007f", 2.0)
+            }
+
+            if seg % 7 == 0 {
+                web_canvas_draw_glow_circle(canvas, x1, y1, 7.0, "#ffffff", "rgba(0,0,0,0)")
+                web_canvas_draw_circle(canvas, x1, y1, 1.8, "#ffffff")
+            }
+        }
+    }
+
+    for ion in 0..14 {
+        let ix: float = ((ion * 79 + tick * (ion % 3 + 1)) % 680) * 1.0
+        let iy: float = 18.0 + ((ion * 43 + tick * 2) % 240) * 1.0
+        let ir: float = 1.0 + (ion % 3) * 0.7
+        if ion % 7 == 0 {
+            web_canvas_draw_glow_circle(canvas, ix, iy, ir * 4.0, "#00f0ff", "rgba(0,0,0,0)")
+        }
+        if ion % 2 == 0 {
+            web_canvas_draw_circle(canvas, ix, iy, ir, "#00f0ff")
+        } else {
+            web_canvas_draw_circle(canvas, ix, iy, ir, "#ec4899")
+        }
+    }
+
+    web_canvas_set_global_alpha(canvas, 1.0)
+    web_canvas_set_blend_mode(canvas, "source-over")
+}
+
+// --- Mode 8: Deep-space neural constellation ---
+
+fn draw_neural_constellation() -> void {
+    web_canvas_set_blend_mode(canvas, "source-over")
+    web_canvas_set_global_alpha(canvas, 1.0)
+    web_canvas_set_fill_style(canvas, "#01030a")
+    web_canvas_fill_rect(canvas, 0.0, 0.0, 680.0, 300.0)
+
+    for star in 0..30 {
+        let sx: float = ((star * 97 + tick * (star % 3 + 1)) % 700) * 1.0 - 10.0
+        let sy: float = ((star * 53 + star * star * 3) % 280) * 1.0 + 10.0
+        let sr: float = 0.7 + (star % 4) * 0.45
+        if star % 10 == 0 {
+            web_canvas_draw_glow_circle(canvas, sx, sy, sr * 5.0, "#8b5cf6", "rgba(0,0,0,0)")
+        }
+        web_canvas_draw_circle(canvas, sx, sy, sr, "rgba(226,232,240,0.75)")
+    }
+
+    web_canvas_set_blend_mode(canvas, "lighter")
+    for node in 0..12 {
+        let a: int = (node * 137 + tick) % 360
+        let ring: float = 54.0 + (node % 5) * 34.0
+        let nx: float = 340.0 + fast_cos_deg(a) * ring
+        let ny: float = 150.0 + fast_sin_deg(a * 2) * (38.0 + (node % 4) * 12.0)
+        let next_a: int = ((node + 5) * 137 + tick) % 360
+        let next_ring: float = 54.0 + ((node + 5) % 5) * 34.0
+        let tx: float = 340.0 + fast_cos_deg(next_a) * next_ring
+        let ty: float = 150.0 + fast_sin_deg(next_a * 2) * (38.0 + ((node + 5) % 4) * 12.0)
+
+        if node % 3 == 0 {
+            web_canvas_draw_line(canvas, nx, ny, tx, ty, "rgba(0,240,255,0.28)", 1.2)
+            web_canvas_draw_glow_circle(canvas, nx, ny, 13.0, "#00f0ff", "rgba(0,0,0,0)")
+        } else if node % 3 == 1 {
+            web_canvas_draw_line(canvas, nx, ny, tx, ty, "rgba(236,72,153,0.24)", 1.0)
+        } else {
+            web_canvas_draw_line(canvas, nx, ny, tx, ty, "rgba(251,191,36,0.2)", 1.0)
+        }
+        web_canvas_draw_circle(canvas, nx, ny, 2.8, "#ffffff")
+    }
+
+    let core_pulse: float = 32.0 + fast_sin_deg((tick * 5) % 360) * 8.0
+    web_canvas_draw_glow_circle(canvas, 340.0, 150.0, core_pulse * 2.0, "rgba(139,92,246,0.8)", "rgba(0,0,0,0)")
+    web_canvas_draw_glow_circle(canvas, 340.0, 150.0, core_pulse, "#00f0ff", "rgba(0,0,0,0)")
+    web_canvas_draw_circle(canvas, 340.0, 150.0, 6.0, "#ffffff")
+
+    web_canvas_set_global_alpha(canvas, 1.0)
+    web_canvas_set_blend_mode(canvas, "source-over")
+}
+
+// --- Multi-Burst Fireworks Particles Renderer ---
+
+fn draw_firework_burst(x: float, y: float, timer: int, f_type: int) -> void {
+    let age: float = 26.0 - timer * 1.0
+    let radius: float = age * 3.8
+    let grav: float = age * age * 0.025
+
+    web_canvas_set_blend_mode(canvas, "lighter")
+    let alpha: float = (timer * 1.0) / 26.0
+    web_canvas_set_global_alpha(canvas, alpha)
+
+    // A soft ignition flash, then two expanding translucent shells.
+    if timer > 22 {
+        web_canvas_draw_glow_circle(canvas, x, y, 28.0, "#fff7ed", "rgba(0,0,0,0)")
+    }
+    if timer < 22 and timer > 8 {
+        if f_type == 0 {
+            web_canvas_draw_circle(canvas, x, y, radius * 0.82, "rgba(56,189,248,0.42)")
+        } else if f_type == 1 {
+            web_canvas_draw_circle(canvas, x, y, radius * 0.82, "rgba(251,191,36,0.42)")
+        } else if f_type == 2 {
+            web_canvas_draw_circle(canvas, x, y, radius * 0.82, "rgba(236,72,153,0.4)")
+        } else {
+            web_canvas_draw_circle(canvas, x, y, radius * 0.82, "rgba(52,211,153,0.4)")
+        }
+        web_canvas_draw_circle(canvas, x, y, radius * 0.54, "rgba(255,255,255,0.12)")
+    }
+
+    // Eight elegant comet trails keep the show readable and inexpensive.
+    for i in 0..8 {
+        let phase: int = i * 45 + f_type * 9
+        let dir_x: float = fast_cos_deg(phase)
+        let dir_y: float = fast_sin_deg(phase)
+        let sx: float = x + dir_x * radius
+        let sy: float = y + dir_y * radius + grav
+        let tail_x: float = x + dir_x * (radius * 0.42)
+        let tail_y: float = y + dir_y * (radius * 0.42) + grav * 0.34
+        if f_type == 0 {
+            web_canvas_draw_line(canvas, tail_x, tail_y, sx, sy, "#7dd3fc", 1.8)
+        } else if f_type == 1 {
+            web_canvas_draw_line(canvas, tail_x, tail_y, sx, sy, "#fde68a", 1.8)
+        } else if f_type == 2 {
+            web_canvas_draw_line(canvas, tail_x, tail_y, sx, sy, "#f9a8d4", 1.8)
+        } else {
+            web_canvas_draw_line(canvas, tail_x, tail_y, sx, sy, "#a7f3d0", 1.8)
+        }
+    }
+
+    web_canvas_set_global_alpha(canvas, 1.0)
+    web_canvas_set_blend_mode(canvas, "source-over")
+}
+
+fn draw_fireworks() -> void {
+    if fw1_active == 1 {
+        draw_firework_burst(fw1_x, fw1_y, fw1_timer, fw1_type)
+        set fw1_timer = fw1_timer - 1
+        if fw1_timer <= 0 { set fw1_active = 0 }
+    }
+    if fw2_active == 1 {
+        draw_firework_burst(fw2_x, fw2_y, fw2_timer, fw2_type)
+        set fw2_timer = fw2_timer - 1
+        if fw2_timer <= 0 { set fw2_active = 0 }
+    }
+    if fw3_active == 1 {
+        draw_firework_burst(fw3_x, fw3_y, fw3_timer, fw3_type)
+        set fw3_timer = fw3_timer - 1
+        if fw3_timer <= 0 { set fw3_active = 0 }
+    }
+}
+
+// --- Main Frame Renderer ---
+
+fn draw_frame() -> void {
+    if canvas == 0 { return }
+    if anim_mode == 0 {
+        draw_equalizer()
+    } else if anim_mode == 1 {
+        draw_matrix_flow()
+    } else if anim_mode == 2 {
+        draw_orbital()
+    } else if anim_mode == 3 {
+        update_and_draw_pong()
+    } else if anim_mode == 4 {
+        update_and_draw_dodge()
+    } else if anim_mode == 5 {
+        draw_fireworks_show()
+    } else if anim_mode == 6 {
+        draw_gravity_vortex()
+    } else if anim_mode == 7 {
+        draw_aurora_lattice()
+    } else {
+        draw_neural_constellation()
+    }
+
+    draw_fireworks()
+
+    if music_beat_pulse > 0.05 {
+        set music_beat_pulse = music_beat_pulse * 0.88
+    }
+}
+
+// --- Rove Event Dispatcher ---
+
+fn rove_dispatch(callback_id: int, event: WebEvent) -> int {
+    if callback_id == 1 {
+        inc_counter()
+    }
+    if callback_id == 2 {
+        dec_counter()
+    }
+    if callback_id == 3 {
+        double_counter()
+    }
+    if callback_id == 4 {
+        reset_counter()
+    }
+    if callback_id == 5 {
+        cycle_anim_mode()
+    }
+    if callback_id == 6 {
+        toggle_anim()
+    }
+
+    // Keyboard Controls (W/S)
+    if callback_id == 10 {
+        let key: int = web_event_key(event)
+        if key == 87 or key == 119 {
+            if anim_mode == 3 { pong_move_paddle(-22.0) }
+            if anim_mode == 4 { dodge_move(-22.0) }
+        }
+        if key == 83 or key == 115 {
+            if anim_mode == 3 { pong_move_paddle(22.0) }
+            if anim_mode == 4 { dodge_move(22.0) }
+        }
+    }
+
+    // Animation Frame Loop
+    if callback_id == 100 {
+        set tick = tick + 1
+        draw_frame()
+        if is_running == 1 {
+            web_request_animation_frame(100)
+        }
+    }
+    return 0
+}
+
+// --- Application Startup ---
+
+fn app_start(canvas_selector: string) -> int {
+    set canvas = web_query(canvas_selector)
+    if canvas != 0 {
+        web_listen(web_document(), "keydown", 10)
+        draw_frame()
+        web_request_animation_frame(100)
+        return 1
+    }
+    return 0
+}
+
+fn main() {
+    print("Rove WebAssembly Portal, Arcade & Music Engine v2 initialized.")
+}

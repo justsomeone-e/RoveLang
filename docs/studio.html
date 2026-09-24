@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nyx Studio | Learn, inspect, build</title>
-  <meta name="description" content="Write Nyx code, inspect its source shape, preview it safely in the browser, and build it locally with the native compiler.">
+  <title>Rove Studio | Learn, inspect, build</title>
+  <meta name="description" content="Write Rove code, inspect its source shape, preview it safely in the browser, and build it locally with the native compiler.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -21,7 +21,7 @@
     <div class="header-left">
       <a href="index.html" class="brand">
         <div class="brand-icon">N</div>
-        <span>nyx</span>
+        <span>rove</span>
       </a>
       <span class="version-badge">v5.0.3 Daydream</span>
 
@@ -30,7 +30,7 @@
         <button class="mode-btn active" id="btnModeTour" title="Interactive 81-step guided curriculum">
           <span class="mode-mark" aria-hidden="true">01</span> Learn
         </button>
-        <button class="mode-btn" id="btnModePlayground" title="Free-form Nyx Studio">
+        <button class="mode-btn" id="btnModePlayground" title="Free-form Rove Studio">
           <span class="mode-mark" aria-hidden="true">02</span> Studio
         </button>
       </nav>
@@ -48,13 +48,13 @@
         Install CLI
       </button>
 
-      <a href="https://github.com/justsomeone-e/nyx" class="btn-secondary" target="_blank" rel="noopener">
+      <a href="https://github.com/justsomeone-e/RoveLang" class="btn-secondary" target="_blank" rel="noopener">
         Star on GitHub
       </a>
     </div>
   </header>
 
-  <p class="preview-notice"><strong>Browser preview:</strong> this page uses a limited JavaScript evaluator, not the Nyx compiler. Output matches do not prove type safety or backend parity. Use <em>Build locally</em> for a real target build. <a href="index.html#applications">Open compiled applications</a>.</p>
+  <p class="preview-notice"><strong>Browser preview:</strong> this page uses a limited JavaScript evaluator, not the Rove compiler. Output matches do not prove type safety or backend parity. Use <em>Build locally</em> for a real target build. <a href="index.html#applications">Open compiled applications</a>.</p>
 
   <!-- Main Studio Workbench Layout -->
   <main class="workbench">
@@ -83,7 +83,7 @@
             <span class="badge-status" id="badgeStatus">Unsolved</span>
           </div>
           <div class="lesson-title-row">
-            <h1 class="lesson-title" id="exerciseTitle">Welcome to Nyx</h1>
+            <h1 class="lesson-title" id="exerciseTitle">Welcome to Rove</h1>
             <button class="btn-secondary btn-sm" id="btnToggleDrawer" title="Open Curriculum List">
               All Exercises
             </button>
@@ -94,13 +94,13 @@
           <!-- Objective -->
           <div class="lesson-box">
             <div class="box-label">Objective</div>
-            <p class="lesson-text" id="exerciseDesc">Run your very first Nyx program to verify your environment.</p>
+            <p class="lesson-text" id="exerciseDesc">Run your very first Rove program to verify your environment.</p>
           </div>
 
           <!-- Expected Output -->
           <div class="lesson-box" id="sectionExpectedOutput">
             <div class="box-label">Expected Output</div>
-            <pre class="expected-output-box" id="expectedOutputBox">Hello, Nyx Explorer! Welcome to the Tour of Nyx.</pre>
+            <pre class="expected-output-box" id="expectedOutputBox">Hello, Rove Explorer! Welcome to the Tour of Rove.</pre>
           </div>
 
           <!-- Hints & Solutions Drawer -->
@@ -140,7 +140,7 @@
             <div class="editor-tabs">
             <div class="editor-tab active">
               <span class="tab-icon" aria-hidden="true"></span>
-              <span id="editorFilename">intro01.nyx</span>
+              <span id="editorFilename">intro01.rove</span>
             </div>
             </div>
 
@@ -198,7 +198,7 @@
 
         <div class="terminal-content">
           <div class="term-console" id="terminalView">
-            <div class="term-line term-info">Nyx Studio preview initialized.</div>
+            <div class="term-line term-info">Rove Studio preview initialized.</div>
             <div class="term-line term-info">Run the browser preview, inspect the source, or build the same file locally.</div>
           </div>
           <section class="studio-view" id="inspectionView" hidden aria-labelledby="inspectionTitle">
@@ -223,9 +223,9 @@
               </div>
               <span class="status-badge" id="buildTargetStatus">C++20 / native</span>
             </div>
-            <p class="view-note" id="buildNote">The browser cannot invoke your local compiler. Save the editor as <code>scratchpad.nyx</code>, then run:</p>
+            <p class="view-note" id="buildNote">The browser cannot invoke your local compiler. Save the editor as <code>scratchpad.rove</code>, then run:</p>
             <div class="build-command-box">
-              <code id="buildCommand">nyx run scratchpad.nyx --target cpp</code>
+              <code id="buildCommand">rove run scratchpad.rove --target cpp</code>
               <button class="btn-copy" id="btnCopyBuildCommand" type="button">Copy</button>
             </div>
             <p class="view-note">The target selector changes this command only; the preview panel never claims a native build succeeded.</p>
@@ -240,19 +240,19 @@
   <!-- Install CLI Modal -->
   <div class="modal-overlay" id="installModal">
     <div class="modal-card">
-      <h2 class="modal-title">Install Nyx Locally</h2>
-      <p class="modal-desc">Get the native compiler and installation instructions. Native builds also require a C++20 toolchain.</p>
+      <h2 class="modal-title">Install Rove Locally</h2>
+      <p class="modal-desc">Clone the Rove source branch using the <a href="https://github.com/justsomeone-e/RoveLang/blob/rove/compiler-architecture-and-migration/INSTALLATION.md" target="_blank" rel="noopener">installation guide</a>, then run the local installer. Native builds also require a C++20 toolchain.</p>
 
       <div style="margin-bottom: 6px; font-size: 12px; font-weight: 600; color: var(--text-secondary);">Windows (PowerShell):</div>
       <div class="install-cmd-box">
-        <code>irm https://raw.githubusercontent.com/justsomeone-e/nyx/main/install.ps1 | iex</code>
-        <button class="btn-copy" onclick="navigator.clipboard.writeText('irm https://raw.githubusercontent.com/justsomeone-e/nyx/main/install.ps1 | iex'); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy', 1500)">Copy</button>
+        <code>.\install.ps1</code>
+        <button class="btn-copy" onclick="navigator.clipboard.writeText('.\\install.ps1'); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy', 1500)">Copy</button>
       </div>
 
-      <div style="margin-bottom: 6px; font-size: 12px; font-weight: 600; color: var(--text-secondary);">Linux &amp; macOS (curl):</div>
+      <div style="margin-bottom: 6px; font-size: 12px; font-weight: 600; color: var(--text-secondary);">Linux &amp; macOS (Bash):</div>
       <div class="install-cmd-box">
-        <code>curl -fsSL https://raw.githubusercontent.com/justsomeone-e/nyx/main/install.sh | bash</code>
-        <button class="btn-copy" onclick="navigator.clipboard.writeText('curl -fsSL https://raw.githubusercontent.com/justsomeone-e/nyx/main/install.sh | bash'); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy', 1500)">Copy</button>
+        <code>./install.sh</code>
+        <button class="btn-copy" onclick="navigator.clipboard.writeText('./install.sh'); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy', 1500)">Copy</button>
       </div>
 
       <div style="text-align: right; margin-top: 20px;">

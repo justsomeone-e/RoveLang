@@ -58,7 +58,7 @@ def _compile(target: str, source: str = SOURCE):
     result = NyxCompiler(ROOT_DIR).compile_source(
         source,
         target=target,
-        filename=f"maya_surface_{target}.nyx",
+        filename=f"maya_surface_{target}.rove",
     )
     assert result.success, tuple(diagnostic.rendered for diagnostic in result.diagnostics)
     assert result.artifact is not None
@@ -83,7 +83,7 @@ def _assert_ast_shape() -> None:
     result = NyxCompiler(ROOT_DIR).check_source(
         SOURCE,
         target="cpp",
-        filename="maya_surface_ast.nyx",
+        filename="maya_surface_ast.rove",
     )
     assert result.success, tuple(diagnostic.rendered for diagnostic in result.diagnostics)
     functions = {
@@ -171,7 +171,7 @@ def _run_wasm(temp_dir: str) -> None:
     result = NyxCompiler(ROOT_DIR).check_source(
         WASM_SOURCE,
         target="wasm",
-        filename="maya_surface_wasm.nyx",
+        filename="maya_surface_wasm.rove",
     )
     assert result.success, tuple(diagnostic.rendered for diagnostic in result.diagnostics)
     wasm = BundleLowerer(result.hir, "maya_surface").lower().to_wasm()
@@ -209,7 +209,7 @@ def _assert_rejections() -> None:
     )
     compiler = NyxCompiler(ROOT_DIR)
     for name, source, expected_code in cases:
-        result = compiler.check_source(source, target="cpp", filename=f"{name}.nyx")
+        result = compiler.check_source(source, target="cpp", filename=f"{name}.rove")
         assert not result.success, name
         assert any(diagnostic.code == expected_code for diagnostic in result.diagnostics), (
             name,

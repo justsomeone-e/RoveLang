@@ -1,0 +1,15 @@
+// I AM NOT DONE
+// Parameters can declare default values: `fn greet(name: string, title: string = "Explorer")`
+// Trailing parameters with defaults can be omitted by the caller.
+// TODO: Add a default value "Adventurer" to `title`.
+
+fn greet(name: string, title: string) {
+    print("Greetings, " + title + " " + name + "!")
+}
+
+fn main() {
+    greet("Kurt", "Captain")
+    greet("Rove") // Should use default title!
+}
+
+main()

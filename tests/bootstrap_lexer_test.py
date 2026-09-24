@@ -114,7 +114,7 @@ def run_bootstrap_lexer_test() -> bool:
     print("NYX SELF-HOST LEXER EXACT TYPE+VALUE PARITY")
     print("=" * 70)
 
-    lexer_nyx_path = os.path.join(_root_dir, "compiler", "lexer.nyx")
+    lexer_nyx_path = os.path.join(_root_dir, "compiler", "lexer.rove")
     with open(lexer_nyx_path, "r", encoding="utf-8") as handle:
         lexer_nyx_code = handle.read()
 
@@ -177,7 +177,7 @@ def run_bootstrap_lexer_test() -> bool:
 
     expected = {}
     for name, source in test_sources:
-        py_tokens = PyLexer(source, f"{name}.nyx").tokenize()
+        py_tokens = PyLexer(source, f"{name}.rove").tokenize()
         expected[name] = [
             (token.type, _wire_escape(_canonical_python_value(token)))
             for token in py_tokens
@@ -189,9 +189,9 @@ def run_bootstrap_lexer_test() -> bool:
     exe_file = os.path.join(temp_dir, "nyx_lexer.exe")
     cpp_file = os.path.join(temp_dir, "nyx_lexer.cpp")
     try:
-        driver_tokens = PyLexer(driver_source, "bootstrap_lexer_driver.nyx").tokenize()
+        driver_tokens = PyLexer(driver_source, "bootstrap_lexer_driver.rove").tokenize()
         driver_ast = Parser(
-            driver_tokens, driver_source, "bootstrap_lexer_driver.nyx"
+            driver_tokens, driver_source, "bootstrap_lexer_driver.rove"
         ).parse()
         cpp_code = UniversalCodeGen(driver_ast).gen_cpp()
         with open(cpp_file, "w", encoding="utf-8") as handle:

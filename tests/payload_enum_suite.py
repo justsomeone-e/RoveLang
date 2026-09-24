@@ -60,7 +60,7 @@ def _compile(source: str, target: str):
     return NyxCompiler(ROOT_DIR).compile_source(
         source,
         target=target,
-        filename=os.path.join(ROOT_DIR, f"payload-enum-{target}.nyx"),
+        filename=os.path.join(ROOT_DIR, f"payload-enum-{target}.rove"),
     )
 
 

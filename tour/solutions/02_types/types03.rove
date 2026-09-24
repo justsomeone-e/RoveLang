@@ -1,0 +1,9 @@
+fn main() {
+    let first = "Rove"
+    let last = "Language"
+    let full_name = first + " " + last
+    assert(full_name == "Rove Language", "full_name must be 'Rove Language'!")
+    print("Full name:", full_name)
+}
+
+main()

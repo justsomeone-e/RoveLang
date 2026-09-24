@@ -63,7 +63,7 @@ def run_feature_manifest_suite() -> bool:
     assert manifest["effect_model"]["unknown_calls"] == "effectful"
 
     diagnostic_codes: set[str] = set()
-    for directory, patterns in ((ROOT / "src", ("*.py",)), (ROOT / "compiler", ("*.nyx",))):
+    for directory, patterns in ((ROOT / "src", ("*.py",)), (ROOT / "compiler", ("*.rove",))):
         for pattern in patterns:
             for source_path in directory.rglob(pattern):
                 diagnostic_codes.update(

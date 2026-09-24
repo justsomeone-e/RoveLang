@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "target": "cpp",
   "sources": [
-    "tests/01_arithmetic.nyx",
-    "examples/11_data_pipeline.nyx",
-    "examples/metrics/metrics.nyx",
-    "examples/13_last_signal_rpg.nyx"
+    "tests/01_arithmetic.rove",
+    "examples/11_data_pipeline.rove",
+    "examples/metrics/metrics.rove",
+    "examples/13_last_signal_rpg.rove"
   ]
 }

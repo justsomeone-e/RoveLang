@@ -1,9 +1,9 @@
-// Node.js Host for Nyx WebAssembly Bundle
-import { initNyxModule, sum_floats, mutate_add_in_place, format_summary } from './bundle/transformer.mjs';
+// Node.js Host for Rove WebAssembly Bundle
+import { initRoveModule, sum_floats, mutate_add_in_place, format_summary } from './bundle/transformer.mjs';
 import assert from 'node:assert/strict';
 
-console.log('[*] Initializing Nyx WASM module in Node.js...');
-await initNyxModule();
+console.log('[*] Initializing Rove WASM module in Node.js...');
+await initRoveModule();
 
 // 1. Float vector sum across WASM boundary
 const floatInput = new Float64Array([10.5, 20.25, 30.25, 40.0]);

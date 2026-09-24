@@ -21,22 +21,22 @@ from src.ir.types import INT, array_of
 
 def run_module_suite():
     print("=" * 70)
-    print("⚡ NYX MODULE SYSTEM & RESOLUTION HARNESS")
+    print("⚡ ROVE MODULE SYSTEM & RESOLUTION HARNESS")
     print("=" * 70)
 
     # Disable exit on error so we can test negative compiler diagnostics
     DiagnosticEmitter.EXIT_ON_ERROR = False
-    temp_dir = tempfile.mkdtemp(prefix="nyx_mod_test_")
+    temp_dir = tempfile.mkdtemp(prefix="rove_mod_test_")
     passed = 0
     total = 4
 
     try:
         # Test 1: Diamond Dependency Resolution (A -> B, A -> C, B -> D, C -> D)
         print("[*] Testing Diamond Dependency Resolution (A -> B, A -> C, B -> D, C -> D)...")
-        mod_d = os.path.join(temp_dir, "d.nyx")
-        mod_b = os.path.join(temp_dir, "b.nyx")
-        mod_c = os.path.join(temp_dir, "c.nyx")
-        mod_a = os.path.join(temp_dir, "a.nyx")
+        mod_d = os.path.join(temp_dir, "d.rove")
+        mod_b = os.path.join(temp_dir, "b.rove")
+        mod_c = os.path.join(temp_dir, "c.rove")
+        mod_a = os.path.join(temp_dir, "a.rove")
 
         with open(mod_d, "w", encoding="utf-8") as f:
             f.write("fn shared_base() -> int { return 42 }\n")
@@ -93,9 +93,9 @@ def run_module_suite():
 
         # Test 2: Ambiguous Symbol Collision Detection (E1302)
         print("[*] Testing Ambiguous Symbol Collision Detection (E1302)...")
-        mod_x = os.path.join(temp_dir, "x.nyx")
-        mod_y = os.path.join(temp_dir, "y.nyx")
-        mod_main = os.path.join(temp_dir, "ambig_main.nyx")
+        mod_x = os.path.join(temp_dir, "x.rove")
+        mod_y = os.path.join(temp_dir, "y.rove")
+        mod_main = os.path.join(temp_dir, "ambig_main.rove")
 
         with open(mod_x, "w", encoding="utf-8") as f:
             f.write("fn calculate() -> int { return 10 }\n")
@@ -115,7 +115,7 @@ def run_module_suite():
 
         # Test 3: Module Not Found with candidate paths search (E1301)
         print("[*] Testing Module Not Found with Diagnostics v2 (E1301)...")
-        mod_missing = os.path.join(temp_dir, "missing_main.nyx")
+        mod_missing = os.path.join(temp_dir, "missing_main.rove")
         with open(mod_missing, "w", encoding="utf-8") as f:
             f.write("import \"./non_existent_module\"\n")
 
@@ -130,8 +130,8 @@ def run_module_suite():
 
         # Test 4: stable compiler identities and interface/implementation split
         print("[*] Testing Stable Compiler Identities & Module Fingerprints...")
-        identity_path = os.path.join(temp_dir, "identity.nyx")
-        sibling_path = os.path.join(temp_dir, "sibling.nyx")
+        identity_path = os.path.join(temp_dir, "identity.rove")
+        sibling_path = os.path.join(temp_dir, "sibling.rove")
         with open(identity_path, "w", encoding="utf-8") as f:
             f.write("fn answer() -> int { return 1 }\n")
         with open(sibling_path, "w", encoding="utf-8") as f:

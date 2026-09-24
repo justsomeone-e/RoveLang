@@ -1,4 +1,4 @@
-"""Load and validate the canonical Nyx compiler feature registry."""
+"""Load and validate the canonical Rove compiler feature registry."""
 
 from __future__ import annotations
 
@@ -148,7 +148,7 @@ def render_feature_matrix(manifest: Mapping[str, Any] | None = None) -> str:
     metadata = data["metadata"]
     feature_by_id = {entry["id"]: entry for entry in data["features"]}
     lines = [
-        "# Nyx compiler feature matrix",
+        "# Rove compiler feature matrix",
         "",
         "<!-- Generated from compiler/features.toml; do not edit by hand. -->",
         "",

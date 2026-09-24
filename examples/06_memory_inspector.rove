@@ -1,0 +1,24 @@
+#target cpp
+
+fn main() {
+    var value: int = 1234605616436508552
+
+    unsafe {
+        let pointer = addr(value)
+
+        print("=== Rove hecpp Memory Inspector ===")
+        print("Address:", pointer)
+        print("Value written:", value)
+        print("Value read from address:", peek(pointer))
+        print("Raw 8-byte memory dump:")
+        memdump(pointer, 8)
+
+        set value = 42
+        print("Value changed through normal Rove assignment:", value)
+        print("Same address read again:", peek(pointer))
+        print("Updated raw 8-byte memory dump:")
+        memdump(pointer, 8)
+    }
+
+    input("Press Enter to close...")
+}

@@ -1,0 +1,84 @@
+enum Batch {
+    Data(Array<int>),
+    Empty()
+}
+
+struct Envelope {
+    values: Array<int>
+}
+
+enum EnvelopeBatch {
+    Wrapped(Envelope),
+    Missing()
+}
+
+enum PairBatch {
+    Pair(Array<int>, Array<int>),
+    NoPair()
+}
+
+fn enum_array_probe() -> int {
+    var source = [1, 2]
+    let original = Data(source)
+    let copied = original
+    set source[0] = 9
+    match copied {
+        Data(values) => return values[0] * 10 + len(values),
+        Empty() => return 0
+    }
+    return -1
+}
+
+fn make_array_result(ok: bool) -> Result<Array<int>, string> {
+    if ok {
+        return Ok([3, 4])
+    }
+    return Err("bad")
+}
+
+fn result_array_probe(ok: bool) -> int {
+    match make_array_result(ok) {
+        Ok(values) => return values[0] * 10 + values[1],
+        Err(message) => return 0
+    }
+    return -1
+}
+
+fn struct_array_payload_probe() -> int {
+    var source = [5, 6]
+    let batch = Wrapped(Envelope(source))
+    set source[0] = 9
+    match batch {
+        Wrapped(envelope) => return envelope.values[0] * 10 + envelope.values[1],
+        Missing() => return 0
+    }
+    return -1
+}
+
+fn temporary_len_probe() -> int {
+    return len([7, 8])
+}
+
+fn multi_payload_probe() -> int {
+    let original = Pair([2], [3])
+    let copied = original
+    match copied {
+        Pair(left, right) => return left[0] * 10 + right[0],
+        NoPair() => return 0
+    }
+    return -1
+}
+
+fn main() {
+    print(
+        enum_array_probe(),
+        result_array_probe(true),
+        result_array_probe(false),
+        struct_array_payload_probe(),
+        temporary_len_probe(),
+        multi_payload_probe()
+    )
+    print(make_array_result(true), make_array_result(false))
+    print([7, 8])
+    print(Pair([1, 2], [3, 4]))
+}

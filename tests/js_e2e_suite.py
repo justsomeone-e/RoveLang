@@ -122,9 +122,9 @@ def run_js_e2e_tests():
     total = len(JS_CONFORMANCE_CASES)
     
     for name, code, expected_out in JS_CONFORMANCE_CASES:
-        tokens = Lexer(code, f"{name}.nyx").tokenize()
-        ast = Parser(tokens, code, f"{name}.nyx").parse()
-        TypeChecker(ast, f"{name}.nyx", code).check()
+        tokens = Lexer(code, f"{name}.rove").tokenize()
+        ast = Parser(tokens, code, f"{name}.rove").parse()
+        TypeChecker(ast, f"{name}.rove", code).check()
         
         js_code = UniversalCodeGen(ast).gen_js()
         temp_js = os.path.join(tempfile.gettempdir(), f"{name}.js")

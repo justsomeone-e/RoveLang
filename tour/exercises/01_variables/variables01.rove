@@ -1,0 +1,11 @@
+// I AM NOT DONE
+// In Rove, bindings are introduced with `let` (immutable) or `var` (mutable).
+// TODO: Declare `x` with value 42 using the `let` keyword.
+
+fn main() {
+    // Declare x here:
+    let x = 42
+    print("x is:", x)
+}
+
+main()

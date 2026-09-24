@@ -1,9 +1,0 @@
-// I AM NOT DONE
-// In Nyx, functions are declared with the `fn` keyword.
-// TODO: Define a function named `call_me` that prints "Called successfully!".
-
-fn main() {
-    call_me()
-}
-
-main()

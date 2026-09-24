@@ -1,4 +1,4 @@
-"""Target-neutral Nyx type identities used by the structured typed HIR."""
+"""Target-neutral Rove type identities used by the structured typed HIR."""
 
 from __future__ import annotations
 

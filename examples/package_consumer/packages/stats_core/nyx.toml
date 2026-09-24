@@ -1,7 +1,0 @@
-[package]
-name = "stats_core"
-version = "1.0.0"
-edition = "2026"
-target = "cpp"
-entry = "src/stats.nyx"
-description = "Pure mathematical and statistics utilities for Nyx"

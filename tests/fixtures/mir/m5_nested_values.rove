@@ -1,0 +1,31 @@
+struct Envelope { values: Array<int> }
+enum Packet { Data(Envelope), Empty() }
+
+fn packet_probe() -> int {
+  var source = [5, 6]
+  let packet = Data(Envelope(source))
+  set source[0] = 9
+  match packet {
+    Data(envelope) => return envelope.values[0] * 10 + envelope.values[1],
+    Empty() => return 0
+  }
+  return -1
+}
+
+fn make_values(ok: bool) -> Result<Array<int>, string> {
+  if ok { return Ok([3, 4]) }
+  return Err("bad")
+}
+
+fn result_probe(ok: bool) -> int {
+  match make_values(ok) {
+    Ok(values) => return values[0] * 10 + values[1],
+    Err(message) => return len(message)
+  }
+  return -1
+}
+
+fn main() {
+  print(packet_probe(), result_probe(true), result_probe(false))
+  print(make_values(true), make_values(false))
+}

@@ -1,0 +1,43 @@
+enum Event {
+    Number(int),
+    Text(string),
+    Idle()
+}
+
+fn divide(left: int, right: int) -> Result<int, string> {
+    if right == 0 { return Err("division by zero") }
+    return Ok(left / right)
+}
+
+fn main() {
+    match divide(12, 3) {
+        Ok(value) => print("ok", value),
+        Err(error) => print("unexpected", error)
+    }
+    match divide(12, 0) {
+        Ok(value) => print("unexpected", value),
+        Err(error) => print("err", error)
+    }
+
+    var first = Number(7)
+    match first {
+        Number(value) => print("number", value),
+        Text(value) => print("unexpected", value),
+        Idle() => print("unexpected idle")
+    }
+
+    var second = Text("nyx")
+    match second {
+        Number(value) => print("unexpected", value),
+        Text(value) => print("text", value),
+        Idle() => print("unexpected idle")
+    }
+
+    print("strings", "alpha" < "beta", "same" == "same", "z" > "a")
+
+    var shown_ok: Result<int, string> = Ok(8)
+    var shown_err: Result<int, string> = Err("bad")
+    print(shown_ok, shown_err)
+    var idle = Idle()
+    print(idle)
+}

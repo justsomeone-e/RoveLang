@@ -129,9 +129,9 @@ def run_cpp_e2e_tests():
         
         passed = 0
         for name, code, expected in E2E_CONFORMANCE_CASES:
-            tokens = Lexer(code, f"{name}.nyx").tokenize()
-            ast = Parser(tokens, code, f"{name}.nyx").parse()
-            TypeChecker(ast, f"{name}.nyx", code).check()
+            tokens = Lexer(code, f"{name}.rove").tokenize()
+            ast = Parser(tokens, code, f"{name}.rove").parse()
+            TypeChecker(ast, f"{name}.rove", code).check()
             cpp = UniversalCodeGen(ast).gen_cpp()
             assert "#include" in cpp
             print(f"  [PASS (Codegen)] {name}")
@@ -148,9 +148,9 @@ def run_cpp_e2e_tests():
         for name, code, expected_out in E2E_CONFORMANCE_CASES:
             print(f"[*] Testing {name}...")
             # 1. Lex & Parse & TypeCheck
-            tokens = Lexer(code, f"{name}.nyx").tokenize()
-            ast = Parser(tokens, code, f"{name}.nyx").parse()
-            TypeChecker(ast, f"{name}.nyx", code).check()
+            tokens = Lexer(code, f"{name}.rove").tokenize()
+            ast = Parser(tokens, code, f"{name}.rove").parse()
+            TypeChecker(ast, f"{name}.rove", code).check()
             
             # 2. Transpile to C++20
             cpp_code = UniversalCodeGen(ast).gen_cpp()

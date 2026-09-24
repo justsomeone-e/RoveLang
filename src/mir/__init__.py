@@ -1,4 +1,4 @@
-"""Experimental Nyx MIR infrastructure.
+"""Experimental Rove MIR infrastructure.
 
 MIR is not part of the default compilation route. Importing this package does
 not redirect any existing Typed HIR backend.

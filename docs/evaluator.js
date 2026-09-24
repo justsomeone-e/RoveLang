@@ -1,4 +1,4 @@
-// Limited teaching evaluator. This is not the Nyx compiler.
+// Limited teaching evaluator. This is not the Rove compiler.
 (function () {
   function checkCommonSyntaxErrors(code) {
     const lines = code.split('\n');
@@ -21,14 +21,14 @@
     return null;
   }
 
-  function evaluateNyx(source) {
+  function evaluateRove(source) {
     // Check syntax errors first for friendly diagnostics
     const preSyntaxError = checkCommonSyntaxErrors(source);
     if (preSyntaxError) {
       return { output: [], error: preSyntaxError };
     }
 
-    // Nyx examples call main() explicitly. Only synthesize the entry-point
+    // Rove examples call main() explicitly. Only synthesize the entry-point
     // call when the source defines main without an explicit top-level call.
     const sourceWithoutMainDefinition = source.replace(/\bfn\s+main\s*\([^)]*\)/g, '');
     const hasExplicitMainCall = /\bmain\s*\([ \t]*\)/.test(sourceWithoutMainDefinition);
@@ -258,5 +258,5 @@
   }
 
 
-  globalThis.NyxPreview = { evaluateNyx };
+  globalThis.RovePreview = { evaluateRove };
 })();

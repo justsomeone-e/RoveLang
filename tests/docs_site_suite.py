@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.api import NyxCompiler
+from src.api import RoveCompiler
 from src.codegen.cpp_toolchain import CppToolchain
 from src.cli import cmd_bundle
 from tests.fallible_stdlib_suite import _run
@@ -36,7 +36,7 @@ class Links(HTMLParser):
 
 def _artifact_bytes(path: Path) -> bytes:
     data = path.read_bytes()
-    if path.suffix in (".d", ".ts", ".mjs", ".js", ".nyx", ".wat", ".json", ".html", ".css", ".md"):
+    if path.suffix in (".d", ".ts", ".mjs", ".js", ".rove", ".wat", ".json", ".html", ".css", ".md"):
         return data.replace(b"\r\n", b"\n")
     return data
 
@@ -60,14 +60,14 @@ def static_integrity():
     assert manifest["compilerVersion"] == (ROOT / "VERSION").read_text().strip()
     for artifact in manifest["artifacts"]:
         assert hashlib.sha256(_artifact_bytes(docs / artifact["path"])).hexdigest() == artifact["sha256"]
-    for name, source in (("metrics", "examples/metrics/metrics.nyx"), ("pong", "examples/web_pong/pong.nyx")):
-        assert _artifact_bytes(ROOT / source) == _artifact_bytes(docs / "generated" / name / f"{name}.nyx")
+    for name, source in (("metrics", "examples/metrics/metrics.rove"), ("pong", "examples/web_pong/pong.rove")):
+        assert _artifact_bytes(ROOT / source) == _artifact_bytes(docs / "generated" / name / f"{name}.rove")
 
 
 def run_docs_site_suite():
     static_integrity()
-    compiler = NyxCompiler(str(ROOT / "examples/metrics"))
-    source = (ROOT / "examples/metrics/metrics.nyx").read_text()
+    compiler = RoveCompiler(str(ROOT / "examples/metrics"))
+    source = (ROOT / "examples/metrics/metrics.rove").read_text()
     program = source + '''
 fn checked(flag: bool) -> Result<int, string> {
     if flag { return Ok(6) }
@@ -81,7 +81,7 @@ fn main() {
     match checked(false) { Ok(value) => print(value * 0.5), Err(error) => print(error + " input") }
 }
 '''
-    with tempfile.TemporaryDirectory(prefix="nyx_docs_") as temporary:
+    with tempfile.TemporaryDirectory(prefix="rove_docs_") as temporary:
         directory = Path(temporary)
         for target in ("cpp", "js", "python"):
             compiled = compiler.compile_source(program, target=target)
@@ -99,7 +99,7 @@ fn main() {
         ):
             assert not compiler.check_source(invalid).success
 
-        cli = compiler.compile_source((ROOT / "examples/metrics/cli.nyx").read_text(), target="cpp", filename=str(ROOT / "examples/metrics/cli.nyx"))
+        cli = compiler.compile_source((ROOT / "examples/metrics/cli.rove").read_text(), target="cpp", filename=str(ROOT / "examples/metrics/cli.rove"))
         assert cli.success, cli.diagnostics
         cpp = directory / "metrics_cli.cpp"
         exe = directory / "metrics_cli.exe"
@@ -112,13 +112,13 @@ fn main() {
             code, output = CppToolchain.run_executable(str(exe), args=[invalid], timeout=10)
             assert "Error:" in output and "samples:" not in output, (invalid, output)
 
-        assert cmd_bundle(str(ROOT / "examples/metrics/metrics.nyx"), str(directory)) == 0
+        assert cmd_bundle(str(ROOT / "examples/metrics/metrics.rove"), str(directory)) == 0
         assert (directory / "metrics.wasm").read_bytes() == (ROOT / "docs/generated/metrics/metrics.wasm").read_bytes()
         runner = directory / "verify.mjs"
         runner.write_text('''
 import assert from 'node:assert/strict';
-import { createNyxModule } from './metrics.mjs';
-const api = await createNyxModule();
+import { createRoveModule } from './metrics.mjs';
+const api = await createRoveModule();
 assert.equal(api.average([42, 95, 380]), 517 / 3);
 assert.equal(api.minimum([42, 95, 380]), 42);
 assert.equal(api.maximum([42, 95, 380]), 380);

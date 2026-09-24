@@ -1,0 +1,34 @@
+#target cpp
+#native include <iostream>
+#native include <string>
+#native include <vector>
+
+// =========================================================
+// ROVE STAGE 1 NATIVE COMPILER DRIVER (PHASE 4.0.8)
+// =========================================================
+
+fn print_banner() {
+    print("=======================================================")
+    print("  Rove Systems Compiler (Stage 1 Native Toolchain)     ")
+    print("  Version: v5.0.3 (Self-Hosted C++20 Core)   ")
+    print("=======================================================")
+}
+
+fn print_help() {
+    print_banner()
+    print("Usage:")
+    print("  rovec <file.rove> [options]")
+    print("")
+    print("Options:")
+    print("  --target <cpp|asm|js|rust|python>  Set output backend")
+    print("  -o <output_binary>                     Set output executable name")
+    print("  --emit-cpp                             Only emit C++20 source")
+    print("  --emit-asm                             Only emit x86_64 Intel ASM")
+    print("  --version                              Show compiler version")
+    print("  --help                                 Show help information")
+}
+
+fn main() {
+    print_banner()
+    print("[*] Stage 1 Self-Hosted rovec Driver Ready.")
+}

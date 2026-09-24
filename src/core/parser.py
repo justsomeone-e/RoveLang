@@ -416,7 +416,7 @@ class Parser:
             cases = []
             if self.match(TokenType.LBRACE):
                 while self.current().type not in (TokenType.RBRACE, TokenType.EOF):
-                    pat = self.parse_expression()
+                    pat = self.parse_match_pattern()
                     self.expect(TokenType.FAT_ARROW)
                     if self.current().type in (TokenType.LBRACE, TokenType.COLON):
                         case_body = self.parse_block()
@@ -730,7 +730,7 @@ class Parser:
             op_tok = self.advance()
             op = op_tok.value
             expr = self.parse_unary()
-            # The positive magnitude 2^63 is not a valid Nyx int literal, but
+            # The positive magnitude 2^63 is not a valid Rove int literal, but
             # its directly negated form is the signed i64 minimum.  Fold that
             # one lexical edge here so semantic validation sees the value that
             # the programmer wrote rather than rejecting its magnitude first.
@@ -907,11 +907,7 @@ class Parser:
         )
         cases = []
         while self.current().type not in (TokenType.RBRACE, TokenType.EOF):
-            if self.current().type == TokenType.IDENT:
-                identifier = self.advance()
-                pattern = IdentifierNode(identifier.value, identifier.line, identifier.col)
-            else:
-                pattern = self.parse_expression()
+            pattern = self.parse_match_pattern()
             self.expect(
                 TokenType.FAT_ARROW,
                 "E1014",
@@ -938,6 +934,15 @@ class Parser:
             "Close the match expression with '}'.",
         )
         return MatchExprNode(subject, cases, tok.line, tok.col)
+
+    def parse_match_pattern(self) -> ASTNode:
+        if (
+            self.current().type == TokenType.IDENT
+            and self.peek().type == TokenType.FAT_ARROW
+        ):
+            identifier = self.advance()
+            return IdentifierNode(identifier.value, identifier.line, identifier.col)
+        return self.parse_expression()
 
     def parse_value_block(self, context: str) -> ASTNode:
         self.expect(

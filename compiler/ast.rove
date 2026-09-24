@@ -1,0 +1,96 @@
+#target cpp
+#native include <string>
+#native include <vector>
+
+// =========================================================
+// ROVE CANONICAL AST MODEL (1-TO-1 WITH src/core/ast_nodes.py)
+// =========================================================
+
+struct TypeNode {
+    name: string,
+    is_optional: bool,
+    is_pointer: bool,
+    is_fn_type: bool,
+    param_types: Array<string>,
+    return_type_name: string,
+    line: int,
+    col: int
+}
+
+impl TypeNode {
+    fn to_str(self) -> string {
+        if self.is_fn_type {
+            var params = ""
+            for i in 0..len(self.param_types)-1 {
+                if i > 0 { params = params + ", " }
+                params = params + self.param_types[i]
+            }
+            return "fn(" + params + ") -> " + self.return_type_name
+        }
+        var base = self.name
+        if self.is_pointer { base = "*" + base }
+        if self.is_optional { base = base + "?" }
+        return base
+    }
+}
+
+struct FunctionParam {
+    name: string,
+    type_annot: string
+}
+
+impl FunctionParam {
+    fn to_str(self) -> string {
+        return self.name + ": " + self.type_annot
+    }
+}
+
+struct ASTNode {
+    kind: string,
+    name: string,
+    value: string,
+    op: string,
+    type_name: string,
+    is_const: bool,
+    is_async: bool,
+    is_safe: bool,
+    is_varargs: bool,
+    params: Array<FunctionParam>,
+    generic_args: Array<string>,
+    children: Array<ASTNode>,
+    line: int,
+    col: int
+}
+
+impl ASTNode {
+    fn to_str(self) -> string {
+        var res = "(" + self.kind
+        if self.name != "" { res = res + " name='" + self.name + "'" }
+        if self.value != "" { res = res + " val='" + self.value + "'" }
+        if self.op != "" { res = res + " op='" + self.op + "'" }
+        if self.type_name != "" { res = res + " type='" + self.type_name + "'" }
+        if self.is_const { res = res + " const=true" }
+        if self.is_async { res = res + " async=true" }
+        if self.is_safe { res = res + " safe=true" }
+        
+        if len(self.params) > 0 {
+            res = res + " params=["
+            for i in 0..len(self.params)-1 {
+                if i > 0 { res = res + ", " }
+                res = res + self.params[i].to_str()
+            }
+            res = res + "]"
+        }
+        
+        if len(self.children) > 0 {
+            res = res + " body=["
+            for i in 0..len(self.children)-1 {
+                if i > 0 { res = res + " " }
+                res = res + self.children[i].to_str()
+            }
+            res = res + "]"
+        }
+        res = res + ")"
+        return res
+    }
+}

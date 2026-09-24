@@ -193,8 +193,7 @@ def resolve_backend(name: Optional[str]) -> Optional[BackendSpec]:
 
 def get_stdlib_contract(module: str) -> Optional[StdlibContract]:
     clean = module.replace("\\", "/").strip("/")
-    if clean.endswith(".nyx"):
-        clean = clean[:-4]
+    clean = clean.removesuffix(".rove").removesuffix(".nyx")
     return STDLIB_CONTRACTS.get(clean)
 
 
@@ -212,8 +211,7 @@ def stdlib_module_from_import(import_path: str) -> Optional[str]:
     if len(parts) != 2 or parts[0] not in ("std", "native"):
         return None
     module = parts[1]
-    if module.endswith(".nyx"):
-        module = module[:-4]
+    module = module.removesuffix(".rove").removesuffix(".nyx")
     return module
 
 

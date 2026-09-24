@@ -1,4 +1,4 @@
-# Nyx compiler feature matrix
+# Rove compiler feature matrix
 
 <!-- Generated from compiler/features.toml; do not edit by hand. -->
 

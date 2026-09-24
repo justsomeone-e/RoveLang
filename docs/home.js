@@ -11,7 +11,7 @@ function clearReport(message, state) {
   for (const id of ['average', 'minimum', 'maximum', 'overBudget']) byId(id).textContent = '—';
   byId('distribution').replaceChildren();
   byId('sampleCount').textContent = '— samples';
-  byId('executionTime').textContent = 'Nyx / WebAssembly';
+  byId('executionTime').textContent = 'Rove / WebAssembly';
   byId('downloadButton').disabled = true;
   byId('reportSummary').textContent = message;
   byId('resultState').textContent = state;
@@ -46,7 +46,7 @@ function analyze(event) {
     const over = api.count_over(values, budget);
     const ranges = [[0, 50], [50, 100], [100, 200], [200, 500], [500, 1000001]];
     report = {
-      engine: 'Nyx WASM / Bundle ABI v1', unit: 'ms', samples: count, budget,
+      engine: 'Rove WASM / Bundle ABI v1', unit: 'ms', samples: count, budget,
       average: api.average(values), minimum: api.minimum(values), maximum: api.maximum(values),
       overBudget: over,
       distribution: ranges.map(([lower, upper]) => ({ lowerInclusive: lower, upperExclusive: upper, count: api.count_between(values, lower, upper) }))
@@ -94,7 +94,7 @@ byId('downloadButton').addEventListener('click', () => {
   const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2) + '\n'], { type: 'application/json' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'nyx-latency-report.json';
+  link.download = 'rove-latency-report.json';
   document.body.append(link);
   link.click();
   link.remove();
@@ -102,8 +102,8 @@ byId('downloadButton').addEventListener('click', () => {
 });
 
 try {
-  const { initNyxModule } = await import('./generated/metrics/metrics.mjs');
-  api = await initNyxModule();
+  const { initRoveModule } = await import('./generated/metrics/metrics.mjs');
+  api = await initRoveModule();
   byId('analyzeButton').disabled = false;
   byId('analyzeButton').textContent = 'Analyze samples →';
   byId('runtimeState').textContent = 'WASM ready · Data stays in this browser';

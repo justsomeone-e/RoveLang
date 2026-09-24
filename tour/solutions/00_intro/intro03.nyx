@@ -1,7 +1,0 @@
-fn main() {
-    let message = "Nyx is fast!"
-    assert(message == "Nyx is fast!", "message must equal 'Nyx is fast!'")
-    print(message)
-}
-
-main()

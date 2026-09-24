@@ -7,6 +7,8 @@ semantics for function bodies.
 
 from __future__ import annotations
 
+from dataclasses import fields, is_dataclass
+
 from src.ir.model import (
     IRAssign,
     IRArray,
@@ -60,6 +62,7 @@ from .model import (
     ConstantIndexProjection,
     ConstOperand,
     CopyOperand,
+    DeinitStatement,
     DiscriminantRValue,
     GotoTerminator,
     FieldProjection,
@@ -70,6 +73,7 @@ from .model import (
     MIRModule,
     MIRSpan,
     MIRStructDef,
+    MoveOperand,
     Operand,
     PayloadRValue,
     Place,
@@ -95,6 +99,44 @@ class MIRLoweringError(ValueError):
 
 def _span(value: SourceSpan) -> MIRSpan:
     return MIRSpan(value.source, value.line, value.column, value.length)
+
+
+def _walk_hir(value: object):
+    if isinstance(value, (str, bytes, int, float, bool, type(None))):
+        return
+    if is_dataclass(value):
+        yield value
+        for field in fields(value):
+            yield from _walk_hir(getattr(value, field.name))
+        return
+    if isinstance(value, (tuple, list)):
+        for item in value:
+            yield from _walk_hir(item)
+
+
+def _throwing_function_symbols(
+    functions: tuple[IRFunction, ...],
+) -> frozenset[str]:
+    known = {function.symbol for function in functions}
+    direct: dict[str, bool] = {}
+    calls: dict[str, set[str]] = {}
+    for function in functions:
+        nodes = tuple(_walk_hir(function.body))
+        direct[function.symbol] = any(isinstance(node, IRThrow) for node in nodes)
+        calls[function.symbol] = {
+            node.callee_symbol
+            for node in nodes
+            if isinstance(node, IRCall) and node.callee_symbol in known
+        }
+    throwing = {symbol for symbol, value in direct.items() if value}
+    changed = True
+    while changed:
+        changed = False
+        for symbol, callees in calls.items():
+            if symbol not in throwing and any(callee in throwing for callee in callees):
+                throwing.add(symbol)
+                changed = True
+    return frozenset(throwing)
 
 
 def lower_hir_skeleton(hir: IRModule) -> MIRModule:
@@ -143,11 +185,15 @@ class _FunctionLowerer:
         structs: dict[str, IRStruct],
         enums: dict[str, IREnum],
         variants: dict[str, tuple[IREnum, IREnumMember]],
+        throwing_functions: frozenset[str],
+        async_functions: frozenset[str],
     ):
         self.function = function
         self.structs = structs
         self.enums = enums
         self.variants = variants
+        self.throwing_functions = throwing_functions
+        self.async_functions = async_functions
         self.span = _span(function.span)
         self.builder = MIRFunctionBuilder(
             function.name,
@@ -160,20 +206,31 @@ class _FunctionLowerer:
         self.current: int | None = None
         self.loop_targets: list[tuple[int, int, int]] = []
         self.defer_scopes: list[list[IRExpr]] = []
+        self.drop_scopes: list[list[int]] = []
+        self.drop_spans: dict[int, MIRSpan] = {}
+        self.active_cleanup_frames: set[int] = set()
+        self.structs_by_name = {item.name: item for item in structs.values()}
+        self.enums_by_name = {item.name: item for item in enums.values()}
         self.exception_targets: list[tuple[int, Place, int]] = []
+        self.temporary_locals: set[int] = set()
         self.temporary_counter = 0
         self.suspend_counter = 0
 
     def lower(self):
+        parameter_drops: list[int] = []
         for parameter in self.function.params:
-            self.locals[parameter.symbol] = self.builder.new_local(
+            local = self.builder.new_local(
                 parameter.name,
                 from_hir_type(parameter.type),
                 kind="parameter",
                 span=_span(parameter.default.span) if parameter.default is not None else self.span,
             )
+            self.locals[parameter.symbol] = local
+            if self._type_needs_drop(parameter.type):
+                parameter_drops.append(local)
+                self.drop_spans[local] = self.span
         self.current = self.builder.new_block()
-        self._lower_scoped(self.function.body)
+        self._lower_scoped(self.function.body, parameter_drops)
         if self.current is not None and not self.builder.is_terminated(self.current):
             self.builder.set_terminator(self.current, ReturnTerminator(self.span))
         return self.builder.finish()
@@ -184,14 +241,20 @@ class _FunctionLowerer:
                 break
             self._lower_statement(statement)
 
-    def _lower_scoped(self, statements: tuple[IRStatement, ...]) -> None:
+    def _lower_scoped(
+        self,
+        statements: tuple[IRStatement, ...],
+        initial_drop_locals: list[int] | tuple[int, ...] = (),
+    ) -> None:
         self.defer_scopes.append([])
+        self.drop_scopes.append(list(initial_drop_locals))
         try:
             self._lower_statements(statements)
             if self.current is not None:
-                self._emit_defer_frame(self.defer_scopes[-1])
+                self._emit_cleanup_frame(len(self.defer_scopes) - 1)
         finally:
             self.defer_scopes.pop()
+            self.drop_scopes.pop()
 
     def _lower_statement(self, node: IRStatement) -> None:
         span = _span(node.span)
@@ -200,21 +263,28 @@ class _FunctionLowerer:
             self.locals[node.symbol] = local
             value = self._lower_expr(node.expr)
             value = self._coerce(value, node.expr.type, node.type, span)
+            value = self._consume_temporary(value, node.type)
             self._push(AssignStatement(Place(local), UseRValue(value), span))
+            self._register_drop(local, node.type, span)
             return
         if isinstance(node, IRAssign):
             target = self._lower_place(node.target)
             value = self._lower_expr(node.expr)
             value = self._coerce(value, node.expr.type, node.target.type, span)
+            value = self._consume_temporary(value, node.target.type)
+            if self._type_needs_drop(node.target.type):
+                self._push(DeinitStatement(target, span))
             self._push(AssignStatement(target, UseRValue(value), span))
             return
         if isinstance(node, IRExprStatement):
-            self._lower_expr(node.expr)
+            value = self._lower_expr(node.expr)
+            self._discard_temporary(value, node.expr.type, span)
             return
         if isinstance(node, IRReturn):
             if node.expr is not None:
                 value = self._lower_expr(node.expr)
                 value = self._coerce(value, node.expr.type, self.function.return_type, span)
+                value = self._consume_temporary(value, self.function.return_type)
                 self._push(AssignStatement(Place(0), UseRValue(value), span))
             self._emit_cleanups(0)
             self._terminate(ReturnTerminator(span))
@@ -252,13 +322,22 @@ class _FunctionLowerer:
             return
         if isinstance(node, IRThrow):
             value = self._lower_expr(node.expr)
+            # Cleanup may deinitialize the source local before the throw edge
+            # reads it. Preserve the value outside the lexical drop frames.
+            thrown_local = self._new_temporary(node.expr.type, span)
+            self._push(AssignStatement(
+                Place(thrown_local),
+                UseRValue(self._consume_temporary(value, node.expr.type)),
+                span,
+            ))
+            thrown_value = MoveOperand(Place(thrown_local))
             if self.exception_targets:
                 target, destination, keep_depth = self.exception_targets[-1]
                 self._emit_cleanups(keep_depth)
-                self._terminate(ThrowTerminator(value, target, destination, span))
+                self._terminate(ThrowTerminator(thrown_value, target, destination, span))
             else:
                 self._emit_cleanups(0)
-                self._terminate(ThrowTerminator(value, None, None, span))
+                self._terminate(ThrowTerminator(thrown_value, None, None, span))
             return
         if isinstance(node, IRTryCatch):
             self._lower_try_catch(node)
@@ -272,7 +351,7 @@ class _FunctionLowerer:
             self._terminate(AssertTerminator(
                 condition,
                 True,
-                node.message or "Nyx assertion failed",
+                node.message or "Rove assertion failed",
                 continuation,
                 None,
                 span,
@@ -386,6 +465,11 @@ class _FunctionLowerer:
         )
         if not isinstance(collection, CopyOperand):
             raise MIRLoweringError("Collection value could not be materialized", span)
+        collection_drop = self._owned_temporary_local(
+            collection, collection_expr.type
+        )
+        if collection_drop is not None:
+            self._register_drop(collection_drop, collection_expr.type, span)
         element_type = collection_expr.type.arguments[0] if collection_expr.type.arguments else ANY
         loop_local = self.builder.new_local(
             node.var_name,
@@ -445,7 +529,10 @@ class _FunctionLowerer:
             ))),
             span,
         ))
-        self._lower_scoped(node.body)
+        loop_drop_locals = [loop_local] if self._type_needs_drop(element_type) else []
+        if loop_drop_locals:
+            self.drop_spans[loop_local] = span
+        self._lower_scoped(node.body, loop_drop_locals)
         self._goto_if_open(increment_block, span)
         self.loop_targets.pop()
 
@@ -492,19 +579,32 @@ class _FunctionLowerer:
         self.exception_targets.pop()
         self._goto_if_open(join_block, span)
         self.current = catch_block
-        self._lower_scoped(node.catch_body)
+        self.drop_spans[error_local] = span
+        self._lower_scoped(node.catch_body, [error_local])
         self._goto_if_open(join_block, span)
         self.current = join_block
 
     def _lower_match_statement(self, node: IRMatch) -> None:
         span = _span(node.span)
         subject = self._materialize(self._lower_expr(node.expr), node.expr.type, _span(node.expr.span))
+        subject_drop = self._owned_temporary_local(subject, node.expr.type)
+        if subject_drop is not None:
+            self.drop_spans[subject_drop] = span
         join = self.builder.new_block()
-        wildcard_body = None
+        fallback_body = None
+        fallback_binding: IRReference | None = None
         tag_operand: Operand | None = None
+        tag_drop: int | None = None
         for case in node.cases:
-            if isinstance(case.pattern, IRReference) and case.pattern.name == "_":
-                wildcard_body = case.body
+            if isinstance(case.pattern, IRLiteral) and case.pattern.value == "_":
+                fallback_body = case.body
+                fallback_binding = None
+                continue
+            if isinstance(case.pattern, IRReference):
+                fallback_body = case.body
+                fallback_binding = (
+                    case.pattern if case.pattern.name != "_" else None
+                )
                 continue
             pattern_variant: tuple[str, tuple[IRType, ...]] | None = None
             if isinstance(case.pattern, IRCall):
@@ -531,6 +631,8 @@ class _FunctionLowerer:
                         span,
                     ))
                     tag_operand = CopyOperand(Place(tag_local))
+                    tag_drop = tag_local
+                    self.drop_spans[tag_local] = span
                 case_block = self.builder.new_block()
                 next_block = self.builder.new_block()
                 self._terminate(SwitchValueTerminator(
@@ -540,6 +642,9 @@ class _FunctionLowerer:
                     _span(case.pattern.span),
                 ))
                 self.current = case_block
+                binding_drop_locals = [
+                    local for local in (subject_drop, tag_drop) if local is not None
+                ]
                 for index, binding in enumerate(case.pattern.args):
                     if not isinstance(binding, IRReference) or binding.name == "_":
                         continue
@@ -555,31 +660,83 @@ class _FunctionLowerer:
                         _span(binding.span),
                     )
                     self.locals[binding.symbol] = local
+                    if self._type_needs_drop(payload_type):
+                        binding_drop_locals.append(local)
+                        self.drop_spans[local] = _span(binding.span)
                     self._push(AssignStatement(
                         Place(local),
                         PayloadRValue(subject, index, from_hir_type(payload_type)),
                         _span(binding.span),
                     ))
-                self._lower_scoped(case.body)
+                self._lower_scoped(case.body, binding_drop_locals)
                 self._goto_if_open(join, span)
                 self.current = next_block
                 continue
-            pattern = self._lower_expr(case.pattern)
+            pattern = self._lower_expr_with_temporary_cleanup(
+                case.pattern,
+                tuple(
+                    local for local in (subject_drop, tag_drop) if local is not None
+                ),
+            )
+            comparison_pattern = (
+                self._coerce(pattern, case.pattern.type, node.expr.type, _span(case.pattern.span))
+                if case.pattern.type.is_numeric and node.expr.type.is_numeric
+                and case.pattern.type != node.expr.type
+                else pattern
+            )
             condition_local = self._new_temporary(BOOL, _span(case.pattern.span))
             self._push(AssignStatement(
                 Place(condition_local),
-                BinaryRValue("==", subject, pattern, from_hir_type(BOOL)),
+                BinaryRValue("==", subject, comparison_pattern, from_hir_type(BOOL)),
                 _span(case.pattern.span),
             ))
+            self._discard_temporary(
+                pattern, case.pattern.type, _span(case.pattern.span)
+            )
             case_block = self.builder.new_block()
             next_block = self.builder.new_block()
             self._terminate(SwitchIntTerminator(CopyOperand(Place(condition_local)), ((1, case_block),), next_block, span))
             self.current = case_block
-            self._lower_scoped(case.body)
+            self._lower_scoped(
+                case.body,
+                [local for local in (subject_drop, tag_drop) if local is not None],
+            )
             self._goto_if_open(join, span)
             self.current = next_block
-        if wildcard_body is not None:
-            self._lower_scoped(wildcard_body)
+        if fallback_body is not None:
+            fallback_drops = [
+                local for local in (subject_drop, tag_drop) if local is not None
+            ]
+            if fallback_binding is not None:
+                binding = self.builder.new_local(
+                    fallback_binding.name,
+                    from_hir_type(node.expr.type),
+                    "variable",
+                    _span(fallback_binding.span),
+                )
+                self.locals[fallback_binding.symbol] = binding
+                bound_value = (
+                    MoveOperand(subject.place)
+                    if subject_drop is not None and isinstance(subject, CopyOperand)
+                    else subject
+                )
+                self._push(AssignStatement(
+                    Place(binding), UseRValue(bound_value),
+                    _span(fallback_binding.span),
+                ))
+                fallback_drops = [local for local in fallback_drops if local != subject_drop]
+                if self._type_needs_drop(node.expr.type):
+                    fallback_drops.append(binding)
+                    self.drop_spans[binding] = _span(fallback_binding.span)
+            self._lower_scoped(
+                fallback_body,
+                fallback_drops,
+            )
+        elif self.current is not None:
+            for local in reversed(
+                [local for local in (subject_drop, tag_drop) if local is not None]
+            ):
+                self._push(DeinitStatement(Place(local), self.drop_spans[local]))
         self._goto_if_open(join, span)
         self.current = join
 
@@ -593,7 +750,7 @@ class _FunctionLowerer:
                 raise MIRLoweringError(f"Unresolved MIR local for '{node.name}'", span)
             return CopyOperand(Place(local))
         if isinstance(node, IRArray):
-            operands = tuple(self._lower_expr(element) for element in node.elements)
+            operands = self._lower_ordered_operands(node.elements)
             local = self._new_temporary(node.type, span)
             self._push(AssignStatement(
                 Place(local),
@@ -637,8 +794,18 @@ class _FunctionLowerer:
         if isinstance(node, IRBinary):
             if node.op in ("and", "or", "&&", "||"):
                 return self._lower_short_circuit(node)
-            left = self._lower_expr(node.left)
-            right = self._lower_expr(node.right)
+            left, right = self._lower_ordered_operands((node.left, node.right))
+            if node.left.type.is_numeric and node.right.type.is_numeric:
+                if (
+                    is_coercible(node.left.type, node.right.type)
+                    and not is_coercible(node.right.type, node.left.type)
+                ):
+                    left = self._coerce(left, node.left.type, node.right.type, span)
+                elif (
+                    is_coercible(node.right.type, node.left.type)
+                    and not is_coercible(node.left.type, node.right.type)
+                ):
+                    right = self._coerce(right, node.right.type, node.left.type, span)
             local = self._new_temporary(node.type, span)
             self._push(AssignStatement(
                 Place(local),
@@ -647,7 +814,9 @@ class _FunctionLowerer:
             ))
             return CopyOperand(Place(local))
         if isinstance(node, IRUnary):
-            operand = self._lower_expr(node.expr)
+            operand = self._consume_temporary(
+                self._lower_expr(node.expr), node.expr.type
+            )
             local = self._new_temporary(node.type, span)
             self._push(AssignStatement(
                 Place(local),
@@ -657,11 +826,24 @@ class _FunctionLowerer:
             return CopyOperand(Place(local))
         if isinstance(node, IRAwait):
             task = self._lower_expr(node.expr)
+            task_drop = self._owned_temporary_local(task, node.expr.type)
+            if task_drop is not None:
+                self.drop_spans[task_drop] = _span(node.expr.span)
+                if self.drop_scopes and task_drop not in self.drop_scopes[-1]:
+                    self.drop_scopes[-1].append(task_drop)
             destination = self._new_temporary(node.type, span)
             resume = self.builder.new_block()
             suspend_id = self.suspend_counter
             self.suspend_counter += 1
-            unwind = self.exception_targets[-1] if self.exception_targets else None
+            try:
+                unwind = self._build_unwind_cleanup_edge(span, can_unwind=True)
+            finally:
+                if (
+                    task_drop is not None
+                    and self.drop_scopes
+                    and task_drop in self.drop_scopes[-1]
+                ):
+                    self.drop_scopes[-1].remove(task_drop)
             self._terminate(SuspendTerminator(
                 task,
                 Place(destination),
@@ -672,12 +854,14 @@ class _FunctionLowerer:
                 unwind[1] if unwind else None,
             ))
             self.current = resume
+            if task_drop is not None:
+                self._push(DeinitStatement(Place(task_drop), span))
             return CopyOperand(Place(destination))
         if isinstance(node, IRCall):
-            arguments = []
-            if node.receiver is not None:
-                arguments.append(self._lower_expr(node.receiver))
-            arguments.extend(self._lower_expr(argument) for argument in node.args)
+            argument_nodes = (
+                ((node.receiver,) if node.receiver is not None else ()) + node.args
+            )
+            arguments = self._lower_ordered_operands(argument_nodes)
             struct = self.structs.get(node.callee_symbol)
             if struct is not None:
                 local = self._new_temporary(node.type, span)
@@ -724,7 +908,11 @@ class _FunctionLowerer:
                 return CopyOperand(Place(local))
             destination = self._new_temporary(node.type, span)
             continuation = self.builder.new_block()
-            unwind = self.exception_targets[-1] if self.exception_targets else None
+            can_unwind = (
+                node.callee_symbol in self.throwing_functions
+                and node.callee_symbol not in self.async_functions
+            )
+            unwind = self._build_unwind_cleanup_edge(span, can_unwind=can_unwind)
             self._terminate(CallTerminator(
                 node.callee_symbol,
                 tuple(arguments),
@@ -755,6 +943,7 @@ class _FunctionLowerer:
         )
         if not isinstance(base, CopyOperand):
             raise MIRLoweringError("Safe-navigation base could not be materialized", span)
+        base_drop = self._owned_temporary_local(base, node.obj.type)
         result = self._new_temporary(node.type, span)
         none_block = self.builder.new_block()
         present_block = self.builder.new_block()
@@ -766,6 +955,8 @@ class _FunctionLowerer:
             UseRValue(ConstOperand(from_hir_type(node.type), None)),
             span,
         ))
+        if base_drop is not None:
+            self._push(DeinitStatement(Place(base_drop), span))
         self._terminate(GotoTerminator(join, span))
         self.current = present_block
         projected = Place(
@@ -777,6 +968,8 @@ class _FunctionLowerer:
             CastRValue("optional-inject", CopyOperand(projected), from_hir_type(node.type)),
             span,
         ))
+        if base_drop is not None:
+            self._push(DeinitStatement(Place(base_drop), span))
         self._goto_if_open(join, span)
         self.current = join
         return CopyOperand(Place(result))
@@ -816,10 +1009,12 @@ class _FunctionLowerer:
         self._terminate(SwitchIntTerminator(condition, ((1, then_block),), else_block, span))
         self.current = then_block
         then_value = self._lower_expr(node.then_expr)
+        then_value = self._consume_temporary(then_value, node.then_expr.type)
         self._push(AssignStatement(Place(result), UseRValue(then_value), span))
         self._goto_if_open(join, span)
         self.current = else_block
         else_value = self._lower_expr(node.else_expr)
+        else_value = self._consume_temporary(else_value, node.else_expr.type)
         self._push(AssignStatement(Place(result), UseRValue(else_value), span))
         self._goto_if_open(join, span)
         self.current = join
@@ -828,20 +1023,29 @@ class _FunctionLowerer:
     def _lower_null_coalesce(self, node: IRNullCoalesce) -> Operand:
         span = _span(node.span)
         left = self._materialize(self._lower_expr(node.left), node.left.type, _span(node.left.span))
+        left_drop = self._owned_temporary_local(left, node.left.type)
         result = self._new_temporary(node.type, span)
         fallback_block = self.builder.new_block()
         present_block = self.builder.new_block()
         join = self.builder.new_block()
         self._terminate(SwitchValueTerminator(left, ((None, fallback_block),), present_block, span))
         self.current = present_block
+        present_value: Operand = (
+            MoveOperand(left.place)
+            if left_drop is not None and isinstance(left, CopyOperand)
+            else left
+        )
         self._push(AssignStatement(
             Place(result),
-            CastRValue("optional-unwrap", left, from_hir_type(node.type)),
+            CastRValue("optional-unwrap", present_value, from_hir_type(node.type)),
             span,
         ))
         self._terminate(GotoTerminator(join, span))
         self.current = fallback_block
+        if left_drop is not None:
+            self._push(DeinitStatement(Place(left_drop), span))
         fallback = self._lower_expr(node.right)
+        fallback = self._consume_temporary(fallback, node.right.type)
         self._push(AssignStatement(Place(result), UseRValue(fallback), span))
         self._goto_if_open(join, span)
         self.current = join
@@ -850,6 +1054,9 @@ class _FunctionLowerer:
     def _lower_match_expression(self, node: IRMatchExpression) -> Operand:
         span = _span(node.span)
         subject = self._materialize(self._lower_expr(node.subject), node.subject.type, _span(node.subject.span))
+        subject_drop = self._owned_temporary_local(subject, node.subject.type)
+        if subject_drop is not None:
+            self.drop_spans[subject_drop] = span
         result = self._new_temporary(node.type, span)
         join = self.builder.new_block()
         wildcard = None
@@ -857,25 +1064,49 @@ class _FunctionLowerer:
             if case.pattern is None:
                 wildcard = case.value
                 continue
-            pattern = self._lower_expr(case.pattern)
+            pattern = self._lower_expr_with_temporary_cleanup(
+                case.pattern,
+                () if subject_drop is None else (subject_drop,),
+            )
+            comparison_pattern = (
+                self._coerce(pattern, case.pattern.type, node.subject.type, _span(case.pattern.span))
+                if case.pattern.type.is_numeric and node.subject.type.is_numeric
+                and case.pattern.type != node.subject.type
+                else pattern
+            )
             condition = self._new_temporary(BOOL, _span(case.pattern.span))
             self._push(AssignStatement(
                 Place(condition),
-                BinaryRValue("==", subject, pattern, from_hir_type(BOOL)),
+                BinaryRValue("==", subject, comparison_pattern, from_hir_type(BOOL)),
                 _span(case.pattern.span),
             ))
+            self._discard_temporary(
+                pattern, case.pattern.type, _span(case.pattern.span)
+            )
             value_block = self.builder.new_block()
             next_block = self.builder.new_block()
             self._terminate(SwitchIntTerminator(CopyOperand(Place(condition)), ((1, value_block),), next_block, span))
             self.current = value_block
-            value = self._lower_expr(case.value)
+            value = self._lower_expr_with_temporary_cleanup(
+                case.value,
+                () if subject_drop is None else (subject_drop,),
+            )
+            value = self._consume_temporary(value, case.value.type)
             self._push(AssignStatement(Place(result), UseRValue(value), span))
+            if subject_drop is not None:
+                self._push(DeinitStatement(Place(subject_drop), span))
             self._goto_if_open(join, span)
             self.current = next_block
         if wildcard is None:
             raise MIRLoweringError("MIR match expression requires a wildcard arm", span)
-        value = self._lower_expr(wildcard)
+        value = self._lower_expr_with_temporary_cleanup(
+            wildcard,
+            () if subject_drop is None else (subject_drop,),
+        )
+        value = self._consume_temporary(value, wildcard.type)
         self._push(AssignStatement(Place(result), UseRValue(value), span))
+        if subject_drop is not None:
+            self._push(DeinitStatement(Place(subject_drop), span))
         self._goto_if_open(join, span)
         self.current = join
         return CopyOperand(Place(result))
@@ -883,6 +1114,7 @@ class _FunctionLowerer:
     def _lower_result_propagate(self, node: IRResultPropagate) -> Operand:
         span = _span(node.span)
         result_value = self._materialize(self._lower_expr(node.expr), node.expr.type, _span(node.expr.span))
+        result_drop = self._owned_temporary_local(result_value, node.expr.type)
         payload = self._new_temporary(node.type, span)
         tag = self._new_temporary(STRING, span)
         self._push(AssignStatement(
@@ -900,9 +1132,18 @@ class _FunctionLowerer:
             PayloadRValue(result_value, 0, from_hir_type(node.type)),
             span,
         ))
+        self._push(DeinitStatement(Place(tag), span))
+        if result_drop is not None:
+            self._push(DeinitStatement(Place(result_drop), span))
         self._terminate(GotoTerminator(join, span))
         self.current = error_block
-        self._push(AssignStatement(Place(0), UseRValue(result_value), span))
+        self._push(DeinitStatement(Place(tag), span))
+        propagated: Operand = (
+            MoveOperand(result_value.place)
+            if result_drop is not None and isinstance(result_value, CopyOperand)
+            else result_value
+        )
+        self._push(AssignStatement(Place(0), UseRValue(propagated), span))
         self._emit_cleanups(0)
         self._terminate(ReturnTerminator(span))
         self.current = join
@@ -957,16 +1198,21 @@ class _FunctionLowerer:
         value = self._materialize(self._lower_expr(node), node.type, _span(node.span))
         if not isinstance(value, CopyOperand):
             raise MIRLoweringError("Projected value could not be materialized", _span(node.span))
+        temporary = self._owned_temporary_local(value, node.type)
+        if temporary is not None:
+            self._register_drop(temporary, node.type, _span(node.span))
         return value.place
 
     def _new_temporary(self, value_type, span: MIRSpan) -> int:
         self.temporary_counter += 1
-        return self.builder.new_local(
+        local = self.builder.new_local(
             f"_tmp{self.temporary_counter}",
             from_hir_type(value_type),
             "temporary",
             span,
         )
+        self.temporary_locals.add(local)
+        return local
 
     def _materialize(self, operand: Operand, value_type, span: MIRSpan) -> Operand:
         if isinstance(operand, CopyOperand):
@@ -983,20 +1229,168 @@ class _FunctionLowerer:
         local = self._new_temporary(target_type, span)
         self._push(AssignStatement(
             Place(local),
-            CastRValue("implicit", operand, from_hir_type(target_type)),
+            CastRValue(
+                "implicit",
+                self._consume_temporary(operand, source_type),
+                from_hir_type(target_type),
+            ),
             span,
         ))
         return CopyOperand(Place(local))
+
+    def _consume_temporary(self, operand: Operand, value_type: IRType) -> Operand:
+        if self._owned_temporary_local(operand, value_type) is not None:
+            assert isinstance(operand, CopyOperand)
+            return MoveOperand(operand.place)
+        return operand
+
+    def _lower_ordered_operands(self, expressions: tuple[IRExpr, ...]) -> tuple[Operand, ...]:
+        """Keep earlier owned values live until all later operands are ready."""
+        operands: list[Operand] = []
+        pending_drops: list[int] = []
+        frame = self.drop_scopes[-1] if self.drop_scopes else None
+        try:
+            for expression in expressions:
+                value = self._lower_expr(expression)
+                temporary = self._owned_temporary_local(value, expression.type)
+                if temporary is not None and frame is not None:
+                    self._register_drop(temporary, expression.type, _span(expression.span))
+                    pending_drops.append(temporary)
+                operands.append(self._consume_temporary(value, expression.type))
+        finally:
+            if frame is not None:
+                for temporary in pending_drops:
+                    frame.remove(temporary)
+        return tuple(operands)
+
+    def _owned_temporary_local(
+        self, operand: Operand, value_type: IRType
+    ) -> int | None:
+        if (
+            isinstance(operand, CopyOperand)
+            and not operand.place.projections
+            and operand.place.local in self.temporary_locals
+            and self._type_needs_drop(value_type)
+        ):
+            return operand.place.local
+        return None
+
+    def _discard_temporary(
+        self, operand: Operand, value_type: IRType, span: MIRSpan
+    ) -> None:
+        local = self._owned_temporary_local(operand, value_type)
+        if local is not None:
+            self._push(DeinitStatement(Place(local), span))
+
+    def _lower_expr_with_temporary_cleanup(
+        self, expression: IRExpr, locals_: tuple[int, ...]
+    ) -> Operand:
+        if not locals_ or not self.drop_scopes:
+            return self._lower_expr(expression)
+        frame = self.drop_scopes[-1]
+        added = [local for local in locals_ if local not in frame]
+        frame.extend(added)
+        try:
+            return self._lower_expr(expression)
+        finally:
+            for local in added:
+                frame.remove(local)
 
     def _emit_defer_frame(self, frame: list[IRExpr]) -> None:
         for expression in reversed(frame):
             if self.current is None:
                 return
-            self._lower_expr(expression)
+            value = self._lower_expr(expression)
+            self._discard_temporary(value, expression.type, _span(expression.span))
+
+    def _emit_cleanup_frame(self, index: int) -> None:
+        if index not in self.active_cleanup_frames:
+            self.active_cleanup_frames.add(index)
+            try:
+                self._emit_defer_frame(self.defer_scopes[index])
+            finally:
+                self.active_cleanup_frames.remove(index)
+        if self.current is None:
+            return
+        for local in reversed(self.drop_scopes[index]):
+            self._push(DeinitStatement(
+                Place(local), self.drop_spans.get(local, self.span)
+            ))
 
     def _emit_cleanups(self, keep_depth: int) -> None:
-        for frame in reversed(self.defer_scopes[keep_depth:]):
-            self._emit_defer_frame(frame)
+        for index in range(len(self.defer_scopes) - 1, keep_depth - 1, -1):
+            self._emit_cleanup_frame(index)
+
+    def _build_unwind_cleanup_edge(
+        self, span: MIRSpan, *, can_unwind: bool
+    ) -> tuple[int, Place] | None:
+        if not can_unwind:
+            return None
+        if self.exception_targets:
+            catch_target, error_destination, keep_depth = self.exception_targets[-1]
+        else:
+            if not any(self.defer_scopes) and not any(self.drop_scopes):
+                return None
+            error_local = self._new_temporary(STRING, span)
+            catch_target = -1
+            error_destination = Place(error_local)
+            keep_depth = 0
+        source_block = self.current
+        cleanup_block = self.builder.new_block()
+        self.current = cleanup_block
+        active_target = self.exception_targets.pop() if self.exception_targets else None
+        try:
+            self._emit_cleanups(keep_depth)
+            if catch_target >= 0:
+                self._goto_if_open(catch_target, span)
+            elif self.current is not None:
+                self._terminate(ThrowTerminator(
+                    MoveOperand(error_destination), None, None, span
+                ))
+        finally:
+            if active_target is not None:
+                self.exception_targets.append(active_target)
+            self.current = source_block
+        return cleanup_block, error_destination
+
+    def _register_drop(self, local: int, value_type: IRType, span: MIRSpan) -> None:
+        if not self.drop_scopes or not self._type_needs_drop(value_type):
+            return
+        self.drop_scopes[-1].append(local)
+        self.drop_spans[local] = span
+
+    def _type_needs_drop(
+        self, value_type: IRType, stack: tuple[str, ...] = ()
+    ) -> bool:
+        if value_type.pointer or value_type.is_function:
+            return False
+        if value_type.name in {"string", "Array", "Task"}:
+            return True
+        if value_type.name in {"Option", "Result"} or value_type.optional:
+            return any(
+                self._type_needs_drop(argument, stack)
+                for argument in value_type.arguments
+            ) or value_type.name == "string"
+        if value_type.name in stack:
+            return False
+        struct = self.structs_by_name.get(value_type.name)
+        if struct is not None:
+            return any(
+                self._type_needs_drop(
+                    field.type, stack + (value_type.name,)
+                )
+                for field in struct.fields
+            )
+        enum = self.enums_by_name.get(value_type.name)
+        if enum is not None:
+            return any(
+                self._type_needs_drop(
+                    payload_type, stack + (value_type.name,)
+                )
+                for member in enum.members
+                for payload_type in member.payload_types
+            )
+        return False
 
     def _push(self, statement) -> None:
         if self.current is None:
@@ -1057,9 +1451,21 @@ def lower_hir_to_mir(hir: IRModule) -> MIRModule:
         for item in hir.items
         if isinstance(item, (IRStruct, IREnum))
     )
+    hir_functions = tuple(hir.functions)
+    throwing_functions = _throwing_function_symbols(hir_functions)
+    async_functions = frozenset(
+        function.symbol for function in hir_functions if function.is_async
+    )
     functions = [
-        _FunctionLowerer(function, structs, enums, variants).lower()
-        for function in hir.functions
+        _FunctionLowerer(
+            function,
+            structs,
+            enums,
+            variants,
+            throwing_functions,
+            async_functions,
+        ).lower()
+        for function in hir_functions
     ]
     if hir.top_level_statements:
         synthetic = IRFunction(
@@ -1070,13 +1476,18 @@ def lower_hir_to_mir(hir: IRModule) -> MIRModule:
             return_type=VOID,
             body=hir.top_level_statements,
         )
-        functions.append(_FunctionLowerer(synthetic, structs, enums, variants).lower())
+        functions.append(_FunctionLowerer(
+            synthetic,
+            structs,
+            enums,
+            variants,
+            throwing_functions,
+            async_functions,
+        ).lower())
     module = elaborate_coroutines(MIRModule(
         hir.source_name,
         hir.target,
         tuple(functions),
         type_definitions,
     ))
-    module = infer_module_effects(module)
-    verify_mir(module)
-    return module
+    return _verify_and_infer_mir(module)

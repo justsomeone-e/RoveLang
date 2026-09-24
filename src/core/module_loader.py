@@ -25,7 +25,7 @@ from src.core.backend_capabilities import (
     resolve_backend,
     stdlib_module_from_import,
 )
-from src.toolchain.manifest import NyxLock
+from src.toolchain.manifest import RoveLock
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,10 +74,17 @@ class ModuleLoader:
     def _load_package_roots(self) -> Dict[str, str]:
         current = os.path.realpath(self.base_dir)
         while True:
-            lock_path = os.path.join(current, "nyx.lock")
-            if os.path.isfile(lock_path):
+            lock_path = next(
+                (
+                    os.path.join(current, name)
+                    for name in ("rove.lock", "nyx.lock")
+                    if os.path.isfile(os.path.join(current, name))
+                ),
+                None,
+            )
+            if lock_path:
                 roots: Dict[str, str] = {}
-                for name, item in NyxLock.read_local_dependencies(lock_path).items():
+                for name, item in RoveLock.read_local_dependencies(lock_path).items():
                     path = item.get("path")
                     if path:
                         roots[name] = os.path.realpath(os.path.join(current, path))
@@ -94,7 +101,7 @@ class ModuleLoader:
         # 1. Standard / Native Library: std/math, native/gpio, std/os
         if any(import_path.startswith(p) for p in ("std/", "std::", "native/", "native::")):
             submodule = import_path.replace("std::", "").replace("std/", "").replace("native::", "").replace("native/", "")
-            for ext in (".nyx", ""):
+            for ext in (".rove", ".nyx", ""):
                 base = submodule if submodule.endswith(ext) else submodule + ext
                 cand = os.path.join(self.stdlib_dir, base)
                 if cand not in searched: searched.append(cand)
@@ -115,7 +122,16 @@ class ModuleLoader:
             else:
                 bases.extend((os.path.join(package_source, "lib"), os.path.join(package_source, "main")))
             for base in bases:
-                candidates = [base] if base.endswith(".nyx") else [base + ".nyx", os.path.join(base, "index.nyx")]
+                candidates = (
+                    [base]
+                    if base.endswith((".rove", ".nyx"))
+                    else [
+                        base + ".rove",
+                        os.path.join(base, "index.rove"),
+                        base + ".nyx",
+                        os.path.join(base, "index.nyx"),
+                    ]
+                )
                 for candidate in candidates:
                     if candidate not in searched:
                         searched.append(candidate)
@@ -123,15 +139,15 @@ class ModuleLoader:
                         return candidate, searched
             return None, searched
 
-        # 3. Local relative import: ./utils, ../math, helper.nyx
+        # 3. Local relative import: ./utils, ../math, helper.rove
         curr_dir = os.path.dirname(os.path.abspath(current_file)) if current_file and current_file != "<memory>" else self.base_dir
         cand1 = os.path.normpath(os.path.join(curr_dir, import_path))
-        for ext in (".nyx", ""):
+        for ext in (".rove", ".nyx", ""):
             cand_f = cand1 if cand1.endswith(ext) else cand1 + ext
             if cand_f not in searched: searched.append(cand_f)
             if os.path.exists(cand_f):
                 return cand_f, searched
-        for idx in ("index.nyx",):
+        for idx in ("index.rove", "index.nyx"):
             cand_idx = os.path.join(cand1, idx)
             if cand_idx not in searched: searched.append(cand_idx)
             if os.path.exists(cand_idx):
@@ -165,7 +181,7 @@ class ModuleLoader:
                 root_filepath, source, 1, 1,
                 "E1401", f"Unknown Compilation Target: '{self.target_name}'",
                 length=max(1, len(self.target_name)),
-                help_msg="Run 'nyx targets' to inspect canonical target names and aliases."
+                help_msg="Run 'rove targets' to inspect canonical target names and aliases."
             )
         root_ast.target = self.target_name
         root_module_ast = ProgramNode(root_ast.target, list(root_ast.statements))
@@ -226,7 +242,7 @@ class ModuleLoader:
                     parent_file, parent_source, imp.line, imp.col,
                     "E1411", f"Foreign Import Unsupported on Target: '{imp.ecosystem}'",
                     note=f"'{imp.ecosystem}' imports support: {', '.join(sorted(supported))}.",
-                    help_msg="Compile for the matching backend or provide a portable Nyx adapter.",
+                    help_msg="Compile for the matching backend or provide a portable Rove adapter.",
                 )
                 return
             if imp.ecosystem == "cpp" and not imp.source:
@@ -245,7 +261,10 @@ class ModuleLoader:
                     parent_file, parent_source, imp.line, imp.col,
                     "E1420", "Invalid Foreign Binding Manifest",
                     note=str(error),
-                    help_msg="Fix or remove nyx.bindings.json before compiling the project.",
+                    help_msg=(
+                        "Fix or remove rove.bindings.json before compiling the project "
+                        "(legacy nyx.bindings.json is also recognized)."
+                    ),
                 )
                 return
             self.collected_declarations.append(imp)
@@ -394,10 +413,10 @@ class ModuleLoader:
             except ValueError:
                 continue
             relative = os.path.relpath(resolved, root).replace("\\", "/")
-            if relative.endswith(".nyx"):
-                relative = relative[:-4]
+            relative = relative.removesuffix(".rove").removesuffix(".nyx")
             return ModuleId(package, relative)
-        return ModuleId("external", os.path.basename(resolved).removesuffix(".nyx"))
+        name = os.path.basename(resolved).removesuffix(".rove").removesuffix(".nyx")
+        return ModuleId("external", name)
 
     def _register_module(self, filepath: str, source: str, program: ProgramNode) -> None:
         if not self.track_identities:

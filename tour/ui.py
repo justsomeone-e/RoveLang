@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Tour of Nyx - Modern Terminal UI Engine
+Tour of Rove - Modern Terminal UI Engine
 Provides high-fidelity ANSI truecolor formatting, unicode borders,
 progress gauges, and elegant diagnostics cards.
 """
@@ -66,15 +66,15 @@ def bg_rgb(r: int, g: int, b: int) -> str:
     return f"\033[48;2;{r};{g};{b}m"
 
 
-# Nyx Brand Palette
-COLOR_NYX_PURPLE = rgb(155, 89, 182)
-COLOR_NYX_VIOLET = rgb(186, 85, 211)
-COLOR_NYX_CYAN   = rgb(0, 220, 255)
-COLOR_NYX_GOLD   = rgb(255, 204, 0)
-COLOR_NYX_GREEN  = rgb(46, 204, 113)
-COLOR_NYX_RED    = rgb(231, 76, 60)
-COLOR_NYX_GRAY   = rgb(127, 140, 141)
-COLOR_NYX_MUTED  = rgb(90, 105, 120)
+# Rove Brand Palette
+COLOR_ROVE_PURPLE = rgb(155, 89, 182)
+COLOR_ROVE_VIOLET = rgb(186, 85, 211)
+COLOR_ROVE_CYAN   = rgb(0, 220, 255)
+COLOR_ROVE_GOLD   = rgb(255, 204, 0)
+COLOR_ROVE_GREEN  = rgb(46, 204, 113)
+COLOR_ROVE_RED    = rgb(231, 76, 60)
+COLOR_ROVE_GRAY   = rgb(127, 140, 141)
+COLOR_ROVE_MUTED  = rgb(90, 105, 120)
 
 
 def get_terminal_width() -> int:
@@ -104,7 +104,7 @@ def gradient_text(text: str, start_rgb=(170, 75, 255), end_rgb=(0, 220, 255)) ->
 
 
 def render_banner() -> str:
-    """Generate the glowing ASCII gradient banner for Tour of Nyx."""
+    """Generate the glowing ASCII gradient banner for Tour of Rove."""
     raw_lines = [
         r"  ████████╗ ██████╗ ██╗   ██╗██████╗      ██████╗ ███████╗    ███╗   ██╗██╗   ██╗██╗  ██╗",
         r"  ╚══██╔══╝██╔═══██╗██║   ██║██╔══██╗    ██╔═══██╗██╔════╝    ████╗  ██║╚██╗ ██╔╝╚██╗██╔╝",
@@ -123,11 +123,11 @@ def render_banner() -> str:
         b = int(211 + (255 - 211) * ratio)
         formatted.append(f"{rgb(r, g, b)}{line}{RESET}")
 
-    subtitle = "      ✦  Interactive Guided Tour of the Nyx Programming Language  ✦      "
+    subtitle = "      ✦  Interactive Guided Tour of the Rove Programming Language  ✦      "
     bar = "―" * (len(subtitle) - 4)
-    formatted.append(f"{DIM}{COLOR_NYX_MUTED}    {bar}{RESET}")
+    formatted.append(f"{DIM}{COLOR_ROVE_MUTED}    {bar}{RESET}")
     formatted.append(f"{BOLD}{gradient_text(subtitle, (220, 100, 255), (0, 230, 230))}{RESET}")
-    formatted.append(f"{DIM}{COLOR_NYX_MUTED}    {bar}{RESET}")
+    formatted.append(f"{DIM}{COLOR_ROVE_MUTED}    {bar}{RESET}")
     return "\n".join(formatted)
 
 
@@ -137,13 +137,13 @@ def render_progress(completed: int, total: int, width: int = 30) -> str:
     filled = int(width * completed / total) if total > 0 else 0
     empty = width - filled
 
-    bar = f"{COLOR_NYX_CYAN}{'▰' * filled}{DIM}{COLOR_NYX_MUTED}{'▱' * empty}{RESET}"
-    percent_str = f"{BOLD}{COLOR_NYX_GOLD}{pct:5.1f}%{RESET}"
+    bar = f"{COLOR_ROVE_CYAN}{'▰' * filled}{DIM}{COLOR_ROVE_MUTED}{'▱' * empty}{RESET}"
+    percent_str = f"{BOLD}{COLOR_ROVE_GOLD}{pct:5.1f}%{RESET}"
     count_str = f"{DIM}({completed}/{total} Completed){RESET}"
     return f"{bar} {percent_str} {count_str}"
 
 
-def box(title: str, content: str, color_seq: str = COLOR_NYX_CYAN, min_width: int = 76) -> str:
+def box(title: str, content: str, color_seq: str = COLOR_ROVE_CYAN, min_width: int = 76) -> str:
     """Render a modern rounded border card with title and multiline content."""
     width = max(min_width, get_terminal_width())
     lines = content.splitlines()
@@ -168,7 +168,7 @@ def format_error_card(exercise_path: str, raw_error: str) -> str:
     """Format compiler error diagnostics into an attractive boxed error panel."""
     lines = []
     lines.append(f"{BOLD}{BRIGHT_RED}COMPILATION / VERIFICATION FAILED{RESET}")
-    lines.append(f"{DIM}File: {COLOR_NYX_CYAN}{exercise_path}{RESET}")
+    lines.append(f"{DIM}File: {COLOR_ROVE_CYAN}{exercise_path}{RESET}")
     lines.append("")
 
     # Clean and indent error lines
@@ -177,12 +177,12 @@ def format_error_card(exercise_path: str, raw_error: str) -> str:
         lines.append(f"  {RED}(No compiler diagnostic message returned){RESET}")
     else:
         for l in err_lines:
-            if "NYX_TYPE_ERROR:" in l or "NYX_PARSER_ERROR:" in l or "NYX_HIR_ERROR:" in l:
+            if "ROVE_TYPE_ERROR:" in l or "ROVE_PARSER_ERROR:" in l or "ROVE_HIR_ERROR:" in l:
                 lines.append(f"  {BOLD}{BRIGHT_RED}► {l}{RESET}")
             elif "AssertionError:" in l or "FAILED" in l:
                 lines.append(f"  {BOLD}{BRIGHT_RED}✗ {l}{RESET}")
-            elif "line " in l or ".nyx:" in l:
-                lines.append(f"  {COLOR_NYX_GOLD}{l}{RESET}")
+            elif "line " in l or ".rove:" in l:
+                lines.append(f"  {COLOR_ROVE_GOLD}{l}{RESET}")
             elif l.startswith("-->") or l.startswith(" |"):
                 lines.append(f"  {DIM}{l}{RESET}")
             else:
@@ -196,15 +196,15 @@ def format_error_card(exercise_path: str, raw_error: str) -> str:
 def format_success_card(exercise_name: str, exercise_path: str, output: str) -> str:
     """Format a successful exercise completion panel."""
     lines = []
-    lines.append(f"{BOLD}{BRIGHT_GREEN}✨ EXERCISE SOLVED! {COLOR_NYX_CYAN}{exercise_name}{RESET}")
+    lines.append(f"{BOLD}{BRIGHT_GREEN}✨ EXERCISE SOLVED! {COLOR_ROVE_CYAN}{exercise_name}{RESET}")
     lines.append(f"{DIM}Source: {exercise_path}{RESET}")
     lines.append("")
     if output.strip():
-        lines.append(f"{BOLD}{COLOR_NYX_VIOLET}Output:{RESET}")
+        lines.append(f"{BOLD}{COLOR_ROVE_VIOLET}Output:{RESET}")
         for l in output.strip().splitlines():
-            lines.append(f"  {COLOR_NYX_GREEN}✔ {WHITE}{l}{RESET}")
+            lines.append(f"  {COLOR_ROVE_GREEN}✔ {WHITE}{l}{RESET}")
         lines.append("")
-    lines.append(f"{BOLD}{COLOR_NYX_GOLD}Great job!{RESET} Press {BOLD}{BRIGHT_CYAN}[n]{RESET} to continue to the next exercise,")
+    lines.append(f"{BOLD}{COLOR_ROVE_GOLD}Great job!{RESET} Press {BOLD}{BRIGHT_CYAN}[n]{RESET} to continue to the next exercise,")
     lines.append(f"or continue modifying {exercise_path} to experiment further.")
     return box("Success", "\n".join(lines), color_seq=BRIGHT_GREEN)
 
@@ -213,33 +213,33 @@ def format_info_card(topic: str, path: str, description: str, hint_level: int = 
                      lesson: dict = None) -> str:
     """Format the current exercise info banner."""
     lines = [
-        f"{BOLD}{WHITE}Topic:       {COLOR_NYX_VIOLET}{topic}{RESET}",
-        f"{BOLD}{WHITE}File:        {COLOR_NYX_CYAN}{path}{RESET}",
+        f"{BOLD}{WHITE}Topic:       {COLOR_ROVE_VIOLET}{topic}{RESET}",
+        f"{BOLD}{WHITE}File:        {COLOR_ROVE_CYAN}{path}{RESET}",
         f"{BOLD}{WHITE}Objective:   {description}{RESET}",
     ]
     if lesson:
         lines.extend([
             "",
-            f"{BOLD}{COLOR_NYX_GOLD}Why:        {RESET}{lesson['why']}",
-            f"{BOLD}{COLOR_NYX_CYAN}Learn:      {RESET}{lesson['learn']}",
-            f"{BOLD}{COLOR_NYX_GREEN}Task:       {RESET}{lesson['task']}",
+            f"{BOLD}{COLOR_ROVE_GOLD}Why:        {RESET}{lesson['why']}",
+            f"{BOLD}{COLOR_ROVE_CYAN}Learn:      {RESET}{lesson['learn']}",
+            f"{BOLD}{COLOR_ROVE_GREEN}Task:       {RESET}{lesson['task']}",
             f"{BOLD}{WHITE}Expected:   {RESET}{lesson['expected']}",
         ])
     if hint_level > 0:
         lines.append(f"{DIM}Hints viewed: {hint_level}{RESET}")
-    return box("Current Lesson", "\n".join(lines), color_seq=COLOR_NYX_PURPLE)
+    return box("Current Lesson", "\n".join(lines), color_seq=COLOR_ROVE_PURPLE)
 
 
 def format_hint_card(hint_text: str, hint_num: int, total_hints: int) -> str:
     """Format a hint display card."""
     lines = [
-        f"{BOLD}{COLOR_NYX_GOLD}💡 Hint ({hint_num}/{total_hints}):{RESET}",
+        f"{BOLD}{COLOR_ROVE_GOLD}💡 Hint ({hint_num}/{total_hints}):{RESET}",
         "",
         f"  {hint_text}",
         "",
         f"{DIM}(Press [h] again for more hints if available, or [s] for full solution){RESET}"
     ]
-    return box("Hint", "\n".join(lines), color_seq=COLOR_NYX_GOLD)
+    return box("Hint", "\n".join(lines), color_seq=COLOR_ROVE_GOLD)
 
 
 def format_controls() -> str:

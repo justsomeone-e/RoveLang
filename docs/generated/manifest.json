@@ -4,14 +4,14 @@
   "artifacts": [
     {
       "path": "generated/metrics/metrics.d.ts",
-      "sha256": "0d446f830e86bef7f8f6dcfb6599917654e8e6954290a97cd3800c67808a8800"
+      "sha256": "227417d27415d7b38954bdf8dcf659b2cccf1286b5646d3e5c4a482c6f447c82"
     },
     {
       "path": "generated/metrics/metrics.mjs",
-      "sha256": "6ec2f8d824c52c1e8c476e558227829849efdb971a646b56f98ea6c33a95efc3"
+      "sha256": "c663490d1bdeda1ab2bf671883bcbaa671639b2085d62127fa355f8c34bfe9be"
     },
     {
-      "path": "generated/metrics/metrics.nyx",
+      "path": "generated/metrics/metrics.rove",
       "sha256": "5e4a13ca3070e898565458d826d2b3db7243d3d72d4ef1d6191ca30c095742f9"
     },
     {
@@ -20,35 +20,35 @@
     },
     {
       "path": "generated/metrics/metrics.wat",
-      "sha256": "2ce3a4fa3395feaea3e477b29e35df0367ddb810ddff0666452f2cf4e17de700"
+      "sha256": "f94a068440b21b82f1a9e642a4bc3b245e6b02e5d295ccbf82ce6cba18cf2c22"
     },
     {
       "path": "generated/metrics/package.json",
-      "sha256": "a41370aa340a2607831af3de002fc6d6245e9f880914077be10f85e0516e6c40"
+      "sha256": "d5cf94aecafc061024986689759c83c5b08a74b7726282af1af7a27aae1dddcb"
     },
     {
       "path": "generated/pong/package.json",
-      "sha256": "ea47579118b1cfae6291cd3c0eea7cee83c14ab18bf595dd82c031163a4a39be"
+      "sha256": "bd4b226cff9105b466af059148b321a1d655d3d80a8fa337453da385ae32ffa3"
     },
     {
       "path": "generated/pong/pong.d.ts",
-      "sha256": "fa0c73df8f42b1e7b92bcfd23519409fd3a38f6b3afe3b2dbc4ce3f9c39c3666"
+      "sha256": "76307681dd887c155f8746c8da5ed2f96eadb5361699e0f8aad285ae450ee0b1"
     },
     {
       "path": "generated/pong/pong.mjs",
-      "sha256": "adbe1fd3d46a4be1d0ee96d1c0b51b0a49df49377836448c6f7ec6b66336b1a9"
+      "sha256": "eba01c54c264869b19ad065e665aba50a39e8bdc056ef6563701fc9a8e380adf"
     },
     {
-      "path": "generated/pong/pong.nyx",
-      "sha256": "00f26a7a6a423ccd257ad8b2a32b9300bf67e8e6d34631628e6d7d3ce4fda4fc"
+      "path": "generated/pong/pong.rove",
+      "sha256": "d9ced16f21739db6ad2268acf9f555e68fe8f2da85ce588be272dfb8b687f60c"
     },
     {
       "path": "generated/pong/pong.wasm",
-      "sha256": "ff249206fd24277b7769b9bdaba870ba943a111fcbe03bd2e78c0884454e235a"
+      "sha256": "4a3394f1896824de0a4c6345d4749522e289147573ff511707e36c90c1016e9d"
     },
     {
       "path": "generated/pong/pong.wat",
-      "sha256": "3365b067ce6ea61fb5bed97c1db7f82c1d22002d4130170ec642c5676d443017"
+      "sha256": "2d7571d991c7c674391c6f6bc279c5d51594e9552b55f8b09d3085b528f75ad5"
     }
   ]
 }
