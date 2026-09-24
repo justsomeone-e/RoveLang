@@ -453,6 +453,9 @@ Package it from `vscode-extension` with `npm ci` and `npm run package`, then
 install the resulting VSIX with VS Code. A Rove VSIX has not been published yet.
 
 Use VS Code's **Extensions: Install from VSIX...** command for the packaged file.
+The older Nyx extension does not register `.rove` files; install the Rove VSIX
+even if that extension is already present. Full language-server IntelliSense
+also needs the `rove` CLI from this checkout (or an explicit `rove.server.path`).
 
 The Windows and Unix installers also register the bundled extension
 automatically when VS Code, VS Code Insiders, or VSCodium is detected. Restart
