@@ -265,7 +265,7 @@ def run_llvm_scalar_suite() -> bool:
             assert rc != 0, f"Expected non-zero exit code for {name} Array index"
 
         # 9. The public CLI writes .ll and compiles that exact artifact to native code.
-        cli_source = os.path.join(temp_dir, "cli_llvm.nyx")
+        cli_source = os.path.join(temp_dir, "cli_llvm.rove")
         with open(cli_source, "w", encoding="utf-8") as handle:
             handle.write("fn main() { print(42) }\n")
         cli = subprocess.run(

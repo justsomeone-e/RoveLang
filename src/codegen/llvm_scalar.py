@@ -1,4 +1,4 @@
-"""Experimental LLVM IR native scalar emitter for Nyx HIR.
+"""Experimental LLVM IR native scalar emitter for Rove HIR.
 
 Consumes verified IRModule and emits standard LLVM IR text (.ll) for scalar primitives
 (int64, double, bool, void), scalar-field structs, signed 64-bit integer arithmetic
@@ -46,7 +46,7 @@ from src.ir.types import IRType
 
 _IDENTIFIER_CHARS = re.compile(r"[^0-9A-Za-z_]")
 
-_LLVM_PRELUDE = """; Nyx Direct LLVM IR Emitter (Experimental Native Scalar)
+_LLVM_PRELUDE = """; Rove Direct LLVM IR Emitter (Experimental Native Scalar)
 
 declare i32 @printf(ptr, ...)
 declare void @exit(i32)
@@ -246,7 +246,7 @@ class BasicBlock:
 
 
 class LLVMScalarEmitter:
-    """Direct LLVM IR text emitter from verified scalar and scalar-struct Nyx HIR."""
+    """Direct LLVM IR text emitter from verified scalar and scalar-struct Rove HIR."""
 
     def __init__(self, module: IRModule):
         self.module = module
@@ -295,14 +295,14 @@ class LLVMScalarEmitter:
         lines: List[str] = [_LLVM_PRELUDE]
 
         if structs:
-            lines.append("; Nyx Struct Types")
+            lines.append("; Rove Struct Types")
             for struct in structs:
                 fields = ", ".join(self._llvm_type(field.type) for field in struct.fields)
                 lines.append(f"{self._llvm_struct_type(struct.name)} = type {{ {fields} }}")
             lines.append("")
 
         if self.array_types:
-            lines.append("; Nyx Stack Array Descriptors")
+            lines.append("; Rove Stack Array Descriptors")
             for element_type in sorted(self.array_types):
                 lines.append(f"{self._llvm_array_type_name(element_type)} = type {{ i64, ptr }}")
             lines.append("")

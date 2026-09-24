@@ -37,7 +37,7 @@ def _rustc_metadata(source_path: str, output_path: str) -> subprocess.CompletedP
 def _run_corpus_contract(compiler: NyxCompiler) -> tuple[int, int]:
     paths = []
     for relative in ("tests/battery138", "tests/bughunt"):
-        paths.extend(sorted(Path(ROOT_DIR, relative).glob("*.nyx")))
+        paths.extend(sorted(Path(ROOT_DIR, relative).glob("*.rove")))
     assert len(paths) >= 162
 
     emitted = []
@@ -57,17 +57,17 @@ def _run_corpus_contract(compiler: NyxCompiler) -> tuple[int, int]:
         emitted.append((path.name, result.artifact.content))
 
     assert {name for name, _ in rejected} == {
-        "10_1_try_catch.nyx",
-        "unsafe_03_spawn_bg.nyx",
-        "unsafe_04_channel_create.nyx",
+        "10_1_try_catch.rove",
+        "unsafe_03_spawn_bg.rove",
+        "unsafe_04_channel_create.rove",
     }, [(name, result.diagnostics) for name, result in rejected]
     for rejected_name, rejected_result in rejected:
         assert rejected_result.diagnostics
         assert rejected_result.diagnostics[0].code == "E3001"
         expected_note = {
-            "10_1_try_catch.nyx": "exception semantics",
-            "unsafe_03_spawn_bg.nyx": "spawn semantics",
-            "unsafe_04_channel_create.nyx": "channel semantics",
+            "10_1_try_catch.rove": "exception semantics",
+            "unsafe_03_spawn_bg.rove": "spawn semantics",
+            "unsafe_04_channel_create.rove": "channel semantics",
         }[rejected_name]
         assert expected_note in rejected_result.diagnostics[0].note
 
@@ -97,7 +97,7 @@ def _run_corpus_contract(compiler: NyxCompiler) -> tuple[int, int]:
 
 
 def _compile_metadata(compiler: NyxCompiler, source: str, name: str) -> str:
-    result = compiler.compile_source(source, target="rust", filename=name + ".nyx")
+    result = compiler.compile_source(source, target="rust", filename=name + ".rove")
     assert result.success, result.diagnostics
     assert result.artifact is not None
     generated = result.artifact.content
@@ -206,12 +206,12 @@ fn main() {
     first = compiler.compile_source(
         "fn main() { print(\"deterministic\", 42) }",
         target="rust",
-        filename="deterministic.nyx",
+        filename="deterministic.rove",
     )
     second = compiler.compile_source(
         "fn main() { print(\"deterministic\", 42) }",
         target="rust",
-        filename="deterministic.nyx",
+        filename="deterministic.rove",
     )
     assert first.success and second.success
     assert first.artifact is not None and second.artifact is not None

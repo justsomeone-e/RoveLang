@@ -1,4 +1,4 @@
-"""Experimental C17 native scalar emitter for Nyx HIR.
+"""Experimental C17 native scalar emitter for Rove HIR.
 
 Consumes verified IRModule and emits standard C17 code for scalar primitives
 (int64_t, double, bool, void), wrapping signed 64-bit integer arithmetic,
@@ -50,7 +50,7 @@ _C17_RESERVED = frozenset({
 
 _IDENTIFIER_CHARS = re.compile(r"[^0-9A-Za-z_]")
 
-_C17_PRELUDE = """/* Nyx C17 Experimental Scalar Pilot Runtime */
+_C17_PRELUDE = """/* Rove C17 Experimental Scalar Pilot Runtime */
 #define _CRT_SECURE_NO_WARNINGS
 #include <stdint.h>
 #include <stdbool.h>
@@ -155,7 +155,7 @@ class C17EmissionError(ValueError):
 
 
 class C17ScalarEmitter:
-    """Emits clean C17 source from verified scalar Nyx HIR."""
+    """Emits clean C17 source from verified scalar Rove HIR."""
 
     def __init__(self, module: IRModule):
         self.module = module

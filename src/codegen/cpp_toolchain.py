@@ -12,7 +12,7 @@ class CppToolchain:
     NATIVE_COMPILER_REQUIREMENT = (
         "cpp native builds require a working C++20 compiler: Clang++, "
         "GCC/G++, or MSVC cl. Install one and expose it on PATH, or set "
-        "NYX_CXX to the compiler executable. Run 'nyx doctor' to verify it."
+        "ROVE_CXX to the compiler executable. Run 'rove doctor' to verify it."
     )
 
     @staticmethod
@@ -63,10 +63,10 @@ class CppToolchain:
     @classmethod
     def _disk_cache_path(cls) -> str:
         home = os.environ.get("USERPROFILE") or os.environ.get("HOME") or tempfile.gettempdir()
-        cache_dir = os.path.join(home, ".nyx")
+        cache_dir = os.path.join(home, ".rove")
         if os.path.exists(cache_dir):
             return os.path.join(cache_dir, "cxx_cache.txt")
-        return os.path.join(tempfile.gettempdir(), "nyx_cxx_cache.txt")
+        return os.path.join(tempfile.gettempdir(), "rove_cxx_cache.txt")
 
     @classmethod
     def find_compiler(cls) -> Optional[str]:
@@ -88,7 +88,7 @@ class CppToolchain:
 
         # Explicit configuration wins and is validated by the same compile/run
         # capability probe as auto-discovered compilers.
-        configured = os.environ.get("NYX_CXX", "").strip()
+        configured = (os.environ.get("ROVE_CXX") or os.environ.get("NYX_CXX") or "").strip()
         if configured:
             configured_path = shutil.which(configured)
             if not configured_path:
