@@ -10,7 +10,7 @@ _root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 if _root_dir not in sys.path:
     sys.path.insert(0, _root_dir)
 
-from src.api import NyxCompiler
+from src.api import RoveCompiler
 from src.core.backend_capabilities import BACKENDS
 from src.core.lexer import Lexer
 from src.core.tokens import TokenType, Token
@@ -494,7 +494,7 @@ class LanguageServer:
     def validate_document(self, uri: str, text: str):
         filepath = self.get_fs_path(uri)
         base_dir = os.path.dirname(os.path.abspath(filepath)) if filepath else os.getcwd()
-        result = NyxCompiler(base_dir).check_source(text, filename=filepath)
+        result = RoveCompiler(base_dir).check_source(text, filename=filepath)
         diagnostics = []
         if result.success and result.ast is not None:
             self.parsed_asts[uri] = result.ast
@@ -525,7 +525,7 @@ class LanguageServer:
                     },
                     "severity": 1,
                     "code": diagnostic.code,
-                    "source": "nyx",
+                    "source": "rove",
                     "message": message
                 })
 
@@ -571,7 +571,7 @@ class LanguageServer:
                 return {
                     "contents": {
                         "kind": "markdown",
-                        "value": f"```nyx\n{b['detail']}\n```\n\n{b['doc']}"
+                        "value": f"```rove\n{b['detail']}\n```\n\n{b['doc']}"
                     }
                 }
 
@@ -580,7 +580,7 @@ class LanguageServer:
             return {
                 "contents": {
                     "kind": "markdown",
-                    "value": f"```nyx\ntype {word}\n```\n\nNyx primitive/built-in type."
+                    "value": f"```rove\ntype {word}\n```\n\nRove primitive/built-in type."
                 }
             }
 
@@ -594,7 +594,7 @@ class LanguageServer:
                     return {
                         "contents": {
                             "kind": "markdown",
-                            "value": f"```nyx\nfn {s.name}({params_s}){ret_s}\n```"
+                            "value": f"```rove\nfn {s.name}({params_s}){ret_s}\n```"
                         }
                     }
                 elif isinstance(s, StructDefNode) and s.name == word:
@@ -602,7 +602,7 @@ class LanguageServer:
                     return {
                         "contents": {
                             "kind": "markdown",
-                            "value": f"```nyx\nstruct {s.name} {{ {fields_s} }}\n```"
+                            "value": f"```rove\nstruct {s.name} {{ {fields_s} }}\n```"
                         }
                     }
 
@@ -630,12 +630,12 @@ class LanguageServer:
 
         # 1. Keywords
         for kw in KEYWORDS:
-            items.append({"label": kw, "kind": 14, "detail": "Nyx stable keyword"})
+            items.append({"label": kw, "kind": 14, "detail": "Rove stable keyword"})
         for kw in EXPERIMENTAL_KEYWORDS:
             items.append({
                 "label": kw,
                 "kind": 14,
-                "detail": "Nyx experimental keyword",
+                "detail": "Rove experimental keyword",
                 "documentation": "Parsed by the frontend; cross-target semantics are not stable yet.",
             })
 
@@ -982,6 +982,8 @@ class LanguageServer:
 
 
 # Backwards compatibility for integrations that imported the original typo.
+RoveLanguageServer = LanguageServer
+NyxLanguageServer = LanguageServer
 NyxuageServer = LanguageServer
 
 

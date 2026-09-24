@@ -15,16 +15,16 @@ from src.codegen.cpp_toolchain import CppToolchain
 def _run_reported_example_regressions(native_compiler: str, temp_dir: str) -> None:
     """Exercise the Windows failures reported in GitHub issue #6."""
     environment = os.environ.copy()
-    environment["NYX_NO_PAUSE"] = "1"
+    environment["ROVE_NO_PAUSE"] = "1"
     suffix = ".exe" if os.name == "nt" else ""
     cases = (
         (
-            "07_foreign_cpp.nyx",
+            "07_foreign_cpp.rove",
             "foreign",
             ("C++ filesystem current path:", "Current directory name:"),
         ),
         (
-            "03_null_safety.nyx",
+            "03_null_safety.rove",
             "null_safety",
             (
                 "User Profile: Anonymous Guest",
@@ -34,7 +34,7 @@ def _run_reported_example_regressions(native_compiler: str, temp_dir: str) -> No
             ),
         ),
         (
-            "04_in_file_tests.nyx",
+            "04_in_file_tests.rove",
             "in_file_tests",
             (
                 '[PASS] add(10, 20) == 30',
@@ -59,7 +59,7 @@ def _run_reported_example_regressions(native_compiler: str, temp_dir: str) -> No
         )
         compiler_output = compiled.stdout + compiled.stderr
         assert compiled.returncode == 0, compiler_output
-        assert "NYX_BUILD_OK" in compiler_output, compiler_output
+        assert "ROVE_BUILD_OK" in compiler_output, compiler_output
         assert "warning:" not in compiler_output.lower(), compiler_output
 
         executed = subprocess.run(
@@ -80,7 +80,7 @@ def _run_reported_example_regressions(native_compiler: str, temp_dir: str) -> No
 
 def run_self_host_suite() -> bool:
     print("=" * 70)
-    print("NYX NATIVE STAGE-1 -> STAGE-2 SELF-HOST CONFORMANCE")
+    print("ROVE NATIVE STAGE-1 -> STAGE-2 SELF-HOST CONFORMANCE")
     print("=" * 70)
 
     verify = subprocess.run(
@@ -93,9 +93,9 @@ def run_self_host_suite() -> bool:
     )
     assert verify.returncode == 0, verify.stderr or verify.stdout
 
-    with tempfile.TemporaryDirectory(prefix="nyx_self_host_suite_") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="rove_self_host_suite_") as temp_dir:
         native_compiler = os.path.join(
-            temp_dir, "nyxc.exe" if os.name == "nt" else "nyxc"
+            temp_dir, "rovec.exe" if os.name == "nt" else "rovec"
         )
         native_build = subprocess.run(
             [sys.executable, CLI_PATH, "self-host", "build", "-o", native_compiler],
@@ -109,7 +109,7 @@ def run_self_host_suite() -> bool:
         assert native_build.returncode == 0, native_build.stderr or native_build.stdout
         _run_reported_example_regressions(native_compiler, temp_dir)
 
-        source_path = os.path.join(temp_dir, "sample.nyx")
+        source_path = os.path.join(temp_dir, "sample.rove")
         output_path = os.path.join(temp_dir, "sample.cpp")
         with open(source_path, "w", encoding="utf-8") as source:
             source.write(

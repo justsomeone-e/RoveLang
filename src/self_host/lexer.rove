@@ -1,5 +1,5 @@
-// nyx Self-Hosted Compiler - Phase 1: Lexer & Tokenizer
-// Written completely in nyx language itself
+// Rove Self-Hosted Compiler - Phase 1: Lexer & Tokenizer
+// Written completely in Rove language itself
 
 enum TokenType {
     TOKEN_EOF,

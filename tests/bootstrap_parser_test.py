@@ -222,17 +222,17 @@ def run_bootstrap_parser_test() -> bool:
     print("⚡ NYX PHASE 4.0.4 - 4.0.5 EXHAUSTIVE BOOTSTRAP PARSER PARITY HARNESS")
     print("=" * 70)
 
-    with open(os.path.join(_root_dir, "compiler", "parser.nyx"), "r", encoding="utf-8") as f:
+    with open(os.path.join(_root_dir, "compiler", "parser.rove"), "r", encoding="utf-8") as f:
         parser_content = f.read()
 
     # Strip top directives from parser_content
     parser_lines = [l for l in parser_content.split("\n") if not (l.startswith("#target") or l.startswith("#native"))]
     parser_body = "\n".join(parser_lines)
 
-    with open(os.path.join(_root_dir, "compiler", "lexer.nyx"), "r", encoding="utf-8") as f:
+    with open(os.path.join(_root_dir, "compiler", "lexer.rove"), "r", encoding="utf-8") as f:
         lexer_content = f.read()
 
-    # Reuse lexer support while keeping parser.nyx's canonical Token struct.
+    # Reuse lexer support while keeping parser.rove's canonical Token struct.
     lexer_support_start = lexer_content.index("// NYX_LEXER_SUPPORT_BEGIN:")
     lexer_impl_end = lexer_content.index("fn main()") if "fn main()" in lexer_content else len(lexer_content)
     lexer_code = lexer_content[lexer_support_start:lexer_impl_end].strip()
@@ -300,8 +300,8 @@ def run_bootstrap_parser_test() -> bool:
     expected = []
     native_sections = []
     for index, (name, src) in enumerate(test_cases):
-        py_tokens = PyLexer(src, f"{name}.nyx").tokenize()
-        py_ast = PyParser(py_tokens, src, f"{name}.nyx").parse()
+        py_tokens = PyLexer(src, f"{name}.rove").tokenize()
+        py_ast = PyParser(py_tokens, src, f"{name}.rove").parse()
         expected.append(py_ast_to_canonical(py_ast))
 
         escaped_src = (
@@ -331,8 +331,8 @@ def run_bootstrap_parser_test() -> bool:
         + "".join(native_sections)
         + "}\n\nmain()\n"
     )
-    tokens_ast = PyLexer(runner_code, "parser_parity_driver.nyx").tokenize()
-    ast = PyParser(tokens_ast, runner_code, "parser_parity_driver.nyx").parse()
+    tokens_ast = PyLexer(runner_code, "parser_parity_driver.rove").tokenize()
+    ast = PyParser(tokens_ast, runner_code, "parser_parity_driver.rove").parse()
     cpp_code = UniversalCodeGen(ast).gen_cpp()
 
     all_passed = True

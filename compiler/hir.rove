@@ -3,7 +3,7 @@
 #native include <vector>
 
 // Canonical typed HIR schema v1. The tagged HIRNode representation keeps the
-// Nyx implementation self-hostable while preserving the exact public JSON
+// Rove implementation self-hostable while preserving the exact public JSON
 // contract of src/ir/model.py.
 
 fn hir_json_control_escape(ch: string) -> string {

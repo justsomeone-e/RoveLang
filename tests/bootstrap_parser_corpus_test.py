@@ -26,12 +26,12 @@ def run_parser_validation_corpus() -> bool:
     print("=" * 70)
 
     # 1. Prepare native parser binary
-    with open(os.path.join(_root_dir, "compiler", "parser.nyx"), "r", encoding="utf-8") as f:
+    with open(os.path.join(_root_dir, "compiler", "parser.rove"), "r", encoding="utf-8") as f:
         parser_content = f.read()
     parser_lines = [l for l in parser_content.split("\n") if not (l.startswith("#target") or l.startswith("#native"))]
     parser_body = "\n".join(parser_lines)
 
-    with open(os.path.join(_root_dir, "compiler", "lexer.nyx"), "r", encoding="utf-8") as f:
+    with open(os.path.join(_root_dir, "compiler", "lexer.rove"), "r", encoding="utf-8") as f:
         lexer_content = f.read()
     lexer_support_start = lexer_content.index("// NYX_LEXER_SUPPORT_BEGIN:")
     lexer_impl_end = lexer_content.index("fn main()") if "fn main()" in lexer_content else len(lexer_content)
@@ -60,8 +60,8 @@ def run_parser_validation_corpus() -> bool:
         print(f"[*] Validating: {name} ...", end=" ")
 
         # Python Parser
-        py_tokens = PyLexer(src, f"{name}.nyx").tokenize()
-        py_ast = PyParser(py_tokens, src, f"{name}.nyx").parse()
+        py_tokens = PyLexer(src, f"{name}.rove").tokenize()
+        py_ast = PyParser(py_tokens, src, f"{name}.rove").parse()
         py_canon = py_ast_to_canonical(py_ast)
 
         # Native Parser
@@ -79,8 +79,8 @@ fn main() {{
 
 main()
 """
-        tokens_ast = PyLexer(runner_code, f"{name}_driver.nyx").tokenize()
-        ast = PyParser(tokens_ast, runner_code, f"{name}_driver.nyx").parse()
+        tokens_ast = PyLexer(runner_code, f"{name}_driver.rove").tokenize()
+        ast = PyParser(tokens_ast, runner_code, f"{name}_driver.rove").parse()
         cpp_code = UniversalCodeGen(ast).gen_cpp()
 
         temp_dir = tempfile.mkdtemp(prefix="nyx_corpus_")
@@ -124,9 +124,9 @@ main()
         # 1. Python Parser Rejection
         py_rejected = False
         try:
-            py_toks = PyLexer(src, f"{name}.nyx").tokenize()
+            py_toks = PyLexer(src, f"{name}.rove").tokenize()
             try:
-                PyParser(py_toks, src, f"{name}.nyx").parse()
+                PyParser(py_toks, src, f"{name}.rove").parse()
             except SystemExit:
                 py_rejected = True
         except:
@@ -151,8 +151,8 @@ fn main() {{
 
 main()
 """
-        tokens_ast = PyLexer(runner_code, f"{name}_reject_driver.nyx").tokenize()
-        ast = PyParser(tokens_ast, runner_code, f"{name}_reject_driver.nyx").parse()
+        tokens_ast = PyLexer(runner_code, f"{name}_reject_driver.rove").tokenize()
+        ast = PyParser(tokens_ast, runner_code, f"{name}_reject_driver.rove").parse()
         cpp_code = UniversalCodeGen(ast).gen_cpp()
 
         temp_dir = tempfile.mkdtemp(prefix="nyx_reject_")

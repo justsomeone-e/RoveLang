@@ -58,70 +58,82 @@ from src.version import VERSION
 
 def print_banner():
     print("===================================================================")
-    print(f"nyx core v{VERSION} — systems toolchain")
+    print(f"rove core v{VERSION} — systems toolchain")
     print("===================================================================")
 
 def print_help():
     print_banner()
-    print("""Usage: nyx <command> [arguments] [options]
+    print("""Usage: rove <command> [arguments] [options]
 
 Project & Development Commands:
-  nyx new <project_name>             Create a new nyx project in a directory
-  nyx init [name]                    Initialize a nyx.toml project in current directory
-  nyx check [file.nyx] [--target t]  Fast type-check and semantic validation
-  nyx build [file.nyx] [--target t]  Build or transpile (--esm for importable JS)
-  nyx bundle [file.nyx] [-o dir]     Bundle Web/WASM (--wasi; --package; framework adapters)
-  nyx self-host verify               Verify the native stage-1 -> stage-2 bootstrap
-  nyx self-host compile <file.nyx>   Emit C++ through the stage-1 compiler
-  nyx self-host build                Build the standalone native nyxc frontend
-  nyx targets [--json] [--mir]       Inspect backend, stdlib and MIR legality contracts
-  nyx emit mir <file.nyx> [--json]   Emit experimental verified MIR
+  rove new <project_name>             Create a new rove project in a directory
+  rove init [name]                    Initialize a rove.toml project in current directory
+  rove check [file.rove] [--target t]  Fast type-check and semantic validation
+  rove build [file.rove] [--target t]  Build or transpile (--esm for importable JS)
+  rove bundle [file.rove] [-o dir]     Bundle Web/WASM (--wasi; --package; framework adapters)
+  rove self-host verify               Verify the native stage-1 -> stage-2 bootstrap
+  rove self-host compile <file.rove>   Emit C++ through the stage-1 compiler
+  rove self-host build                Build the standalone native rovec frontend
+  rove targets [--json] [--mir]       Inspect backend, stdlib and MIR legality contracts
+  rove emit ast|hir <file.rove>         Emit checked frontend stages (--json; -o path)
+  rove emit mir <file.rove> [--json]   Emit experimental verified MIR
              [--codegen]             Emit target source through legalized MIR (C++/LLVM/Wasm/Rust/JS/Python/C17 pilots)
-  nyx verify mir <file.mir.json>     Verify serialized experimental MIR
-  nyx run [file.nyx] [--target t]    Compile and run project / file immediately
-  nyx repl                           Launch Interactive Polyglot REPL
-  nyx test [file.nyx | all]          Execute in-file unit tests or test framework
-  nyx tour [subcommand]              Launch interactive Tour of Nyx learning environment
-  nyx clean                          Remove build artifacts and temporary files
+  rove inspect ast|hir|mir <file.rove> Read a compiler stage without writing files
+  rove inspect module-graph <file.rove> Inspect retained imports and module identities
+  rove inspect layout <file.rove>      Inspect target ABI sizes, alignments and offsets
+  rove inspect types <file.rove>       Inspect checked declarations and signatures
+  rove inspect capabilities <file.rove> Inspect required and missing backend features
+  rove verify mir <file.mir.json>     Verify serialized experimental MIR
+  rove run [file.rove] [--target t]    Compile and run project / file immediately
+  rove repl                           Launch Interactive Polyglot REPL
+  rove test [file.rove | all]          Execute in-file unit tests or test framework
+  rove bench compiler [options]       Measure the fixed stage-0 compiler corpus
+  rove tour [subcommand]              Launch interactive Tour of Rove learning environment
+  rove clean                          Remove build artifacts and temporary files
 
 Toolchain & Quality:
-  nyx fmt <file.nyx>                 Auto-format and beautify source code
-  nyx lint <file.nyx>                Static analysis and unsafe boundary checks
-  nyx lsp                            Launch Language Server Protocol (LSP) daemon
-  nyx debug <file.nyx>               Interactive validated source-line inspector
-  nyx profile <file.nyx>             Measure real compile + run wall-clock time
-  nyx doc <file.nyx>                 Generate HTML API documentation from /// comments
+  rove fmt <file.rove>                 Auto-format and beautify source code
+  rove lint <file.rove>                Static analysis and unsafe boundary checks
+  rove lsp                            Launch Language Server Protocol (LSP) daemon
+  rove debug <file.rove>               Interactive validated source-line inspector
+  rove profile <file.rove>             Measure real compile + run wall-clock time
+  rove doc <file.rove>                 Generate HTML API documentation from /// comments
 
 Package Management:
-  nyx add <pkg> [@version] [--path]  Add a registry declaration or local dependency
-  nyx remove <pkg>                   Remove a dependency from nyx.toml and nyx.lock
-  nyx install                        Validate dependencies and regenerate nyx.lock
-  nyx pkg                            Inspect current project manifest and dependencies
+  rove add <pkg> [@version] [--path]  Add a registry declaration or local dependency
+  rove remove <pkg>                   Remove a dependency from rove.toml and rove.lock
+  rove install                        Validate dependencies and regenerate rove.lock
+  rove pkg                            Inspect current project manifest and dependencies
 
 System & Diagnostics:
-  nyx doctor                         Inspect compiler toolchains & environment health
-  nyx version                        Show compiler core and detected native toolchains
-  nyx help                           Display this help message
+  rove doctor                         Inspect compiler toolchains & environment health
+  rove explain <diagnostic>           Explain a stable diagnostic code
+  rove explain-backend <target>       Explain backend and MIR capability contracts
+  rove version                        Show compiler core and detected native toolchains
+  rove help                           Display this help message
 
 Target Backends (--target):
   cpp (C++20 Native) | c (C17 Experimental) | llvm (LLVM IR Experimental)
   python (Python) | js (Node.js) | rust (Rust 2021) | wasm (WebAssembly)
 ===================================================================""")
 
-def parse_nyx_toml():
-    """Read nyx.toml in the current directory when available."""
+def parse_rove_toml():
+    """Read rove.toml in the current directory when available."""
     config = {
-        "name": "nyx_app",
+        "name": "rove_app",
         "version": "0.1.0",
         "target": "cpp",
-        "entry": "src/main.nyx",
+        "entry": "src/main.rove",
         "output_type": "exe"
     }
-    manifest_path = "nyx.toml" if os.path.exists("nyx.toml") else None
+    manifest_path = next(
+        (path for path in ("rove.toml", "nyx.toml") if os.path.exists(path)),
+        None,
+    )
     if manifest_path:
         try:
-            from src.toolchain.manifest import NyxManifest
-            mf = NyxManifest(manifest_path)
+            from src.toolchain.manifest import RoveManifest
+            mf = RoveManifest(manifest_path)
             config["name"] = mf.package.get("name", config["name"])
             config["version"] = mf.package.get("version", config["version"])
             config["target"] = mf.package.get("target") or mf.build.get("target") or config["target"]
@@ -168,7 +180,7 @@ def get_target_from_args(default_target="cpp", entry_file=None, arguments=None):
 
     return normalize_backend_name(default_target)
 
-def get_entry_file(default_entry="src/main.nyx", arguments=None):
+def get_entry_file(default_entry="src/main.rove", arguments=None):
     args = list(sys.argv[2:] if arguments is None else arguments)
     value_options = {"--target", "-t", "--output", "-o"}
     positional = []
@@ -186,16 +198,20 @@ def get_entry_file(default_entry="src/main.nyx", arguments=None):
             continue
         positional.append(argument)
     for argument in positional:
-        if argument.lower().endswith(".nyx"):
+        if argument.lower().endswith((".rove", ".nyx")):
             return argument
     if os.path.exists(default_entry):
         return default_entry
-    if os.path.exists("src/lib.nyx"):
-        return "src/lib.nyx"
-    if os.path.exists("src/main.nyx"):
-        return "src/main.nyx"
-    if os.path.exists("main.nyx"):
-        return "main.nyx"
+    if os.path.exists("src/lib.rove"):
+        return "src/lib.rove"
+    if os.path.exists("src/main.rove"):
+        return "src/main.rove"
+    if os.path.exists("main.rove"):
+        return "main.rove"
+    # v5 projects remain valid during the Rove migration.
+    for legacy_entry in ("src/lib.nyx", "src/main.nyx", "main.nyx"):
+        if os.path.exists(legacy_entry):
+            return legacy_entry
     return None
 
 
@@ -223,7 +239,7 @@ def get_option_value(*names, default=None):
 
 
 class _CanonicalArtifactAdapter:
-    """Keep CLI output handling small while all semantics come from NyxCompiler."""
+    """Keep CLI output handling small while all semantics come from RoveCompiler."""
 
     def __init__(self, content: str, link_libraries: List[str]):
         self.content = content
@@ -256,10 +272,10 @@ def _compile_canonical_artifact(
     target: str,
     javascript_esm: bool = False,
 ) -> Optional[_CanonicalArtifactAdapter]:
-    from src.api import NyxCompiler
+    from src.api import RoveCompiler
     from src.ir import IRNativeDirective
 
-    result = NyxCompiler(os.path.dirname(os.path.abspath(entry_file))).compile_file(
+    result = RoveCompiler(os.path.dirname(os.path.abspath(entry_file))).compile_file(
         entry_file,
         target=target,
     )
@@ -302,8 +318,8 @@ def cmd_check(entry_file, target=None) -> int:
         print(f"\033[91m[!] Error: File not found '{entry_file}'\033[0m")
         return 1
     print(f"\033[96m[*] Checking semantics & types for:\033[0m {entry_file}")
-    from src.api import NyxCompiler
-    result = NyxCompiler(os.path.dirname(os.path.abspath(entry_file))).check_file(
+    from src.api import RoveCompiler
+    result = RoveCompiler(os.path.dirname(os.path.abspath(entry_file))).check_file(
         entry_file, target=target
     )
     if not result.success:
@@ -312,6 +328,61 @@ def cmd_check(entry_file, target=None) -> int:
         return 1
     print("\033[92m[OK] Check Passed: 0 syntax or semantic errors found.\033[0m")
     return 0
+
+
+def cmd_bench(arguments: list[str]) -> int:
+    usage = (
+        "Usage: rove bench compiler [--repetitions N] [--output report.json]\n"
+        "       rove bench compiler-invalidation [--repetitions N] "
+        "[--output report.json]"
+    )
+    if not arguments or any(item in {"-h", "--help"} for item in arguments):
+        print(usage)
+        print("Measures the Python stage-0 compiler only; it is not a native rovec benchmark.")
+        return 0
+    benchmark = arguments[0].lower()
+    if benchmark not in {"compiler", "compiler-invalidation"}:
+        print(f"[!] Unknown benchmark '{benchmark}'.")
+        print(usage)
+        return 1
+
+    forwarded = arguments[1:]
+    command = [sys.executable, "-m", "src.toolchain.compiler_benchmark"]
+    if benchmark == "compiler-invalidation":
+        command.append("--invalidation")
+        output_flag = "--invalidation-output"
+    else:
+        output_flag = "--output"
+    index = 0
+    while index < len(forwarded):
+        argument = forwarded[index]
+        if argument == "--repetitions":
+            if index + 1 >= len(forwarded):
+                print("[!] --repetitions requires an integer from 1 to 100.")
+                return 1
+            command.extend((argument, forwarded[index + 1]))
+            index += 2
+            continue
+        if argument.startswith("--repetitions="):
+            command.append(argument)
+            index += 1
+            continue
+        if argument in {"-o", "--output"}:
+            if index + 1 >= len(forwarded):
+                print("[!] --output requires a report path.")
+                return 1
+            command.extend((output_flag, forwarded[index + 1]))
+            index += 2
+            continue
+        if argument.startswith("--output="):
+            command.extend((output_flag, argument.split("=", 1)[1]))
+            index += 1
+            continue
+        print(f"[!] Unknown benchmark option '{argument}'.")
+        print(usage)
+        return 1
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return subprocess.run(command, cwd=repo_root).returncode
 
 def cmd_build(
     entry_file,
@@ -327,7 +398,7 @@ def cmd_build(
 
     backend = resolve_backend(target)
     if backend is None:
-        print(f"\033[91m[!] Unknown target '{target}'. Run 'nyx targets'.\033[0m")
+        print(f"\033[91m[!] Unknown target '{target}'. Run 'rove targets'.\033[0m")
         return 1
     target = backend.name
 
@@ -379,7 +450,7 @@ def cmd_build(
                 print(f"\033[92m[OK] Compiled Native Executable:\033[0m {out_exe}")
                 print(
                     "\033[96m[>] Run in a persistent terminal:\033[0m "
-                    f'nyx run "{entry_file}" --target cpp'
+                    f'rove run "{entry_file}" --target cpp'
                 )
                 print("\033[90m    (A console program exits normally as soon as main finishes.)\033[0m")
                 return 0
@@ -401,7 +472,7 @@ def cmd_build(
         ok, message = _compile_experimental_native(out_source, out_exe, target)
         if ok:
             print(f"\033[92m[OK] Compiled Experimental Native Binary:\033[0m {out_exe}")
-            print(f"\033[96m[>] Run:\033[0m nyx run \"{entry_file}\" --target {target}")
+            print(f"\033[96m[>] Run:\033[0m rove run \"{entry_file}\" --target {target}")
             return 0
         print(f"\033[93m[!] Native compilation failed; generated source was preserved:\033[0m {message}")
         return 1
@@ -422,7 +493,7 @@ def cmd_build(
                 print(f"\033[92m[OK] Compiled Native Binary:\033[0m {out_exe}")
                 print(
                     "\033[96m[>] Run in a persistent terminal:\033[0m "
-                    f'nyx run "{entry_file}" --target asm'
+                    f'rove run "{entry_file}" --target asm'
                 )
             if os.path.exists(temp_cpp):
                 try: os.remove(temp_cpp)
@@ -476,7 +547,7 @@ def cmd_run(entry_file, target) -> int:
 
     backend = resolve_backend(target)
     if backend is None:
-        print(f"\033[91m[!] Unknown target '{target}'. Run 'nyx targets'.\033[0m")
+        print(f"\033[91m[!] Unknown target '{target}'. Run 'rove targets'.\033[0m")
         return 1
     target = backend.name
 
@@ -711,7 +782,7 @@ def cmd_bundle(
         react_path = os.path.join(bundle_dir, f"{base_name}.react.tsx")
         with open(react_path, "w", encoding="utf-8", newline="\n") as f:
             f.write(react_code or "")
-        print(f"\033[92m  [+] React 19 useNyxModule: {react_path}\033[0m")
+        print(f"\033[92m  [+] React 19 useRoveModule: {react_path}\033[0m")
 
     if emit_package:
         package_path = os.path.join(bundle_dir, "package.json")
@@ -749,11 +820,11 @@ def cmd_self_host(args) -> int:
         action = args[0].lower() if args else "verify"
         if action == "verify":
             verify()
-            print("\033[92m[OK] Nyx native stage-1 -> stage-2 bootstrap verified.\033[0m")
+            print("\033[92m[OK] Rove native stage-1 -> stage-2 bootstrap verified.\033[0m")
             return 0
         if action == "compile":
             if len(args) < 2:
-                print("\033[91m[!] Usage: nyx self-host compile <file.nyx> [-o output.cpp]\033[0m")
+                print("\033[91m[!] Usage: rove self-host compile <file.rove> [-o output.cpp]\033[0m")
                 return 1
             source_path = args[1]
             output_path = None
@@ -771,10 +842,10 @@ def cmd_self_host(args) -> int:
                 if value in ("-o", "--output") and index + 1 < len(args):
                     output_path = args[index + 1]
             if not output_path:
-                executable_name = "nyxc.exe" if os.name == "nt" else "nyxc"
+                executable_name = "rovec.exe" if os.name == "nt" else "rovec"
                 output_path = os.path.join("build", "self_host", executable_name)
             build_native_compiler(output_path)
-            print(f"\033[92m[OK] Standalone native Nyx frontend built:\033[0m {output_path}")
+            print(f"\033[92m[OK] Standalone native Rove frontend built:\033[0m {output_path}")
             return 0
         print(f"\033[91m[!] Unknown self-host action '{action}'. Use verify, compile, or build.\033[0m")
         return 1
@@ -795,7 +866,7 @@ name = "{project_name}"
 version = "0.1.0"
 edition = "2026"
 target = "cpp"
-entry = "src/lib.nyx"
+entry = "src/lib.rove"
 
 [dependencies]
 # std = "2.0.0"
@@ -803,10 +874,10 @@ entry = "src/lib.nyx"
 [build]
 target = "cpp"
 output_type = "lib"
-entry = "src/lib.nyx"
+entry = "src/lib.rove"
 opt_level = 2
 """
-        with open(os.path.join(project_name, "nyx.toml"), "w", encoding="utf-8") as f:
+        with open(os.path.join(project_name, "rove.toml"), "w", encoding="utf-8") as f:
             f.write(manifest_content)
 
         gitignore_content = """build/
@@ -822,7 +893,7 @@ target/
         with open(os.path.join(project_name, ".gitignore"), "w", encoding="utf-8") as f:
             f.write(gitignore_content)
 
-        lib_nyx_content = f"""// nyx native library: {project_name}
+        lib_rove_content = f"""// rove native library: {project_name}
 #target cpp
 
 fn add(a: int, b: int) -> int {{
@@ -833,41 +904,41 @@ test "library add test" {{
     assert(add(10, 20) == 30, "add must sum correctly")
 }}
 """
-        with open(os.path.join(project_name, "src", "lib.nyx"), "w", encoding="utf-8") as f:
-            f.write(lib_nyx_content)
+        with open(os.path.join(project_name, "src", "lib.rove"), "w", encoding="utf-8") as f:
+            f.write(lib_rove_content)
 
-        example_nyx_content = f"""// Example usage of {project_name}
+        example_rove_content = f"""// Example usage of {project_name}
 #target cpp
-import "../src/lib.nyx"
+import "../src/lib.rove"
 
 var res = add(5, 7)
 print("Add result:", res)
 """
-        with open(os.path.join(project_name, "examples", "basic.nyx"), "w", encoding="utf-8") as f:
-            f.write(example_nyx_content)
+        with open(os.path.join(project_name, "examples", "basic.rove"), "w", encoding="utf-8") as f:
+            f.write(example_rove_content)
 
         readme_content = f"""# {project_name}
 
-Native library for nyx.
+Native library for rove.
 
 ## Building
 ```bash
-nyx build
+rove build
 ```
 
 ## Testing
 ```bash
-nyx test
+rove test
 ```
 """
         with open(os.path.join(project_name, "README.md"), "w", encoding="utf-8") as f:
             f.write(readme_content)
 
-        print(f"\033[92m[OK] Created nyx library project in ./{project_name}\033[0m")
-        print(f"     - Manifest:   ./{project_name}/nyx.toml (output_type = 'lib')")
-        print(f"     - Entrypoint: ./{project_name}/src/lib.nyx")
-        print(f"     - Example:    ./{project_name}/examples/basic.nyx")
-        print(f"\nTo get started:\n  cd {project_name}\n  nyx build\n")
+        print(f"\033[92m[OK] Created rove library project in ./{project_name}\033[0m")
+        print(f"     - Manifest:   ./{project_name}/rove.toml (output_type = 'lib')")
+        print(f"     - Entrypoint: ./{project_name}/src/lib.rove")
+        print(f"     - Example:    ./{project_name}/examples/basic.rove")
+        print(f"\nTo get started:\n  cd {project_name}\n  rove build\n")
         return 0
 
     manifest_content = f"""[package]
@@ -875,7 +946,7 @@ name = "{project_name}"
 version = "0.1.0"
 edition = "2026"
 target = "cpp"
-entry = "src/main.nyx"
+entry = "src/main.rove"
 
 [dependencies]
 # std = "2.0.0"
@@ -885,7 +956,7 @@ target = "cpp"
 output_type = "exe"
 opt_level = 2
 """
-    with open(os.path.join(project_name, "nyx.toml"), "w", encoding="utf-8") as f:
+    with open(os.path.join(project_name, "rove.toml"), "w", encoding="utf-8") as f:
         f.write(manifest_content)
         
     gitignore_content = """build/
@@ -898,21 +969,21 @@ target/
     with open(os.path.join(project_name, ".gitignore"), "w", encoding="utf-8") as f:
         f.write(gitignore_content)
         
-    main_nyx_content = f"""#target cpp
+    main_rove_content = f"""#target cpp
 
 fn greet(name: string) -> string {{
-    return "Hello, " + name + " from nyx!"
+    return "Hello, " + name + " from rove!"
 }}
 
 var message = greet("{project_name}")
 print(message)
 
 test "greeting test" {{
-    assert(greet("User") == "Hello, User from nyx!", "Greeting must match")
+    assert(greet("User") == "Hello, User from rove!", "Greeting must match")
 }}
 """
-    with open(os.path.join(project_name, "src", "main.nyx"), "w", encoding="utf-8") as f:
-        f.write(main_nyx_content)
+    with open(os.path.join(project_name, "src", "main.rove"), "w", encoding="utf-8") as f:
+        f.write(main_rove_content)
         
     vscode_dir = os.path.join(project_name, ".vscode")
     os.makedirs(vscode_dir, exist_ok=True)
@@ -920,9 +991,9 @@ test "greeting test" {{
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "nyx: Build Active File",
+      "label": "rove: Build Active File",
       "type": "shell",
-      "command": "nyx",
+      "command": "rove",
       "args": ["build", "${file}"],
       "group": {
         "kind": "build",
@@ -936,9 +1007,9 @@ test "greeting test" {{
       }
     },
     {
-      "label": "nyx: Run Active File",
+      "label": "rove: Run Active File",
       "type": "shell",
-      "command": "nyx",
+      "command": "rove",
       "args": ["run", "${file}"],
       "group": "build",
       "presentation": {
@@ -949,9 +1020,9 @@ test "greeting test" {{
       }
     },
     {
-      "label": "nyx: Run Full Test Suite",
+      "label": "rove: Run Full Test Suite",
       "type": "shell",
-      "command": "nyx",
+      "command": "rove",
       "args": ["test"],
       "group": {
         "kind": "test",
@@ -971,7 +1042,7 @@ test "greeting test" {{
         f.write(tasks_json_content)
 
     cpp_configuration = {
-        "name": "nyx",
+        "name": "rove",
         "includePath": ["${workspaceFolder}/**"],
         "defines": ["_DEBUG", "UNICODE", "_UNICODE"],
         "cStandard": "c17",
@@ -987,11 +1058,11 @@ test "greeting test" {{
     with open(os.path.join(vscode_dir, "c_cpp_properties.json"), "w", encoding="utf-8") as f:
         f.write(c_cpp_props)
 
-    print(f"\033[92m[OK] Created nyx project in ./{project_name}\033[0m")
-    print(f"     - Manifest:   ./{project_name}/nyx.toml")
-    print(f"     - Entrypoint: ./{project_name}/src/main.nyx")
+    print(f"\033[92m[OK] Created rove project in ./{project_name}\033[0m")
+    print(f"     - Manifest:   ./{project_name}/rove.toml")
+    print(f"     - Entrypoint: ./{project_name}/src/main.rove")
     print(f"     - VS Code:    ./{project_name}/.vscode/ (tasks.json & IntelliSense ready)")
-    print(f"\nTo get started:\n  cd {project_name}\n  nyx run\n")
+    print(f"\nTo get started:\n  cd {project_name}\n  rove run\n")
     return 0
 
 def cmd_clean():
@@ -1023,7 +1094,7 @@ def cmd_doctor():
     else:
         print(f"      • Status:    \033[93m[!] NOT FOUND (Transpile Mode Only)\033[0m")
         print("      • Requirement: cpp needs Clang++, GCC/G++, or MSVC cl (C++20).")
-        print("      • Configure:   Put the compiler on PATH or set NYX_CXX to its executable.")
+        print("      • Configure:   Put the compiler on PATH or set ROVE_CXX to its executable.")
         print(f"                     - Windows: winget install LLVM.LLVM")
         print(f"                     - Ubuntu/Debian: sudo apt install clang")
         print(f"                     - macOS: xcode-select --install (or brew install llvm)")
@@ -1078,7 +1149,7 @@ def cmd_targets(as_json: bool = False, mir: bool = False) -> int:
                 f"status={profile['migration_status']:<12} abi={profile['abi']}"
             )
         print("\n'pilot' means a target source emitter currently consumes legalized MIR.")
-        print("Use 'nyx targets --mir --json' for complete legal operation sets.")
+        print("Use 'rove targets --mir --json' for complete legal operation sets.")
         print("===================================================================")
         return 0
 
@@ -1097,14 +1168,15 @@ def cmd_targets(as_json: bool = False, mir: bool = False) -> int:
         print(f"\n  {backend.name:<11} {backend.display_name} [{backend.maturity}]")
         print(f"      family={backend.family} artifact={backend.artifact} aliases={aliases}")
         print(f"      stdlib={module_text}")
-    print("\nUse 'nyx targets --json' for the machine-readable contract.")
+    print("\nUse 'rove targets --json' for the machine-readable contract.")
     print("===================================================================")
     return 0
 
 
 def _mir_argument_path(arguments: list[str], suffix: str) -> Optional[str]:
+    suffixes = (suffix, ".nyx") if suffix == ".rove" else (suffix,)
     for argument in arguments[1:]:
-        if not argument.startswith("-") and argument.lower().endswith(suffix):
+        if not argument.startswith("-") and argument.lower().endswith(suffixes):
             return argument
     return None
 
@@ -1118,16 +1190,271 @@ def _mir_output_path(arguments: list[str]) -> Optional[str]:
     return None
 
 
+def _emit_checked_stage(
+    stage: str,
+    arguments: list[str],
+    default_target: str,
+    *,
+    allow_output: bool = True,
+) -> int:
+    source_path = _mir_argument_path(arguments, ".rove")
+    if not source_path or not os.path.isfile(source_path):
+        print(f"[!] {stage.upper()} source file not found: {source_path or '<missing>'}")
+        return 1
+    output_path = _mir_output_path(arguments)
+    if output_path and not allow_output:
+        print("[!] rove inspect is read-only and does not accept -o/--output")
+        return 1
+
+    from src.api import RoveCompiler
+    from src.toolchain.inspection import (
+        ast_document,
+        hir_document,
+        inspection_json,
+        render_inspection_tree,
+    )
+
+    target = get_target_from_args(
+        default_target,
+        entry_file=source_path,
+        arguments=arguments[1:],
+    )
+    result = RoveCompiler(os.path.dirname(os.path.abspath(source_path))).check_file(
+        source_path,
+        target=target,
+    )
+    if not result.success or result.ast is None or result.hir is None:
+        for diagnostic in result.diagnostics:
+            print(diagnostic.rendered)
+        return 1
+
+    document = (
+        ast_document(result.ast, os.path.abspath(source_path))
+        if stage == "ast"
+        else hir_document(result.hir)
+    )
+    content = (
+        inspection_json(document)
+        if "--json" in arguments
+        else render_inspection_tree(document)
+    )
+    if output_path:
+        output = os.path.abspath(output_path)
+        parent = os.path.dirname(output)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        with open(output, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(content)
+        print(f"[OK] Checked {stage.upper()} written: {output}")
+    else:
+        print(content, end="")
+    return 0
+
+
+def cmd_emit(arguments: list[str], default_target: str = "cpp") -> int:
+    if not arguments:
+        print("Usage: rove emit ast|hir|mir <file.rove> [--json] [-o output]")
+        return 1
+    stage = arguments[0].lower()
+    if stage in {"ast", "hir"}:
+        return _emit_checked_stage(stage, arguments, default_target)
+    if stage == "mir":
+        return cmd_emit_mir(arguments, default_target)
+    print(f"[!] Unknown compiler stage '{stage}'. Use ast, hir, or mir.")
+    return 1
+
+
+def cmd_inspect(arguments: list[str], default_target: str = "cpp") -> int:
+    if not arguments:
+        print("Usage: rove inspect ast|hir|mir|module-graph|layout|types|capabilities <file.rove> [--json]")
+        return 1
+    if _mir_output_path(arguments):
+        print("[!] rove inspect is read-only and does not accept -o/--output")
+        return 1
+    stage = arguments[0].lower()
+    if stage in {"ast", "hir"}:
+        return _emit_checked_stage(stage, arguments, default_target, allow_output=False)
+    if stage == "mir":
+        return cmd_emit_mir(arguments, default_target)
+    if stage in {"module-graph", "module_graph"}:
+        return _inspect_module_graph(arguments, default_target)
+    if stage == "layout":
+        return _inspect_layout(arguments, default_target)
+    if stage == "types":
+        return _inspect_types(arguments, default_target)
+    if stage in {"capabilities", "capability"}:
+        return _inspect_capabilities(arguments, default_target)
+    print(f"[!] Unknown compiler stage '{stage}'. Use ast, hir, mir, module-graph, layout, types, or capabilities.")
+    return 1
+
+
+def _inspect_module_graph(arguments: list[str], default_target: str) -> int:
+    source_path = _mir_argument_path(arguments, ".rove")
+    if not source_path or not os.path.isfile(source_path):
+        print(f"[!] Module-graph source file not found: {source_path or '<missing>'}")
+        return 1
+
+    from src.core import DiagnosticEmitter, check_program_graph
+    from src.core.diagnostics import DiagnosticError
+    from src.core.module_loader import ModuleLoader
+    from src.toolchain.inspection import (
+        inspection_json,
+        module_graph_document,
+        render_inspection_tree,
+    )
+
+    target = get_target_from_args(
+        default_target,
+        entry_file=source_path,
+        arguments=arguments[1:],
+    )
+    try:
+        with DiagnosticEmitter.scoped(exit_on_error=False, emit_output=False):
+            loaded = ModuleLoader(
+                base_dir=os.path.dirname(os.path.abspath(source_path)),
+                target=target,
+            ).load_program_graph(source_path)
+            check_program_graph(loaded)
+    except DiagnosticError as error:
+        print(error.formatted_msg)
+        return 1
+
+    document = module_graph_document(loaded)
+    content = (
+        inspection_json(document)
+        if "--json" in arguments
+        else render_inspection_tree(document)
+    )
+    print(content, end="")
+    return 0
+
+
+def _inspect_layout(arguments: list[str], default_target: str) -> int:
+    source_path = _mir_argument_path(arguments, ".rove")
+    if not source_path or not os.path.isfile(source_path):
+        print(f"[!] Layout source file not found: {source_path or '<missing>'}")
+        return 1
+
+    from src.api import RoveCompiler
+    from src.mir import MIRLoweringError, lower_hir_to_mir
+    from src.toolchain.inspection import (
+        inspection_json,
+        layout_document,
+        render_inspection_tree,
+    )
+
+    target = get_target_from_args(
+        default_target,
+        entry_file=source_path,
+        arguments=arguments[1:],
+    )
+    result = RoveCompiler(os.path.dirname(os.path.abspath(source_path))).check_file(
+        source_path,
+        target=target,
+    )
+    if not result.success or result.hir is None:
+        for diagnostic in result.diagnostics:
+            print(diagnostic.rendered)
+        return 1
+    try:
+        mir = lower_hir_to_mir(result.hir)
+    except MIRLoweringError as error:
+        print(f"error[MIRL0001]: {error.message}")
+        print(f"  --> {error.span.source}:{error.span.line}:{error.span.column}")
+        return 1
+
+    document = layout_document(mir, target)
+    content = (
+        inspection_json(document)
+        if "--json" in arguments
+        else render_inspection_tree(document)
+    )
+    print(content, end="")
+    return 0
+
+
+def _inspect_types(arguments: list[str], default_target: str) -> int:
+    source_path = _mir_argument_path(arguments, ".rove")
+    if not source_path or not os.path.isfile(source_path):
+        print(f"[!] Type-inspection source file not found: {source_path or '<missing>'}")
+        return 1
+
+    from src.api import RoveCompiler
+    from src.toolchain.inspection import (
+        inspection_json,
+        render_inspection_tree,
+        types_document,
+    )
+
+    target = get_target_from_args(
+        default_target,
+        entry_file=source_path,
+        arguments=arguments[1:],
+    )
+    result = RoveCompiler(os.path.dirname(os.path.abspath(source_path))).check_file(
+        source_path,
+        target=target,
+    )
+    if not result.success or result.hir is None:
+        for diagnostic in result.diagnostics:
+            print(diagnostic.rendered)
+        return 1
+    document = types_document(result.hir)
+    content = (
+        inspection_json(document)
+        if "--json" in arguments
+        else render_inspection_tree(document)
+    )
+    print(content, end="")
+    return 0
+
+
+def _inspect_capabilities(arguments: list[str], default_target: str) -> int:
+    source_path = _mir_argument_path(arguments, ".rove")
+    if not source_path or not os.path.isfile(source_path):
+        print(f"[!] Capability-inspection source file not found: {source_path or '<missing>'}")
+        return 1
+
+    from src.api import RoveCompiler
+    from src.toolchain.inspection import (
+        capability_document,
+        inspection_json,
+        render_inspection_tree,
+    )
+
+    target = get_target_from_args(
+        default_target,
+        entry_file=source_path,
+        arguments=arguments[1:],
+    )
+    result = RoveCompiler(os.path.dirname(os.path.abspath(source_path))).check_file(
+        source_path,
+        target=target,
+    )
+    if not result.success or result.hir is None:
+        for diagnostic in result.diagnostics:
+            print(diagnostic.rendered)
+        return 1
+    document = capability_document(result.hir)
+    content = (
+        inspection_json(document)
+        if "--json" in arguments
+        else render_inspection_tree(document)
+    )
+    print(content, end="")
+    return 0
+
+
 def cmd_emit_mir(arguments: list[str], default_target: str = "cpp") -> int:
     if not arguments or arguments[0].lower() != "mir":
-        print("Usage: nyx emit mir <file.nyx> [--json | --codegen] [--target t] [-o output]")
+        print("Usage: rove emit mir <file.rove> [--json | --codegen] [--target t] [-o output]")
         return 1
-    source_path = _mir_argument_path(arguments, ".nyx")
+    source_path = _mir_argument_path(arguments, ".rove")
     if not source_path or not os.path.isfile(source_path):
         print(f"[!] MIR source file not found: {source_path or '<missing>'}")
         return 1
 
-    from src.api import NyxCompiler
+    from src.api import RoveCompiler
     from src.mir import (
         MIRCodegenError,
         MIRLegalizationError,
@@ -1146,7 +1473,7 @@ def cmd_emit_mir(arguments: list[str], default_target: str = "cpp") -> int:
     )
 
     target = get_target_from_args(default_target, entry_file=source_path, arguments=arguments[1:])
-    result = NyxCompiler(os.path.dirname(os.path.abspath(source_path))).check_file(
+    result = RoveCompiler(os.path.dirname(os.path.abspath(source_path))).check_file(
         source_path,
         target=target,
     )
@@ -1205,7 +1532,7 @@ def cmd_emit_mir(arguments: list[str], default_target: str = "cpp") -> int:
 
 def cmd_verify_mir(arguments: list[str]) -> int:
     if not arguments or arguments[0].lower() != "mir":
-        print("Usage: nyx verify mir <file.mir.json>")
+        print("Usage: rove verify mir <file.mir.json>")
         return 1
     input_path = _mir_argument_path(arguments, ".json")
     if not input_path or not os.path.isfile(input_path):
@@ -1227,7 +1554,7 @@ def cmd_verify_mir(arguments: list[str]) -> int:
 
 def cmd_repl():
     print_banner()
-    print("\033[92m[*] Nyx Interactive Polyglot REPL (v3.0.0)\033[0m")
+    print("\033[92m[*] Rove Interactive Polyglot REPL (v3.0.0)\033[0m")
     print("    Type expressions or statements. Special commands: :help, :ast, :cpp, :js, :target, :exit\n")
     
     session_statements = []
@@ -1235,7 +1562,7 @@ def cmd_repl():
 
     while True:
         try:
-            prompt = f"\033[96mnyx [{target}]>\033[0m "
+            prompt = f"\033[96mrove [{target}]>\033[0m "
             line = input(prompt).strip()
             if not line:
                 continue
@@ -1371,7 +1698,7 @@ def cmd_explain(code: str):
 
     print_banner()
     print(f"\033[96m===================================================================")
-    print(f"[*] NYX DIAGNOSTIC EXPLANATION: \033[91m{code}\033[96m - {info['title']}")
+    print(f"[*] ROVE DIAGNOSTIC EXPLANATION: \033[91m{code}\033[96m - {info['title']}")
     print(f"    Category: \033[93m{info['category']}\033[0m")
     print(f"===================================================================\033[0m\n")
     print(f"\033[1mDescription:\033[0m\n  {info['description']}\n")
@@ -1383,17 +1710,75 @@ def cmd_explain(code: str):
         print(f"  {l}")
     print(f"\n\033[94m[*] Guidance:\033[0m\n  {info['solution']}\n")
 
+
+def cmd_explain_backend(arguments: list[str]) -> int:
+    if not arguments:
+        print("Usage: rove explain-backend <target> [--json]")
+        return 1
+    requested = next((item for item in arguments if not item.startswith("-")), "")
+    target = normalize_backend_name(requested)
+    backend = resolve_backend(target)
+    if backend is None:
+        print(f"[!] Unknown target '{requested}'. Run 'rove targets'.")
+        return 1
+
+    from src.mir import mir_backend_manifest
+
+    mir_profile = next(
+        (
+            profile
+            for profile in mir_backend_manifest()["profiles"]
+            if profile["target"] == backend.name
+        ),
+        None,
+    )
+    document = {
+        "schema_version": 1,
+        "requested": requested,
+        "canonical_target": backend.name,
+        "backend": backend.to_dict(),
+        "mir": mir_profile,
+    }
+    if "--json" in arguments:
+        print(json.dumps(document, ensure_ascii=False, sort_keys=True))
+        return 0
+
+    print_banner()
+    print(f"Backend: {backend.display_name} ({backend.name})")
+    print(f"  maturity: {backend.maturity}")
+    print(f"  family:   {backend.family}")
+    print(f"  artifact: {backend.artifact}")
+    aliases = ", ".join(backend.aliases) if backend.aliases else "-"
+    print(f"  aliases:  {aliases}")
+    features = backend.to_dict().get("features", [])
+    modules = backend.to_dict().get("stdlib_modules", [])
+    print(f"  features: {', '.join(features) if features else 'none'}")
+    print(f"  stdlib:   {', '.join(modules) if modules else 'none'}")
+    if mir_profile is None:
+        print("  MIR:      no legalization profile")
+    else:
+        print(
+            f"  MIR:      {mir_profile['migration_status']} "
+            f"(rank {mir_profile['migration_rank']}, ABI {mir_profile['abi']})"
+        )
+        print(
+            "  effects:  "
+            + (", ".join(mir_profile.get("legal_effects", ())) or "none")
+        )
+    print("===================================================================")
+    return 0
+
 def cmd_tutorial():
     print_banner()
-    print("\033[92m[*] NYX 15-MINUTE INTERACTIVE TOUR\033[0m")
-    print("Welcome to Nyx: designed to be as easy as Python, as safe as Rust, and as fast as C++.\n")
+    print("\033[92m[*] ROVE 15-MINUTE INTERACTIVE TOUR\033[0m")
+    print("Welcome to Rove: designed to be as easy as Python, as safe as Rust, and as fast as C++.\n")
     lessons = [
-        ("1. Variables & Types", "Nyx uses 'var' with strong, inferred static typing:\n  var name: string = \"Nyx\";\n  var speed = 1000; // int inferred\n"),
+        ("1. Variables & Types", "Rove uses 'var' with strong, inferred static typing:\n  var name: string = \"Rove\";\n  var speed = 1000; // int inferred\n"),
         ("2. Functions & Clean Returns", "Functions use 'fn' and '->' for return types:\n  fn add(a: int, b: int) -> int {\n      return a + b;\n  }\n"),
         ("3. Guard Statements", "Eliminate nested 'if' ladders with clean 'guard':\n  guard x > 0 else {\n      return -1;\n  }\n"),
         ("4. Safe Optionals & Coalescing", "Null-safety is built-in with '?' and '??':\n  var name: string? = null;\n  var display = name ?? \"Guest\";\n"),
         ("5. Structs & Methods", "Data and behavior are cleanly separated with 'struct' and 'impl':\n  struct Point { x: int, y: int }\n  impl Point {\n      fn sum(self) -> int { return self.x + self.y; }\n  }\n"),
-        ("6. Multi-Target Polyglot Output", "One code compiles natively everywhere:\n  nyx run main.nyx --target cpp  (Native C++20)\n  nyx run main.nyx --target js   (Node.js ES2022)\n  nyx run main.nyx --target python   (Python 3)\n  nyx bundle main.nyx              (WebAssembly & React)\n")
+        ("6. Multi-Target Polyglot Output", "One code compiles natively everywhere:\n  rove run main.rove --target cpp  (Native C++20)\n  rove run main.rove --target js   (Node.js ES2022)\n  rove run main.rove --target python   (Python 3)\n  rove bundle main.rove              (WebAssembly & React)\n")
     ]
     for title, content in lessons:
         print(f"\033[96m=== {title} ===\033[0m")
@@ -1406,7 +1791,7 @@ def main():
         sys.exit(0)
 
     cmd = sys.argv[1].lower()
-    config = parse_nyx_toml()
+    config = parse_rove_toml()
 
     if cmd in ("--help", "-h", "help"):
         print_help()
@@ -1417,7 +1802,9 @@ def main():
     elif cmd == "targets":
         sys.exit(cmd_targets("--json" in sys.argv, "--mir" in sys.argv))
     elif cmd == "emit":
-        sys.exit(cmd_emit_mir(sys.argv[2:], config.get("target", "cpp")))
+        sys.exit(cmd_emit(sys.argv[2:], config.get("target", "cpp")))
+    elif cmd == "inspect":
+        sys.exit(cmd_inspect(sys.argv[2:], config.get("target", "cpp")))
     elif cmd == "verify":
         sys.exit(cmd_verify_mir(sys.argv[2:]))
     elif cmd == "repl":
@@ -1426,24 +1813,26 @@ def main():
         cmd_tutorial()
     elif cmd == "explain":
         if len(sys.argv) < 3:
-            print("Usage: nyx explain <error_code> (e.g. nyx explain E1004)")
+            print("Usage: rove explain <error_code> (e.g. rove explain E1004)")
             sys.exit(1)
         cmd_explain(sys.argv[2])
+    elif cmd in ("explain-backend", "explain_backend"):
+        sys.exit(cmd_explain_backend(sys.argv[2:]))
     elif cmd == "new":
         raw_args = [a for a in sys.argv[2:] if not a.startswith("--")]
-        name = raw_args[0] if raw_args else "nyx_project"
+        name = raw_args[0] if raw_args else "rove_project"
         is_lib = "--lib" in sys.argv
         sys.exit(cmd_new(name, is_lib=is_lib))
     elif cmd == "init":
         raw_args = [a for a in sys.argv[2:] if not a.startswith("--")]
-        name = raw_args[0] if raw_args else config.get("name", "nyx_project")
+        name = raw_args[0] if raw_args else config.get("name", "rove_project")
         sys.exit(PackageManager.init(name, force="--force" in sys.argv))
     elif cmd == "check":
-        entry = get_entry_file(config.get("entry", "src/main.nyx"))
+        entry = get_entry_file(config.get("entry", "src/main.rove"))
         target = get_target_from_args(config.get("target", "cpp"), entry_file=entry)
         sys.exit(cmd_check(entry, target=target))
     elif cmd == "build":
-        entry = get_entry_file(config.get("entry", "src/main.nyx"))
+        entry = get_entry_file(config.get("entry", "src/main.rove"))
         target = get_target_from_args(config.get("target", "cpp"), entry_file=entry)
         is_release = "--release" in sys.argv
         output_type = config.get("output_type", "exe")
@@ -1457,7 +1846,7 @@ def main():
         ))
     elif cmd == "bundle":
         raw_args = [a for a in sys.argv[2:] if not a.startswith("--")]
-        entry = get_entry_file(raw_args[0] if raw_args else config.get("entry", "src/main.nyx"))
+        entry = get_entry_file(raw_args[0] if raw_args else config.get("entry", "src/main.rove"))
         out_dir = None
         for i, a in enumerate(sys.argv):
             if a in ("-o", "--output") and i + 1 < len(sys.argv):
@@ -1482,31 +1871,31 @@ def main():
     elif cmd in ("self-host", "selfhost"):
         sys.exit(cmd_self_host(sys.argv[2:]))
     elif cmd == "run":
-        entry = get_entry_file(config.get("entry", "src/main.nyx"))
+        entry = get_entry_file(config.get("entry", "src/main.rove"))
         target = get_target_from_args(config.get("target", "cpp"), entry_file=entry)
         sys.exit(cmd_run(entry, target))
     elif cmd == "test":
-        if len(sys.argv) > 2 and sys.argv[2].endswith(".nyx"):
+        if len(sys.argv) > 2 and sys.argv[2].endswith((".rove", ".nyx")):
             target_file = sys.argv[2]
             if not os.path.exists(target_file):
                 print(f"\033[91m[!] Error: Test file '{target_file}' not found.\033[0m")
                 sys.exit(1)
-            print(f"\033[96m[*] Running nyx In-File Unit Tests in '{target_file}'...\033[0m")
+            print(f"\033[96m[*] Running rove In-File Unit Tests in '{target_file}'...\033[0m")
             status = cmd_run(target_file, "python")
             if status != 0:
                 print("\033[91m[!] Test execution failed.\033[0m")
                 sys.exit(status)
             print("\033[92m[OK] Execution finished successfully.\033[0m")
-        elif os.path.exists("src/lib.nyx"):
-            print("\033[96m[*] Running nyx In-File Unit Tests in 'src/lib.nyx'...\033[0m")
-            status = cmd_run("src/lib.nyx", "python")
+        elif os.path.exists("src/lib.rove"):
+            print("\033[96m[*] Running rove In-File Unit Tests in 'src/lib.rove'...\033[0m")
+            status = cmd_run("src/lib.rove", "python")
             if status != 0:
                 print("\033[91m[!] Test execution failed.\033[0m")
                 sys.exit(status)
             print("\033[92m[OK] Execution finished successfully.\033[0m")
-        elif os.path.exists("src/main.nyx"):
-            print("\033[96m[*] Running nyx In-File Unit Tests in 'src/main.nyx'...\033[0m")
-            status = cmd_run("src/main.nyx", "python")
+        elif os.path.exists("src/main.rove"):
+            print("\033[96m[*] Running rove In-File Unit Tests in 'src/main.rove'...\033[0m")
+            status = cmd_run("src/main.rove", "python")
             if status != 0:
                 print("\033[91m[!] Test execution failed.\033[0m")
                 sys.exit(status)
@@ -1517,31 +1906,33 @@ def main():
                 test_suite = os.path.join(os.getcwd(), "tests", "run_all_tests.py")
             result = subprocess.run([sys.executable, test_suite])
             sys.exit(result.returncode)
+    elif cmd == "bench":
+        sys.exit(cmd_bench(sys.argv[2:]))
     elif cmd == "clean":
         sys.exit(cmd_clean())
     elif cmd == "fmt":
-        if len(sys.argv) < 3: print("Usage: nyx fmt <file.nyx>"); sys.exit(1)
+        if len(sys.argv) < 3: print("Usage: rove fmt <file.rove>"); sys.exit(1)
         sys.exit(0 if Formatter.format_file(sys.argv[2]) else 1)
     elif cmd == "lint":
-        if len(sys.argv) < 3: print("Usage: nyx lint <file.nyx>"); sys.exit(1)
+        if len(sys.argv) < 3: print("Usage: rove lint <file.rove>"); sys.exit(1)
         warnings = Linter.lint_file(sys.argv[2])
         sys.exit(1 if warnings < 0 else 0)
     elif cmd == "lsp":
         from src.toolchain.lsp_server import LanguageServer
         LanguageServer().run()
     elif cmd == "debug":
-        if len(sys.argv) < 3: print("Usage: nyx debug <file.nyx>"); sys.exit(1)
+        if len(sys.argv) < 3: print("Usage: rove debug <file.rove>"); sys.exit(1)
         sys.exit(Debugger.debug_file(sys.argv[2]))
     elif cmd == "profile":
-        entry = get_entry_file(config.get("entry", "src/main.nyx"))
-        if not entry: print("Usage: nyx profile <file.nyx>"); sys.exit(1)
+        entry = get_entry_file(config.get("entry", "src/main.rove"))
+        if not entry: print("Usage: rove profile <file.rove>"); sys.exit(1)
         target = get_target_from_args(config.get("target", "cpp"), entry_file=entry)
         sys.exit(Profiler.profile_file(entry, lambda: cmd_run(entry, target)))
     elif cmd == "doc":
-        if len(sys.argv) < 3: print("Usage: nyx doc <file.nyx>"); sys.exit(1)
+        if len(sys.argv) < 3: print("Usage: rove doc <file.rove>"); sys.exit(1)
         sys.exit(DocGenerator.generate_docs(sys.argv[2]))
     elif cmd == "add":
-        if len(sys.argv) < 3: print("Usage: nyx add <package_name>"); sys.exit(1)
+        if len(sys.argv) < 3: print("Usage: rove add <package_name>"); sys.exit(1)
         package_arguments = []
         skip_next = False
         for argument in sys.argv[2:]:
@@ -1567,7 +1958,7 @@ def main():
                 local_path = argument.split("=", 1)[1]
         sys.exit(PackageManager.add(package_name, version, local_path=local_path))
     elif cmd == "remove":
-        if len(sys.argv) < 3: print("Usage: nyx remove <package_name>"); sys.exit(1)
+        if len(sys.argv) < 3: print("Usage: rove remove <package_name>"); sys.exit(1)
         sys.exit(PackageManager.remove(sys.argv[2]))
     elif cmd == "install":
         sys.exit(PackageManager.install())
@@ -1580,7 +1971,7 @@ def main():
         result = subprocess.run([sys.executable, tour_script] + sys.argv[2:])
         sys.exit(result.returncode)
     else:
-        print(f"\033[91m[!] Unknown command: '{cmd}'. Run 'nyx help' for available commands.\033[0m")
+        print(f"\033[91m[!] Unknown command: '{cmd}'. Run 'rove help' for available commands.\033[0m")
         sys.exit(1)
 
 if __name__ == "__main__":

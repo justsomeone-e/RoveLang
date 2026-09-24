@@ -2,8 +2,8 @@
 #native include <string>
 #native include <vector>
 
-// Nyx-authored AST -> canonical typed HIR v1 lowering. This module uses the
-// tagged ASTNode/HIRNode representations from parser.nyx and hir.nyx so the
+// Rove-authored AST -> canonical typed HIR v1 lowering. This module uses the
+// tagged ASTNode/HIRNode representations from parser.rove and hir.rove so the
 // production frontend can bootstrap without Python object-model dependencies.
 
 fn hir_text_slice(value: string, start: int, end_exclusive: int) -> string {
@@ -795,6 +795,14 @@ impl HIRLowerer {
             var expr = self.lower_expr(node.children[0])
             var value_type = expr.type_info
             if node.type_name != "" { value_type = hir_type_from_name(node.type_name) }
+            if expr.kind == "IRArray" and len(expr.first) == 0 and
+                expr.type_info.name == "Array" and len(expr.type_info.arguments) == 1 and
+                expr.type_info.arguments[0].name == "any" and
+                value_type.name == "Array" and len(value_type.arguments) == 1 and
+                value_type.arguments[0].name != "any" and
+                not value_type.optional and not value_type.pointer {
+                expr.type_info = value_type
+            }
             var symbol = HIRSymbol(node.name, self.next_symbol(node.name), value_type, "variable", true)
             self.declare_symbol(symbol, node)
             var result = hir_empty_node("IRVarDecl", span)

@@ -10,7 +10,7 @@ struct Token {
     col: int
 }
 
-// NYX_LEXER_SUPPORT_BEGIN: parser.nyx owns Token when compiler units are composed.
+// ROVE_LEXER_SUPPORT_BEGIN: parser.rove owns Token when compiler units are composed.
 
 fn lexer_text_slice(value: string, start: int, end_exclusive: int) -> string {
     var result = ""
@@ -65,7 +65,7 @@ fn lexer_decimal_mul_add(value: string, multiplier: int, addend: int) -> string 
 
 fn lexer_normalize_number(value: string) -> string {
     if len(value) > 2 and value[0] == "0" and (value[1] == "x" or value[1] == "X") {
-        // Keep the magnitude as decimal text.  Converting through Nyx int here
+        // Keep the magnitude as decimal text.  Converting through Rove int here
         // would wrap before the type checker can reject an out-of-range literal.
         var number = "0"
         for i in 2..len(value)-1 {

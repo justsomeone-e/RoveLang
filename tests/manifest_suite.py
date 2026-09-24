@@ -13,7 +13,7 @@ name = "my_project"
 version = "1.2.3"
 edition = "2026"
 target = "cpp"
-entry = "src/main.nyx"
+entry = "src/main.rove"
 description = "Test description"
 license = "MIT"
 

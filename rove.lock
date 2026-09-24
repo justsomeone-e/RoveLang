@@ -1,4 +1,4 @@
-# Auto-generated lockfile for nyx package manager
+# Auto-generated lockfile for Rove package manager
 # Manual modifications will be overwritten
 manifest_version = "5.0.3"
 target = "cpp"

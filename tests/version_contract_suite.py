@@ -15,7 +15,7 @@ from src.version import VERSION
 
 def run_version_contract_suite() -> bool:
     print("=" * 70)
-    print("NYX SINGLE-SOURCE VERSION CONTRACT")
+    print("ROVE SINGLE-SOURCE VERSION CONTRACT")
     print("=" * 70)
     assert re.fullmatch(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?", VERSION)
 
@@ -29,9 +29,9 @@ def run_version_contract_suite() -> bool:
     assert package_lock["version"] == VERSION
     assert package_lock["packages"][""]["version"] == VERSION
 
-    with open(os.path.join(ROOT_DIR, "compiler", "main.nyx"), encoding="utf-8") as handle:
+    with open(os.path.join(ROOT_DIR, "compiler", "main.rove"), encoding="utf-8") as handle:
         assert f"Version: v{VERSION}" in handle.read()
-    assert f'nyxc {VERSION} (native self-host)' in _native_driver_source()
+    assert f'rovec {VERSION} (native self-host)' in _native_driver_source()
 
     with open(os.path.join(ROOT_DIR, "README.md"), encoding="utf-8") as handle:
         readme = handle.read()
@@ -54,7 +54,7 @@ def run_version_contract_suite() -> bool:
         timeout=30,
     )
     assert cli.returncode == 0, cli.stderr or cli.stdout
-    assert f"nyx core v{VERSION}" in cli.stdout
+    assert f"rove core v{VERSION}" in cli.stdout
 
     print(
         f"[PASS] VERSION, CLI, native self-host, compiler source, VS Code, and "

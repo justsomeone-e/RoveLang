@@ -26,7 +26,7 @@ from src.toolchain.manifest import (
 
 def run_package_manager_suite() -> bool:
     print("=" * 70)
-    print("NYX PACKAGE MANAGER (45-PKG) CONFORMANCE SUITE")
+    print("ROVE PACKAGE MANAGER (45-PKG) CONFORMANCE SUITE")
     print("=" * 70)
 
     # 1. SemVer parsing and comparisons
@@ -123,7 +123,7 @@ def run_package_manager_suite() -> bool:
         core_cache_meta = os.path.join(cache_dir, "core", "1.2.0", "metadata.json")
         with open(core_cache_meta, "r+", encoding="utf-8") as handle:
             meta = json.load(handle)
-            meta["files"]["src/lib.nyx"] = "// TAMPERED PAYLOAD\n"
+            meta["files"]["src/lib.rove"] = "// TAMPERED PAYLOAD\n"
             handle.seek(0)
             json.dump(meta, handle)
             handle.truncate()

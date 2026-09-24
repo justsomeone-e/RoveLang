@@ -1,4 +1,4 @@
-"""Stable, side-effect-free embedding API for the Nyx compiler frontend.
+"""Stable, side-effect-free embedding API for the Rove compiler frontend.
 
 The CLI, language server, build systems, and editor plugins can all consume the
 same parse/check/emit pipeline without redirecting stdout or catching
@@ -110,54 +110,73 @@ def _feature_hint(feature: str) -> str:
     return "supported targets: " + ", ".join(targets)
 
 
+def backend_feature_requirements(hir: IRModule) -> tuple[str, ...]:
+    """Return special semantic capabilities required by checked Typed HIR."""
+    required: set[str] = set()
+    if _contains_payload_enum(hir):
+        required.add("payload_enums")
+    if _contains_hir_node(hir, (IRResultPropagate,)):
+        required.add("result_propagation")
+    if _contains_hir_node(hir, (IRYield,)):
+        required.add("iterator_yield")
+    if _contains_hir_call_symbol(
+        hir, frozenset(("builtin::map", "builtin::filter", "builtin::fold"))
+    ):
+        required.add("collection_combinators")
+    if _contains_hir_node(hir, (IRThrow, IRTryCatch)):
+        required.add("exceptions")
+    if _contains_hir_node(hir, (IRAwait,)) or _contains_async_function(hir):
+        required.add("async_tasks")
+    if _contains_hir_node(hir, (IRSpawn,)):
+        required.add("spawn")
+    if _contains_hir_call_symbol(hir, frozenset(("builtin::channel",))):
+        required.add("channels")
+    return tuple(sorted(required))
+
+
 def _validate_backend_features(hir: IRModule) -> None:
     backend = resolve_backend(hir.target)
     if backend is None:
         return
-    if _contains_payload_enum(hir) and "payload_enums" not in backend.features:
+    required = frozenset(backend_feature_requirements(hir))
+    if "payload_enums" in required and "payload_enums" not in backend.features:
         raise BackendCapabilityError(
             f"target '{backend.name}' does not support payload enum semantics yet; "
             + _feature_hint("payload_enums")
         )
-    if _contains_hir_node(hir, (IRResultPropagate,)) and "result_propagation" not in backend.features:
+    if "result_propagation" in required and "result_propagation" not in backend.features:
         raise BackendCapabilityError(
             f"target '{backend.name}' does not support Result propagation semantics yet; "
             + _feature_hint("result_propagation")
         )
-    if _contains_hir_node(hir, (IRYield,)) and "iterator_yield" not in backend.features:
+    if "iterator_yield" in required and "iterator_yield" not in backend.features:
         raise BackendCapabilityError(
             f"target '{backend.name}' does not support lazy Iterator<T>/yield semantics yet; "
             + _feature_hint("iterator_yield")
         )
-    if _contains_hir_call_symbol(
-        hir, frozenset(("builtin::map", "builtin::filter", "builtin::fold"))
-    ) and "collection_combinators" not in backend.features:
+    if "collection_combinators" in required and "collection_combinators" not in backend.features:
         raise BackendCapabilityError(
             f"target '{backend.name}' does not support collection combinators yet; "
             + _feature_hint("collection_combinators")
         )
-    if _contains_hir_node(hir, (IRThrow, IRTryCatch)) and "exceptions" not in backend.features:
+    if "exceptions" in required and "exceptions" not in backend.features:
         raise BackendCapabilityError(
-            f"target '{backend.name}' does not support Nyx exception semantics "
+            f"target '{backend.name}' does not support Rove exception semantics "
             f"(try/catch/throw); {_feature_hint('exceptions')}"
         )
-    uses_tasks = _contains_hir_node(hir, (IRAwait,)) or _contains_async_function(hir)
-    if uses_tasks and "async_tasks" not in backend.features:
+    if "async_tasks" in required and "async_tasks" not in backend.features:
         raise BackendCapabilityError(
-            f"target '{backend.name}' does not support Nyx Task<T> semantics "
+            f"target '{backend.name}' does not support Rove Task<T> semantics "
             f"(async/await); {_feature_hint('async_tasks')}"
         )
-    if _contains_hir_node(hir, (IRSpawn,)) and "spawn" not in backend.features:
+    if "spawn" in required and "spawn" not in backend.features:
         raise BackendCapabilityError(
-            f"target '{backend.name}' does not support Nyx spawn semantics; "
+            f"target '{backend.name}' does not support Rove spawn semantics; "
             + _feature_hint("spawn")
         )
-    if (
-        _contains_hir_call_symbol(hir, frozenset(("builtin::channel",)))
-        and "channels" not in backend.features
-    ):
+    if "channels" in required and "channels" not in backend.features:
         raise BackendCapabilityError(
-            f"target '{backend.name}' does not support Nyx channel semantics; "
+            f"target '{backend.name}' does not support Rove channel semantics; "
             + _feature_hint("channels")
         )
 @dataclass(frozen=True)
@@ -266,7 +285,7 @@ class CompilationResult:
         }
 
 
-class NyxCompiler:
+class RoveCompiler:
     """Reusable compiler session with no process exits and no console output."""
 
     def __init__(
@@ -521,7 +540,7 @@ class NyxCompiler:
             from src.codegen.wasm_ir import BundleLowerer
 
             source_basename = os.path.splitext(os.path.basename(hir.source_name))[0]
-            module_name = source_basename if source_basename and not source_basename.startswith("<") else "nyx_module"
+            module_name = source_basename if source_basename and not source_basename.startswith("<") else "rove_module"
             wat = BundleLowerer(hir, module_name).lower().to_wat()
             return SourceArtifact(target, "webassembly-text", ".wat", "application/wasm-text", wat)
         if target == "c":
@@ -544,7 +563,7 @@ def check_source(
     base_dir: Optional[str] = None,
     plugins: Iterable[CompilerPlugin] = (),
 ) -> CompilationResult:
-    return NyxCompiler(base_dir, plugins).check_source(source, filename=filename, target=target)
+    return RoveCompiler(base_dir, plugins).check_source(source, filename=filename, target=target)
 
 
 def compile_source(
@@ -555,4 +574,9 @@ def compile_source(
     base_dir: Optional[str] = None,
     plugins: Iterable[CompilerPlugin] = (),
 ) -> CompilationResult:
-    return NyxCompiler(base_dir, plugins).compile_source(source, target=target, filename=filename)
+    return RoveCompiler(base_dir, plugins).compile_source(source, target=target, filename=filename)
+
+
+# Rove is the public product name from v6 onward.  Keep the original class as
+# an API alias so existing integrations can migrate without a flag day.
+NyxCompiler = RoveCompiler

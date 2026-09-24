@@ -3,7 +3,7 @@
 #native include <vector>
 
 // =========================================================
-// NYX CANONICAL AST MODEL (1-TO-1 WITH src/core/ast_nodes.py)
+// ROVE CANONICAL AST MODEL (1-TO-1 WITH src/core/ast_nodes.py)
 // =========================================================
 
 struct TypeNode {

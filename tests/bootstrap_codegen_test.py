@@ -18,11 +18,11 @@ from src.codegen.codegen import UniversalCodeGen
 from src.codegen.cpp_toolchain import CppToolchain
 
 def test_codegen_nyx():
-    print("[*] Testing compilation of compiler/ast.nyx + compiler/codegen.nyx...")
+    print("[*] Testing compilation of compiler/ast.rove + compiler/codegen.rove...")
     
-    with open(os.path.join(_root_dir, "compiler", "ast.nyx"), "r", encoding="utf-8") as f:
+    with open(os.path.join(_root_dir, "compiler", "ast.rove"), "r", encoding="utf-8") as f:
         ast_src = f.read()
-    with open(os.path.join(_root_dir, "compiler", "codegen.nyx"), "r", encoding="utf-8") as f:
+    with open(os.path.join(_root_dir, "compiler", "codegen.rove"), "r", encoding="utf-8") as f:
         cg_src = f.read()
 
     # Strip duplicate directives
@@ -59,8 +59,8 @@ fn main() {
 
     combined_src = ast_src + "\n\n" + cg_clean + "\n\n" + test_main
 
-    tokens = PyLexer(combined_src, "codegen_suite.nyx").tokenize()
-    ast = PyParser(tokens, "codegen_suite.nyx").parse()
+    tokens = PyLexer(combined_src, "codegen_suite.rove").tokenize()
+    ast = PyParser(tokens, "codegen_suite.rove").parse()
     cpp_code = UniversalCodeGen(ast).generate()
 
     out_cpp = os.path.join(_root_dir, "build", "cpp", "codegen_test.cpp")
@@ -77,7 +77,7 @@ fn main() {
         sys.exit(1)
         
     print(f"[SUCCESS] Native binary created -> {bin_path}")
-    print("[*] Executing binary to test pure .nyx C++ code generation:")
+    print("[*] Executing binary to test pure .rove C++ code generation:")
     compiler = CppToolchain.find_compiler()
     bin_dir = os.path.dirname(compiler) if compiler else ""
     env = {**os.environ, 'PATH': bin_dir + os.pathsep + os.environ.get('PATH', '')}
@@ -86,7 +86,7 @@ fn main() {
     print(run_res.stdout)
     print("------------------------")
     assert "int64_t add_one(int64_t x)" in run_res.stdout
-    print("[ALL PASS] compiler/codegen.nyx is 100% verified and functional!")
+    print("[ALL PASS] compiler/codegen.rove is 100% verified and functional!")
 
 if __name__ == "__main__":
     test_codegen_nyx()

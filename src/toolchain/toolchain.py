@@ -15,7 +15,7 @@ import html
 from typing import List, Dict, Any, Optional
 
 # =========================================================
-# 1. CODE FORMATTER (nyx fmt)
+# 1. CODE FORMATTER (rove fmt)
 # =========================================================
 class Formatter:
     @staticmethod
@@ -178,9 +178,9 @@ class Debugger:
             print(f"[!] File not found: {filepath}")
             return 1
 
-        from src.api import NyxCompiler
+        from src.api import RoveCompiler
 
-        checked = NyxCompiler(os.path.dirname(os.path.abspath(filepath))).check_file(filepath)
+        checked = RoveCompiler(os.path.dirname(os.path.abspath(filepath))).check_file(filepath)
         if not checked.success:
             for diagnostic in checked.diagnostics:
                 print(diagnostic.rendered)
@@ -189,7 +189,7 @@ class Debugger:
         with open(filepath, 'r', encoding='utf-8-sig') as f:
             lines = f.readlines()
 
-        print("\033[96mNyx source inspector (validated source; no runtime state)\033[0m")
+        print("\033[96mRove source inspector (validated source; no runtime state)\033[0m")
         print(f"Inspecting: {filepath} ({len(lines)} lines)")
         print("Commands: (n)ext, (l)ist, (b)reak <line>, (c)ontinue, (q)uit")
         print("Runtime variable/memory inspection requires source-map support and is not simulated.\n")
@@ -248,7 +248,7 @@ class Profiler:
         if not os.path.exists(filepath):
             print(f"[!] File not found: {filepath}")
             return 1
-        print("\033[96mNyx real wall-clock profile\033[0m")
+        print("\033[96mRove real wall-clock profile\033[0m")
         print(f"Program: {filepath}")
         print("Scope: compile + run (function-level instrumentation is not available yet)\n")
         t0 = time.perf_counter()
@@ -298,7 +298,7 @@ class DocGenerator:
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Nyx Documentation - {html.escape(os.path.basename(filepath))}</title>
+    <title>Rove Documentation - {html.escape(os.path.basename(filepath))}</title>
     <style>
         body {{ background: #03070D; color: #F1F5F9; font-family: -apple-system, monospace; padding: 40px; }}
         h1 {{ color: #00F0FF; border-bottom: 1px solid #1B2D44; padding-bottom: 12px; }}
@@ -308,7 +308,7 @@ class DocGenerator:
     </style>
 </head>
 <body>
-    <h1>⚡ Nyx Otomatik Dokümantasyon</h1>
+    <h1>Rove Otomatik Dokümantasyon</h1>
     <p>Dosya: <code>{html.escape(os.path.basename(filepath))}</code></p>
     <div style="margin-top: 30px;">
 """
@@ -332,34 +332,36 @@ class DocGenerator:
         return 0
 
 # =========================================================
-# 6. PACKAGE MANAGER (nyx pkg / nyx add / nyx remove / nyx.toml)
+# 6. PACKAGE MANAGER (rove pkg / rove add / rove remove / rove.toml)
 # =========================================================
-from src.toolchain.manifest import NyxManifest, NyxLock
+from src.toolchain.manifest import RoveManifest, RoveLock
 
 class PackageManager:
     @staticmethod
     def _manifest_path():
-        if os.path.exists("nyx.toml"):
-            return "nyx.toml"
-        return None
+        return next((name for name in ("rove.toml", "nyx.toml") if os.path.exists(name)), None)
+
+    @staticmethod
+    def _lock_path(manifest_file: str) -> str:
+        return "rove.lock" if os.path.basename(manifest_file) == "rove.toml" else "nyx.lock"
 
     @staticmethod
     def init(name: str = "my_project", force: bool = False) -> int:
         if PackageManager._manifest_path() and not force:
-            print("\033[91m[!] A project manifest already exists. Use 'nyx init --force' to replace it.\033[0m")
+            print("\033[91m[!] A project manifest already exists. Use 'rove init --force' to replace it.\033[0m")
             return 1
-        m = NyxManifest()
+        m = RoveManifest()
         m.package["name"] = name
-        m.save("nyx.toml")
-        NyxLock.generate(m, "nyx.lock")
-        print("\033[92m[OK] Created nyx.toml manifest & nyx.lock successfully!\033[0m")
+        m.save("rove.toml")
+        RoveLock.generate(m, "rove.lock")
+        print("\033[92m[OK] Created rove.toml manifest & rove.lock successfully!\033[0m")
         return 0
 
     @staticmethod
     def add(pkg_name: str, version: str = "1.0.0", local_path: Optional[str] = None) -> int:
         manifest_file = PackageManager._manifest_path()
         if not manifest_file:
-            print("\033[91m[!] No nyx.toml found. Run 'nyx init' first.\033[0m")
+            print("\033[91m[!] No rove.toml found. Run 'rove init' first.\033[0m")
             return 1
         if not re.fullmatch(r"[A-Za-z0-9_.\-/]+", pkg_name):
             print(f"\033[91m[!] Invalid package name: '{pkg_name}'.\033[0m")
@@ -371,11 +373,18 @@ class PackageManager:
         if local_path is not None:
             base_cwd = os.path.realpath(os.getcwd())
             dependency_root = os.path.realpath(os.path.join(base_cwd, local_path))
-            dependency_manifest = os.path.join(dependency_root, "nyx.toml")
+            dependency_manifest = next(
+                (
+                    os.path.join(dependency_root, name)
+                    for name in ("rove.toml", "nyx.toml")
+                    if os.path.isfile(os.path.join(dependency_root, name))
+                ),
+                os.path.join(dependency_root, "rove.toml"),
+            )
             if not os.path.isfile(dependency_manifest):
-                print(f"\033[91m[!] Local dependency has no nyx.toml: {dependency_root}\033[0m")
+                print(f"\033[91m[!] Local dependency has no rove.toml or legacy nyx.toml: {dependency_root}\033[0m")
                 return 1
-            child = NyxManifest(dependency_manifest)
+            child = RoveManifest(dependency_manifest)
             child_name = str(child.package.get("name", ""))
             child_version = str(child.package.get("version", ""))
             if child_name != pkg_name:
@@ -390,30 +399,30 @@ class PackageManager:
                 "version": version,
             }
         print(f"\033[96m[*] Adding dependency:\033[0m {pkg_name} @ {version}...")
-        m = NyxManifest(manifest_file)
+        m = RoveManifest(manifest_file)
         m.dependencies[pkg_name] = dependency
         try:
-            NyxLock.generate(m, "nyx.lock")
+            RoveLock.generate(m, PackageManager._lock_path(manifest_file))
         except ValueError as error:
             print(f"\033[91m[!] Dependency resolution failed: {error}\033[0m")
             return 1
         m.save(manifest_file)
-        print(f"\033[92m[OK] Added '{pkg_name}' v{version} to {manifest_file} and nyx.lock.\033[0m")
+        print(f"\033[92m[OK] Added '{pkg_name}' v{version} to {manifest_file} and {PackageManager._lock_path(manifest_file)}.\033[0m")
         return 0
 
     @staticmethod
     def remove(pkg_name: str) -> int:
         manifest_file = PackageManager._manifest_path()
         if not manifest_file:
-            print("\033[91m[!] No nyx.toml found. Run 'nyx init' first.\033[0m")
+            print("\033[91m[!] No rove.toml found. Run 'rove init' first.\033[0m")
             return 1
         print(f"\033[96m[*] Removing dependency:\033[0m {pkg_name}...")
-        m = NyxManifest(manifest_file)
+        m = RoveManifest(manifest_file)
         if pkg_name in m.dependencies:
             del m.dependencies[pkg_name]
             m.save(manifest_file)
-            NyxLock.generate(m, "nyx.lock")
-            print(f"\033[92m[OK] Removed '{pkg_name}' from {manifest_file} and nyx.lock.\033[0m")
+            RoveLock.generate(m, PackageManager._lock_path(manifest_file))
+            print(f"\033[92m[OK] Removed '{pkg_name}' from {manifest_file} and {PackageManager._lock_path(manifest_file)}.\033[0m")
             return 0
         else:
             print(f"\033[93m[!] Dependency '{pkg_name}' was not found in {manifest_file}.\033[0m")
@@ -423,16 +432,16 @@ class PackageManager:
     def install() -> int:
         manifest_file = PackageManager._manifest_path()
         if not manifest_file:
-            print("\033[91m[!] No nyx.toml found. Run 'nyx init'\033[0m")
+            print("\033[91m[!] No rove.toml found. Run 'rove init'\033[0m")
             return 1
         print(f"\033[96m[*] Validating dependencies from {manifest_file}...\033[0m")
-        m = NyxManifest(manifest_file)
+        m = RoveManifest(manifest_file)
         try:
-            NyxLock.generate(m, "nyx.lock")
+            RoveLock.generate(m, PackageManager._lock_path(manifest_file))
         except ValueError as error:
             print(f"\033[91m[!] Dependency resolution failed: {error}\033[0m")
             return 1
-        print(f"\033[92m[OK] Validated and locked {len(m.dependencies)} dependencies in nyx.lock.\033[0m")
+        print(f"\033[92m[OK] Validated and locked {len(m.dependencies)} dependencies in {PackageManager._lock_path(manifest_file)}.\033[0m")
         print("[*] Remote registry download is not part of the v4 RC2 package contract; local path dependencies are installed deterministically.")
         return 0
 
@@ -440,8 +449,8 @@ class PackageManager:
     def list_installed() -> int:
         manifest_file = PackageManager._manifest_path()
         if manifest_file:
-            m = NyxManifest(manifest_file)
-            p_name = m.package.get("name", "nyx_app")
+            m = RoveManifest(manifest_file)
+            p_name = m.package.get("name", "rove_app")
             p_ver = m.package.get("version", "0.1.0")
             p_ed = m.package.get("edition", "2026")
             p_tgt = m.package.get("target", "cpp")
@@ -458,7 +467,7 @@ class PackageManager:
             print(f"  • Output Type: {m.build.get('output_type', 'exe')}")
             return 0
         else:
-            print("[!] No nyx.toml found in current directory. Run 'nyx init'")
+            print("[!] No rove.toml found in current directory. Run 'rove init'")
             return 1
 
 # =========================================================

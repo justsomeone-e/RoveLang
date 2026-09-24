@@ -11,15 +11,15 @@ def _canonical_dependency_path(value: Any) -> str:
     return str(value).replace("\\", "/")
 
 
-class NyxManifest:
+class RoveManifest:
     def __init__(self, filepath: Optional[str] = None):
         self.filepath = filepath
         self.package: Dict[str, Any] = {
-            "name": "nyx_app",
+            "name": "rove_app",
             "version": "0.1.0",
             "edition": "2026",
             "target": "cpp",
-            "entry": "src/main.nyx",
+            "entry": "src/main.rove",
             "author": "",
             "license": "MIT",
             "description": ""
@@ -105,12 +105,12 @@ class NyxManifest:
             return val
 
     def save(self, filepath: Optional[str] = None):
-        target = filepath or self.filepath or "nyx.toml"
-        p_name = self.package.get("name", "nyx_app")
+        target = filepath or self.filepath or "rove.toml"
+        p_name = self.package.get("name", "rove_app")
         p_ver = self.package.get("version", "0.1.0")
         p_ed = self.package.get("edition", "2026")
         p_targ = self.package.get("target", "cpp")
-        p_entry = self.package.get("entry", "src/main.nyx")
+        p_entry = self.package.get("entry", "src/main.rove")
 
         lines = [
             "[package]",
@@ -299,7 +299,7 @@ class SemVerRange:
 class PackageRegistry:
     """Simulates or interfaces with remote registry and local offline cache."""
     def __init__(self, cache_dir: Optional[str] = None):
-        self.cache_dir = cache_dir or os.path.expanduser("~/.nyx/cache/packages")
+        self.cache_dir = cache_dir or os.path.expanduser("~/.rove/cache/packages")
         self._mock_remote: Dict[str, Dict[str, Any]] = {}
 
     def publish_mock_package(
@@ -310,7 +310,7 @@ class PackageRegistry:
         files: Optional[Dict[str, str]] = None,
     ) -> str:
         """Helper for tests and simulation."""
-        files = files or {"src/lib.nyx": f"// package {name} v{version}\n"}
+        files = files or {"src/lib.rove": f"// package {name} v{version}\n"}
         dependencies = dependencies or {}
         digest = hashlib.sha256()
         for fname in sorted(files.keys()):
@@ -459,7 +459,7 @@ class DependencyResolver:
         return resolved
 
 
-class NyxLock:
+class RoveLock:
     @staticmethod
     def _hash_package(root: str) -> str:
         digest = hashlib.sha256()
@@ -467,7 +467,7 @@ class NyxLock:
         for current, directories, filenames in os.walk(root):
             directories[:] = sorted(item for item in directories if item not in excluded)
             for filename in sorted(filenames):
-                if filename != "nyx.toml" and not filename.endswith(".nyx"):
+                if filename not in {"rove.toml", "nyx.toml"} and not filename.endswith((".rove", ".nyx")):
                     continue
                 path = os.path.join(current, filename)
                 relative = os.path.relpath(path, root).replace("\\", "/")
@@ -479,21 +479,30 @@ class NyxLock:
         return "sha256:" + digest.hexdigest()
 
     @staticmethod
-    def resolve_local_dependencies(manifest: NyxManifest) -> Dict[str, Dict[str, str]]:
-        project_root = os.path.realpath(os.path.dirname(os.path.abspath(manifest.filepath or "nyx.toml")))
+    def resolve_local_dependencies(manifest: RoveManifest) -> Dict[str, Dict[str, str]]:
+        project_root = os.path.realpath(os.path.dirname(os.path.abspath(manifest.filepath or "rove.toml")))
         resolved: Dict[str, Dict[str, str]] = {}
 
         def visit(name: str, spec: Any, owner_root: str, stack: List[str]) -> None:
             if not isinstance(spec, dict) or "path" not in spec:
                 return
             dependency_root = os.path.realpath(os.path.join(owner_root, str(spec["path"])))
-            dependency_manifest_path = os.path.join(dependency_root, "nyx.toml")
-            if not os.path.isfile(dependency_manifest_path):
-                raise ValueError(f"Local dependency '{name}' has no nyx.toml at {dependency_root}")
+            dependency_manifest_path = next(
+                (
+                    os.path.join(dependency_root, filename)
+                    for filename in ("rove.toml", "nyx.toml")
+                    if os.path.isfile(os.path.join(dependency_root, filename))
+                ),
+                None,
+            )
+            if dependency_manifest_path is None:
+                raise ValueError(
+                    f"Local dependency '{name}' has no rove.toml or legacy nyx.toml at {dependency_root}"
+                )
             if dependency_root in stack:
                 cycle = " -> ".join(stack + [dependency_root])
                 raise ValueError(f"Local dependency cycle detected: {cycle}")
-            child = NyxManifest(dependency_manifest_path)
+            child = RoveManifest(dependency_manifest_path)
             child_name = str(child.package.get("name", ""))
             child_version = str(child.package.get("version", ""))
             if child_name and child_name != name:
@@ -511,7 +520,7 @@ class NyxLock:
             resolved[name] = {
                 "version": child_version,
                 "path": os.path.relpath(dependency_root, project_root).replace("\\", "/"),
-                "checksum": NyxLock._hash_package(dependency_root),
+                "checksum": RoveLock._hash_package(dependency_root),
             }
             for child_name_key, child_spec in sorted(child.dependencies.items()):
                 visit(child_name_key, child_spec, dependency_root, stack + [dependency_root])
@@ -522,12 +531,12 @@ class NyxLock:
 
     @staticmethod
     def resolve_dependencies(
-        manifest: NyxManifest,
+        manifest: RoveManifest,
         registry: Optional[PackageRegistry] = None,
         offline: bool = False,
     ) -> Dict[str, Any]:
         """Resolve both local path dependencies and remote registry packages."""
-        local_deps = NyxLock.resolve_local_dependencies(manifest)
+        local_deps = RoveLock.resolve_local_dependencies(manifest)
         remote_reqs: Dict[str, str] = {}
         for name, spec in sorted(manifest.dependencies.items()):
             if name in local_deps:
@@ -549,19 +558,19 @@ class NyxLock:
 
     @staticmethod
     def generate(
-        manifest: NyxManifest,
-        lock_file: str = "nyx.lock",
+        manifest: RoveManifest,
+        lock_file: str = "rove.lock",
         registry: Optional[PackageRegistry] = None,
         offline: bool = False,
     ) -> str:
         v = manifest.package.get("version", "0.1.0")
         t = manifest.package.get("target", "cpp")
-        resolution = NyxLock.resolve_dependencies(manifest, registry=registry, offline=offline)
+        resolution = RoveLock.resolve_dependencies(manifest, registry=registry, offline=offline)
         local_dependencies = resolution["local"]
         resolved_packages = resolution["packages"]
 
         lines = [
-            "# Auto-generated lockfile for nyx package manager",
+            "# Auto-generated lockfile for Rove package manager",
             "# Manual modifications will be overwritten",
             'lockfile_version = 1',
             f'manifest_version = "{v}"',
@@ -607,18 +616,18 @@ class NyxLock:
 
     @staticmethod
     def verify_lockfile(
-        manifest: NyxManifest,
-        lock_file: str = "nyx.lock",
+        manifest: RoveManifest,
+        lock_file: str = "rove.lock",
     ) -> bool:
         if not os.path.isfile(lock_file):
             return False
-        local_deps = NyxLock.read_local_dependencies(lock_file)
-        project_root = os.path.dirname(os.path.abspath(manifest.filepath or "nyx.toml"))
+        local_deps = RoveLock.read_local_dependencies(lock_file)
+        project_root = os.path.dirname(os.path.abspath(manifest.filepath or "rove.toml"))
         for name, item in local_deps.items():
             path = os.path.join(project_root, item["path"])
             if not os.path.isdir(path):
                 return False
-            actual_checksum = NyxLock._hash_package(path)
+            actual_checksum = RoveLock._hash_package(path)
             if actual_checksum != item.get("checksum"):
                 raise ChecksumMismatchError(
                     f"Checksum mismatch for local dependency '{name}': expected {item.get('checksum')}, got {actual_checksum}"
@@ -629,7 +638,7 @@ class NyxLock:
     def read_local_dependencies(lock_file: str) -> Dict[str, Dict[str, str]]:
         if not os.path.isfile(lock_file):
             return {}
-        parser = NyxManifest()
+        parser = RoveManifest()
         section = ""
         resolved: Dict[str, Dict[str, str]] = {}
         with open(lock_file, "r", encoding="utf-8") as handle:
@@ -648,5 +657,8 @@ class NyxLock:
         return resolved
 
 
-# Alias for backward compatibility
-Manifest = NyxManifest
+# Rove is the public name from v6 onward.  The Nyx names remain import aliases
+# for source compatibility with v5 integrations and lockfiles.
+NyxManifest = RoveManifest
+NyxLock = RoveLock
+Manifest = RoveManifest

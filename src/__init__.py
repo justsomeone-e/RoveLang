@@ -1,7 +1,8 @@
-# Nyx public embedding API
+# Rove public embedding API
 from .api import (
     CompilationResult,
     CompilerDiagnostic,
+    RoveCompiler,
     NyxCompiler,
     SourceArtifact,
     check_source,
@@ -25,6 +26,7 @@ from .ir import (
 __all__ = [
     "CompilationResult",
     "CompilerDiagnostic",
+    "RoveCompiler",
     "NyxCompiler",
     "SourceArtifact",
     "check_source",

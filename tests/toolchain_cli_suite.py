@@ -10,7 +10,7 @@ CLI_PATH = os.path.join(ROOT_DIR, "src", "cli.py")
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
-from src.toolchain.manifest import NyxManifest
+from src.toolchain.manifest import RoveManifest
 
 
 def _run(cwd: str, *arguments: str, input_text: str | None = None) -> subprocess.CompletedProcess:
@@ -32,10 +32,10 @@ def _output(process: subprocess.CompletedProcess) -> str:
 
 def run_toolchain_cli_suite() -> bool:
     print("=" * 70)
-    print("NYX TOOLCHAIN CLI REAL-BEHAVIOR CONTRACT")
+    print("ROVE TOOLCHAIN CLI REAL-BEHAVIOR CONTRACT")
     print("=" * 70)
 
-    with tempfile.TemporaryDirectory(prefix="nyx_toolchain_cli_") as directory:
+    with tempfile.TemporaryDirectory(prefix="rove_toolchain_cli_") as directory:
         root = Path(directory)
 
         assert _run(directory, "pkg").returncode == 1
@@ -43,14 +43,14 @@ def run_toolchain_cli_suite() -> bool:
 
         initialized = _run(directory, "init", "cli-contract")
         assert initialized.returncode == 0, _output(initialized)
-        assert (root / "nyx.toml").is_file() and (root / "nyx.lock").is_file()
+        assert (root / "rove.toml").is_file() and (root / "rove.lock").is_file()
         assert _run(directory, "init", "overwrite-attempt").returncode == 1
 
         added = _run(directory, "add", "telemetry", "@2.3.4")
         assert added.returncode == 0, _output(added)
-        manifest = NyxManifest(str(root / "nyx.toml"))
+        manifest = RoveManifest(str(root / "rove.toml"))
         assert manifest.dependencies == {"telemetry": "2.3.4"}
-        assert 'telemetry = "2.3.4"' in (root / "nyx.lock").read_text(encoding="utf-8")
+        assert 'telemetry = "2.3.4"' in (root / "rove.lock").read_text(encoding="utf-8")
 
         listed = _run(directory, "pkg")
         assert listed.returncode == 0, _output(listed)
@@ -63,7 +63,7 @@ def run_toolchain_cli_suite() -> bool:
 
         removed = _run(directory, "remove", "telemetry")
         assert removed.returncode == 0, _output(removed)
-        assert NyxManifest(str(root / "nyx.toml")).dependencies == {}
+        assert RoveManifest(str(root / "rove.toml")).dependencies == {}
         assert _run(directory, "remove", "telemetry").returncode == 1
 
         workspace = root / "local-workspace"
@@ -72,36 +72,36 @@ def run_toolchain_cli_suite() -> bool:
         application.mkdir(parents=True)
         physics.mkdir(parents=True)
         assert _run(str(physics), "init", "physics").returncode == 0
-        physics_manifest = NyxManifest(str(physics / "nyx.toml"))
+        physics_manifest = RoveManifest(str(physics / "rove.toml"))
         physics_manifest.package["version"] = "0.3.0"
-        physics_manifest.save(str(physics / "nyx.toml"))
+        physics_manifest.save(str(physics / "rove.toml"))
         (physics / "src").mkdir()
-        (physics / "src" / "math.nyx").write_text(
+        (physics / "src" / "math.rove").write_text(
             "fn local_answer() -> int { return 42 }\n", encoding="utf-8"
         )
 
         assert _run(str(application), "init", "application").returncode == 0
         (application / "src").mkdir()
-        application_source = application / "src" / "main.nyx"
+        application_source = application / "src" / "main.rove"
         application_source.write_text(
             'import "physics/math"\nfn main() { print(local_answer()) }\n',
             encoding="utf-8",
         )
         local_added = _run(str(application), "add", "physics", "--path", "../physics")
         assert local_added.returncode == 0, _output(local_added)
-        local_manifest = NyxManifest(str(application / "nyx.toml"))
+        local_manifest = RoveManifest(str(application / "rove.toml"))
         assert local_manifest.dependencies["physics"] == {
             "path": "../physics",
             "version": "0.3.0",
         }, repr(local_manifest.dependencies["physics"])
-        windows_style_manifest = NyxManifest()
+        windows_style_manifest = RoveManifest()
         windows_style_manifest._parse(
             ['[dependencies]\n', r'physics = { path = "..\physics", version = "0.3.0" }']
         )
         assert windows_style_manifest.dependencies["physics"]["path"] == "../physics", repr(
             windows_style_manifest.dependencies["physics"]
         )
-        first_lock = (application / "nyx.lock").read_text(encoding="utf-8")
+        first_lock = (application / "rove.lock").read_text(encoding="utf-8")
         assert "[local_dependencies]" in first_lock
         assert 'path = "../physics"' in first_lock
         assert "sha256:" in first_lock
@@ -110,27 +110,27 @@ def run_toolchain_cli_suite() -> bool:
 
         local_installed = _run(str(application), "install")
         assert local_installed.returncode == 0, _output(local_installed)
-        assert (application / "nyx.lock").read_text(encoding="utf-8") == first_lock
+        assert (application / "rove.lock").read_text(encoding="utf-8") == first_lock
 
-        (physics / "src" / "math.nyx").write_text(
+        (physics / "src" / "math.rove").write_text(
             "fn local_answer() -> int { return 43 }\n", encoding="utf-8"
         )
         assert _run(str(application), "install").returncode == 0
-        second_lock = (application / "nyx.lock").read_text(encoding="utf-8")
+        second_lock = (application / "rove.lock").read_text(encoding="utf-8")
         assert second_lock != first_lock, "local dependency source changes must update the lock checksum"
 
-        physics_manifest = NyxManifest(str(physics / "nyx.toml"))
+        physics_manifest = RoveManifest(str(physics / "rove.toml"))
         physics_manifest.dependencies["application"] = {"path": "../application", "version": "0.1.0"}
-        physics_manifest.save(str(physics / "nyx.toml"))
+        physics_manifest.save(str(physics / "rove.toml"))
         cycle = _run(str(application), "install")
         assert cycle.returncode == 1
         assert "cycle detected" in _output(cycle)
 
-        source_path = root / "format_contract.nyx"
+        source_path = root / "format_contract.rove"
         source_path.write_text(
             'import cpp "std::filesystem" from "<filesystem>" as fs\n'
             'fn main(){\n'
-            'var url="https://nyx.dev/a?x=1"// preserve a=b and { braces }\n'
+            'var url="https://rove.dev/a?x=1"// preserve a=b and { braces }\n'
             'if true{\n'
             'print(url)\n'
             'print(fs.current_path().string())\n'
@@ -143,7 +143,7 @@ def run_toolchain_cli_suite() -> bool:
         assert formatted.returncode == 0, _output(formatted)
         first_format = source_path.read_text(encoding="utf-8")
         assert first_format != original
-        assert '"https://nyx.dev/a?x=1"' in first_format
+        assert '"https://rove.dev/a?x=1"' in first_format
         assert 'import cpp "std::filesystem" from "<filesystem>" as fs' in first_format
         assert "// preserve a=b and { braces }" in first_format
         assert "    var url = " in first_format and "        print(url)" in first_format
@@ -153,7 +153,7 @@ def run_toolchain_cli_suite() -> bool:
         checked = _run(directory, "check", str(source_path))
         assert checked.returncode == 0, _output(checked)
 
-        lint_path = root / "lint_contract.nyx"
+        lint_path = root / "lint_contract.rove"
         lint_path.write_text(
             "var value = 1\n"
             "unsafe {\n"
@@ -167,7 +167,7 @@ def run_toolchain_cli_suite() -> bool:
         assert "warning[W010]" in _output(linted)
         assert "warning[W002]" not in _output(linted)
 
-        doc_path = root / "documented.nyx"
+        doc_path = root / "documented.rove"
         doc_path.write_text(
             "/// Return <value> & keep it safe.\n"
             "fn documented(value: int) -> int { return value }\n",
@@ -178,7 +178,7 @@ def run_toolchain_cli_suite() -> bool:
         html = (root / "docs" / "index.html").read_text(encoding="utf-8")
         assert "Return &lt;value&gt; &amp; keep it safe." in html
 
-        profile_path = root / "profile_contract.nyx"
+        profile_path = root / "profile_contract.rove"
         profile_path.write_text('print("PROFILE_REAL_OUTPUT")\n', encoding="utf-8")
         profiled = _run(directory, "profile", str(profile_path), "--target", "python")
         assert profiled.returncode == 0, _output(profiled)
@@ -195,7 +195,7 @@ def run_toolchain_cli_suite() -> bool:
         assert "Umut" not in inspect_output and "0x00007FFD" not in inspect_output
 
         for command in ("fmt", "lint", "doc", "profile", "debug"):
-            missing = _run(directory, command, str(root / "missing.nyx"))
+            missing = _run(directory, command, str(root / "missing.rove"))
             assert missing.returncode == 1, (command, _output(missing))
 
         build_dir = root / "build"

@@ -4,12 +4,12 @@
 #native include <vector>
 
 // =========================================================
-// NYX STAGE 1 NATIVE COMPILER DRIVER (PHASE 4.0.8)
+// ROVE STAGE 1 NATIVE COMPILER DRIVER (PHASE 4.0.8)
 // =========================================================
 
 fn print_banner() {
     print("=======================================================")
-    print("  nyx Systems Compiler (Stage 1 Native Toolchain)     ")
+    print("  Rove Systems Compiler (Stage 1 Native Toolchain)     ")
     print("  Version: v5.0.3 (Self-Hosted C++20 Core)   ")
     print("=======================================================")
 }
@@ -17,7 +17,7 @@ fn print_banner() {
 fn print_help() {
     print_banner()
     print("Usage:")
-    print("  nyxc <file.nyx> [options]")
+    print("  rovec <file.rove> [options]")
     print("")
     print("Options:")
     print("  --target <cpp|asm|js|rust|python>  Set output backend")
@@ -30,5 +30,5 @@ fn print_help() {
 
 fn main() {
     print_banner()
-    print("[*] Stage 1 Self-Hosted nyxc Driver Ready.")
+    print("[*] Stage 1 Self-Hosted rovec Driver Ready.")
 }
