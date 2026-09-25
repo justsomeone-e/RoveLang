@@ -606,7 +606,7 @@ class BundleLowerer:
         local_types: Dict[str, str] = {}
         self._collect_locals(function.body, symbols, local_types)
         if result == STRING:
-            local_types.update({"__nyx_out_ptr": I32, "__nyx_out_len": I32, "__nyx_cursor": I32})
+            local_types.update({"__rove_out_ptr": I32, "__rove_out_len": I32, "__rove_cursor": I32})
 
         ir = FunctionIR(function.name, params, wasm_result, list(local_types.items()))
         context = _LowerContext(function.name, self.global_types | symbols | local_types, result, self)
@@ -643,7 +643,7 @@ class BundleLowerer:
                     locals_out.setdefault(statement.var_name, F64 if collection_type == ARRAY_F64 else I32)
                     index_local = self.for_index_locals.get(id(statement))
                     if index_local is None:
-                        index_local = f"__nyx_for_index_{len(self.for_index_locals) + 1}"
+                        index_local = f"__rove_for_index_{len(self.for_index_locals) + 1}"
                         self.for_index_locals[id(statement)] = index_local
                     locals_out.setdefault(index_local, I32)
                 else:
@@ -666,7 +666,7 @@ class BundleLowerer:
                 )
             temporary = self.match_locals.get(id(value))
             if temporary is None:
-                temporary = f"__nyx_match_{len(self.match_locals) + 1}"
+                temporary = f"__rove_match_{len(self.match_locals) + 1}"
                 self.match_locals[id(value)] = temporary
             locals_out.setdefault(temporary, subject_type)
         if is_dataclass(value):
@@ -701,7 +701,7 @@ class BundleLowerer:
                 output.extend(self._emit_array_argument(node.target.obj, array_type, context.symbols))
                 output.extend(self._emit_expr_as(node.target.index, I32, context.symbols))
                 output.extend(self._emit_expr_as(node.expr, value_type, context.symbols))
-                output.append(Instruction("call", f"__nyx_array_set_{value_type}"))
+                output.append(Instruction("call", f"__rove_array_set_{value_type}"))
                 return
             if not isinstance(node.target, IRReference):
                 raise BundleCompileError("Bundle assignment currently requires a local identifier or array index target")
@@ -869,7 +869,7 @@ class BundleLowerer:
                 output = self._emit_string_argument(node.obj, symbols)
                 output.extend(self._emit_expr_as(node.index, I32, symbols))
                 output.extend((
-                    Instruction("call", "__nyx_string_char_ptr"),
+                    Instruction("call", "__rove_string_char_ptr"),
                     Instruction("i32.load8_u"),
                 ))
                 return output
@@ -879,7 +879,7 @@ class BundleLowerer:
             output.extend(self._emit_expr_as(node.index, I32, symbols))
             value_type = F64 if owner_type == ARRAY_F64 else I32
             self.array_load_types.add(value_type)
-            output.append(Instruction("call", f"__nyx_array_get_{value_type}"))
+            output.append(Instruction("call", f"__rove_array_get_{value_type}"))
             return output
         if isinstance(node, IRMemberAccess):
             if not isinstance(node.obj, IRReference):
@@ -917,7 +917,7 @@ class BundleLowerer:
                     self.string_eq_used = True
                     output = self._emit_string_argument(node.left, symbols)
                     output.extend(self._emit_string_argument(node.right, symbols))
-                    output.append(Instruction("call", "__nyx_string_eq"))
+                    output.append(Instruction("call", "__rove_string_eq"))
                     if node.op == "!=":
                         output.append(Instruction("i32.eqz"))
                     return output
@@ -1033,14 +1033,14 @@ class BundleLowerer:
                 output.extend((
                     Instruction("i32.const", separator),
                     Instruction("i32.const", 1),
-                    Instruction("call", "__nyx_wasi_write"),
+                    Instruction("call", "__rove_wasi_write"),
                 ))
             output.extend(self._emit_string_argument(argument, symbols))
-            output.append(Instruction("call", "__nyx_wasi_write"))
+            output.append(Instruction("call", "__rove_wasi_write"))
         output.extend((
             Instruction("i32.const", newline),
             Instruction("i32.const", 1),
-            Instruction("call", "__nyx_wasi_write"),
+            Instruction("call", "__rove_wasi_write"),
         ))
         return output
 
@@ -1065,7 +1065,7 @@ class BundleLowerer:
                 self.string_index_used = True
                 output = self._emit_string_argument(node.obj, symbols)
                 output.extend(self._emit_expr_as(node.index, I32, symbols))
-                output.append(Instruction("call", "__nyx_string_char_ptr"))
+                output.append(Instruction("call", "__rove_string_char_ptr"))
                 output.append(Instruction("i32.const", 1))
                 return output
         raise BundleCompileError(
@@ -1171,19 +1171,19 @@ class BundleLowerer:
             self.string_index_used = True
             output.extend((
                 Instruction("i32.const", 1),
-                Instruction("local.tee", "__nyx_out_len"),
+                Instruction("local.tee", "__rove_out_len"),
                 Instruction("call", "__nyx_alloc"),
-                Instruction("local.tee", "__nyx_out_ptr"),
+                Instruction("local.tee", "__rove_out_ptr"),
             ))
             output.extend(self._emit_string_argument(expression.obj, context.symbols))
             output.extend(self._emit_expr_as(expression.index, I32, context.symbols))
             output.extend((
-                Instruction("call", "__nyx_string_char_ptr"),
+                Instruction("call", "__rove_string_char_ptr"),
                 Instruction("i32.const", 1),
                 Instruction("memory.copy"),
-                Instruction("local.get", "__nyx_out_len"), Instruction("i64.extend_i32_u"),
+                Instruction("local.get", "__rove_out_len"), Instruction("i64.extend_i32_u"),
                 Instruction("i64.const", 32), Instruction("i64.shl"),
-                Instruction("local.get", "__nyx_out_ptr"), Instruction("i64.extend_i32_u"),
+                Instruction("local.get", "__rove_out_ptr"), Instruction("i64.extend_i32_u"),
                 Instruction("i64.or"),
             ))
             return
@@ -1194,14 +1194,14 @@ class BundleLowerer:
             if kind == "param":
                 output.extend((Instruction("local.get", f"{value}_len"), Instruction("i32.add")))
         output.extend((
-            Instruction("local.tee", "__nyx_out_len"),
+            Instruction("local.tee", "__rove_out_len"),
             Instruction("call", "__nyx_alloc"),
-            Instruction("local.tee", "__nyx_out_ptr"),
-            Instruction("local.set", "__nyx_cursor"),
+            Instruction("local.tee", "__rove_out_ptr"),
+            Instruction("local.set", "__rove_cursor"),
         ))
 
         for kind, value, length in segments:
-            output.append(Instruction("local.get", "__nyx_cursor"))
+            output.append(Instruction("local.get", "__rove_cursor"))
             if kind == "literal":
                 output.extend((Instruction("i32.const", value), Instruction("i32.const", length)))
                 segment_length: List[Instruction] = [Instruction("i32.const", length)]
@@ -1209,14 +1209,14 @@ class BundleLowerer:
                 output.extend((Instruction("local.get", f"{value}_ptr"), Instruction("local.get", f"{value}_len")))
                 segment_length = [Instruction("local.get", f"{value}_len")]
             output.append(Instruction("memory.copy"))
-            output.append(Instruction("local.get", "__nyx_cursor"))
+            output.append(Instruction("local.get", "__rove_cursor"))
             output.extend(segment_length)
-            output.extend((Instruction("i32.add"), Instruction("local.set", "__nyx_cursor")))
+            output.extend((Instruction("i32.add"), Instruction("local.set", "__rove_cursor")))
 
         output.extend((
-            Instruction("local.get", "__nyx_out_len"), Instruction("i64.extend_i32_u"),
+            Instruction("local.get", "__rove_out_len"), Instruction("i64.extend_i32_u"),
             Instruction("i64.const", 32), Instruction("i64.shl"),
-            Instruction("local.get", "__nyx_out_ptr"), Instruction("i64.extend_i32_u"),
+            Instruction("local.get", "__rove_out_ptr"), Instruction("i64.extend_i32_u"),
             Instruction("i64.or"),
         ))
 
@@ -1316,7 +1316,7 @@ def _array_index_function(value_type: str) -> FunctionIR:
     """Load a borrowed ABI-v1 element after logical and memory bounds checks."""
     stride = 8 if value_type == F64 else 4
     return FunctionIR(
-        f"__nyx_array_get_{value_type}",
+        f"__rove_array_get_{value_type}",
         [("ptr", I32), ("len", I32), ("index", I32)],
         value_type,
         export=False,
@@ -1345,7 +1345,7 @@ def _array_set_function(value_type: str) -> FunctionIR:
     stride = 8 if value_type == F64 else 4
     store_op = "f64.store" if value_type == F64 else "i32.store"
     return FunctionIR(
-        f"__nyx_array_set_{value_type}",
+        f"__rove_array_set_{value_type}",
         [("ptr", I32), ("len", I32), ("index", I32), ("value", value_type)],
         VOID,
         export=False,
@@ -1372,7 +1372,7 @@ def _array_set_function(value_type: str) -> FunctionIR:
 def _string_char_ptr_function() -> FunctionIR:
     """Return the pointer to the character at index, trapping on bounds violation."""
     return FunctionIR(
-        "__nyx_string_char_ptr",
+        "__rove_string_char_ptr",
         [("ptr", I32), ("len", I32), ("index", I32)],
         I32,
         export=False,
@@ -1398,7 +1398,7 @@ def _string_char_ptr_function() -> FunctionIR:
 def _string_eq_function() -> FunctionIR:
     """Compare two borrowed UTF-8 slices byte-for-byte in linear memory."""
     return FunctionIR(
-        "__nyx_string_eq",
+        "__rove_string_eq",
         [("ptr1", I32), ("len1", I32), ("ptr2", I32), ("len2", I32)],
         I32,
         locals=[("i", I32)],
@@ -1451,7 +1451,7 @@ def _wasi_runtime_functions() -> List[FunctionIR]:
     """Return the WASI preview1 stdout bridge used by the executable profile."""
     return [
         FunctionIR(
-            "__nyx_wasi_write",
+            "__rove_wasi_write",
             [("ptr", I32), ("len", I32)],
             VOID,
             export=False,

@@ -53,30 +53,30 @@ declare void @exit(i32)
 declare double @fmod(double, double)
 declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)
 
-@__nyx_fmt_i64 = private unnamed_addr constant [6 x i8] c"%lld\\0A\\00"
-@__nyx_fmt_f64_int = private unnamed_addr constant [6 x i8] c"%.1f\\0A\\00"
-@__nyx_fmt_f64_gen = private unnamed_addr constant [7 x i8] c"%.16g\\0A\\00"
-@__nyx_str_true = private unnamed_addr constant [6 x i8] c"true\\0A\\00"
-@__nyx_str_false = private unnamed_addr constant [7 x i8] c"false\\0A\\00"
-@__nyx_write_true = private unnamed_addr constant [5 x i8] c"true\\00"
-@__nyx_write_false = private unnamed_addr constant [6 x i8] c"false\\00"
-@__nyx_fmt_str = private unnamed_addr constant [4 x i8] c"%s\\0A\\00"
-@__nyx_write_i64 = private unnamed_addr constant [5 x i8] c"%lld\\00"
-@__nyx_write_f64_int = private unnamed_addr constant [5 x i8] c"%.1f\\00"
-@__nyx_write_f64_gen = private unnamed_addr constant [6 x i8] c"%.16g\\00"
-@__nyx_write_str = private unnamed_addr constant [3 x i8] c"%s\\00"
-@__nyx_space = private unnamed_addr constant [2 x i8] c" \\00"
-@__nyx_newline = private unnamed_addr constant [2 x i8] c"\\0A\\00"
-@__nyx_err_div_zero = private unnamed_addr constant [26 x i8] c"integer division by zero\\0A\\00"
-@__nyx_err_bounds = private unnamed_addr constant [27 x i8] c"array index out of bounds\\0A\\00"
+@__rove_fmt_i64 = private unnamed_addr constant [6 x i8] c"%lld\\0A\\00"
+@__rove_fmt_f64_int = private unnamed_addr constant [6 x i8] c"%.1f\\0A\\00"
+@__rove_fmt_f64_gen = private unnamed_addr constant [7 x i8] c"%.16g\\0A\\00"
+@__rove_str_true = private unnamed_addr constant [6 x i8] c"true\\0A\\00"
+@__rove_str_false = private unnamed_addr constant [7 x i8] c"false\\0A\\00"
+@__rove_write_true = private unnamed_addr constant [5 x i8] c"true\\00"
+@__rove_write_false = private unnamed_addr constant [6 x i8] c"false\\00"
+@__rove_fmt_str = private unnamed_addr constant [4 x i8] c"%s\\0A\\00"
+@__rove_write_i64 = private unnamed_addr constant [5 x i8] c"%lld\\00"
+@__rove_write_f64_int = private unnamed_addr constant [5 x i8] c"%.1f\\00"
+@__rove_write_f64_gen = private unnamed_addr constant [6 x i8] c"%.16g\\00"
+@__rove_write_str = private unnamed_addr constant [3 x i8] c"%s\\00"
+@__rove_space = private unnamed_addr constant [2 x i8] c" \\00"
+@__rove_newline = private unnamed_addr constant [2 x i8] c"\\0A\\00"
+@__rove_err_div_zero = private unnamed_addr constant [26 x i8] c"integer division by zero\\0A\\00"
+@__rove_err_bounds = private unnamed_addr constant [27 x i8] c"array index out of bounds\\0A\\00"
 
-define void @nyx_print_i64(i64 %v) {
+define void @rove_print_i64(i64 %v) {
 entry:
-  %0 = call i32 (ptr, ...) @printf(ptr @__nyx_fmt_i64, i64 %v)
+  %0 = call i32 (ptr, ...) @printf(ptr @__rove_fmt_i64, i64 %v)
   ret void
 }
 
-define void @nyx_print_f64(double %v) {
+define void @rove_print_f64(double %v) {
 entry:
   %v_i64 = fptosi double %v to i64
   %v_round = sitofp i64 %v_i64 to double
@@ -84,40 +84,40 @@ entry:
   br i1 %is_int, label %print_int_fmt, label %print_gen_fmt
 
 print_int_fmt:
-  %call1 = call i32 (ptr, ...) @printf(ptr @__nyx_fmt_f64_int, double %v)
+  %call1 = call i32 (ptr, ...) @printf(ptr @__rove_fmt_f64_int, double %v)
   ret void
 
 print_gen_fmt:
-  %call2 = call i32 (ptr, ...) @printf(ptr @__nyx_fmt_f64_gen, double %v)
+  %call2 = call i32 (ptr, ...) @printf(ptr @__rove_fmt_f64_gen, double %v)
   ret void
 }
 
-define void @nyx_print_bool(i1 %v) {
+define void @rove_print_bool(i1 %v) {
 entry:
   br i1 %v, label %print_t, label %print_f
 
 print_t:
-  %c1 = call i32 (ptr, ...) @printf(ptr @__nyx_str_true)
+  %c1 = call i32 (ptr, ...) @printf(ptr @__rove_str_true)
   ret void
 
 print_f:
-  %c2 = call i32 (ptr, ...) @printf(ptr @__nyx_str_false)
+  %c2 = call i32 (ptr, ...) @printf(ptr @__rove_str_false)
   ret void
 }
 
-define void @nyx_print_str(ptr %v) {
+define void @rove_print_str(ptr %v) {
 entry:
-  %c = call i32 (ptr, ...) @printf(ptr @__nyx_fmt_str, ptr %v)
+  %c = call i32 (ptr, ...) @printf(ptr @__rove_fmt_str, ptr %v)
   ret void
 }
 
-define void @nyx_write_i64(i64 %v) {
+define void @rove_write_i64(i64 %v) {
 entry:
-  %0 = call i32 (ptr, ...) @printf(ptr @__nyx_write_i64, i64 %v)
+  %0 = call i32 (ptr, ...) @printf(ptr @__rove_write_i64, i64 %v)
   ret void
 }
 
-define void @nyx_write_f64(double %v) {
+define void @rove_write_f64(double %v) {
 entry:
   %v_i64 = fptosi double %v to i64
   %v_round = sitofp i64 %v_i64 to double
@@ -125,40 +125,40 @@ entry:
   br i1 %is_int, label %write_int_fmt, label %write_gen_fmt
 
 write_int_fmt:
-  %call1 = call i32 (ptr, ...) @printf(ptr @__nyx_write_f64_int, double %v)
+  %call1 = call i32 (ptr, ...) @printf(ptr @__rove_write_f64_int, double %v)
   ret void
 
 write_gen_fmt:
-  %call2 = call i32 (ptr, ...) @printf(ptr @__nyx_write_f64_gen, double %v)
+  %call2 = call i32 (ptr, ...) @printf(ptr @__rove_write_f64_gen, double %v)
   ret void
 }
 
-define void @nyx_write_bool(i1 %v) {
+define void @rove_write_bool(i1 %v) {
 entry:
   br i1 %v, label %write_t, label %write_f
 
 write_t:
-  %c1 = call i32 (ptr, ...) @printf(ptr @__nyx_write_str, ptr @__nyx_write_true)
+  %c1 = call i32 (ptr, ...) @printf(ptr @__rove_write_str, ptr @__rove_write_true)
   ret void
 
 write_f:
-  %c2 = call i32 (ptr, ...) @printf(ptr @__nyx_write_str, ptr @__nyx_write_false)
+  %c2 = call i32 (ptr, ...) @printf(ptr @__rove_write_str, ptr @__rove_write_false)
   ret void
 }
 
-define void @nyx_write_str(ptr %v) {
+define void @rove_write_str(ptr %v) {
 entry:
-  %c = call i32 (ptr, ...) @printf(ptr @__nyx_write_str, ptr %v)
+  %c = call i32 (ptr, ...) @printf(ptr @__rove_write_str, ptr %v)
   ret void
 }
 
-define i64 @__nyx_i64_div(i64 %a, i64 %b) {
+define i64 @__rove_i64_div(i64 %a, i64 %b) {
 entry:
   %is_zero = icmp eq i64 %b, 0
   br i1 %is_zero, label %div_by_zero, label %check_overflow
 
 div_by_zero:
-  %err_call = call i32 (ptr, ...) @printf(ptr @__nyx_err_div_zero)
+  %err_call = call i32 (ptr, ...) @printf(ptr @__rove_err_div_zero)
   call void @exit(i32 1)
   unreachable
 
@@ -176,13 +176,13 @@ normal_div:
   ret i64 %res
 }
 
-define i64 @__nyx_i64_mod(i64 %a, i64 %b) {
+define i64 @__rove_i64_mod(i64 %a, i64 %b) {
 entry:
   %is_zero = icmp eq i64 %b, 0
   br i1 %is_zero, label %mod_by_zero, label %check_overflow
 
 mod_by_zero:
-  %err_call = call i32 (ptr, ...) @printf(ptr @__nyx_err_div_zero)
+  %err_call = call i32 (ptr, ...) @printf(ptr @__rove_err_div_zero)
   call void @exit(i32 1)
   unreachable
 
@@ -200,7 +200,7 @@ normal_mod:
   ret i64 %res
 }
 
-define void @__nyx_array_check(i64 %index, i64 %length) {
+define void @__rove_array_check(i64 %index, i64 %length) {
 entry:
   %negative = icmp slt i64 %index, 0
   %past_end = icmp sge i64 %index, %length
@@ -208,7 +208,7 @@ entry:
   br i1 %invalid, label %bounds_error, label %valid
 
 bounds_error:
-  %err_call = call i32 (ptr, ...) @printf(ptr @__nyx_err_bounds)
+  %err_call = call i32 (ptr, ...) @printf(ptr @__rove_err_bounds)
   call void @exit(i32 1)
   unreachable
 
@@ -501,12 +501,12 @@ class LLVMScalarEmitter:
         raise LLVMEmissionError(f"Unsupported IR type '{t}' in LLVM emission", SourceSpan("<llvm>", 1, 1))
 
     def _llvm_struct_type(self, name: str) -> str:
-        return f"%nyx.struct.{self._identifier(name)}"
+        return f"%rove.struct.{self._identifier(name)}"
 
     @staticmethod
     def _llvm_array_type_name(element_type: str) -> str:
         suffix = {"i64": "i64", "double": "f64", "i1": "bool"}[element_type]
-        return f"%nyx.array.{suffix}"
+        return f"%rove.array.{suffix}"
 
     def _array_element_llvm_type(self, array_type: IRType, span: SourceSpan) -> str:
         if array_type.name != "Array" or len(array_type.arguments) != 1:
@@ -993,7 +993,7 @@ class LLVMScalarEmitter:
         index = self._coerce(index, index_type, "i64", block)
         length = self._temp("array_len")
         block.emit(f"  {length} = extractvalue {descriptor_type} {descriptor}, 0")
-        block.emit(f"  call void @__nyx_array_check(i64 {index}, i64 {length})")
+        block.emit(f"  call void @__rove_array_check(i64 {index}, i64 {length})")
         data = self._temp("array_data")
         block.emit(f"  {data} = extractvalue {descriptor_type} {descriptor}, 1")
         element_ptr = self._temp("array_element")
@@ -1130,7 +1130,7 @@ class LLVMScalarEmitter:
                     block.emit(f"  {res} = fdiv double {left_val}, {right_val}")
                     return res, "double", block
                 res = self._temp("div")
-                block.emit(f"  {res} = call i64 @__nyx_i64_div(i64 {left_val}, i64 {right_val})")
+                block.emit(f"  {res} = call i64 @__rove_i64_div(i64 {left_val}, i64 {right_val})")
                 return res, "i64", block
             if expr.op == "%":
                 if is_float:
@@ -1138,7 +1138,7 @@ class LLVMScalarEmitter:
                     block.emit(f"  {res} = call double @fmod(double {left_val}, double {right_val})")
                     return res, "double", block
                 res = self._temp("mod")
-                block.emit(f"  {res} = call i64 @__nyx_i64_mod(i64 {left_val}, i64 {right_val})")
+                block.emit(f"  {res} = call i64 @__rove_i64_mod(i64 {left_val}, i64 {right_val})")
                 return res, "i64", block
             if expr.op == "<<":
                 s_reg = self._temp("shift")
@@ -1221,13 +1221,13 @@ class LLVMScalarEmitter:
             if expr.callee == "print":
                 for index, argument in enumerate(expr.args):
                     if index:
-                        block.emit("  call i32 (ptr, ...) @printf(ptr @__nyx_space)")
+                        block.emit("  call i32 (ptr, ...) @printf(ptr @__rove_space)")
                     arg_val, arg_ty, block = self._emit_expr(argument, block)
                     writer = {
-                        "i64": "nyx_write_i64",
-                        "double": "nyx_write_f64",
-                        "i1": "nyx_write_bool",
-                        "ptr": "nyx_write_str",
+                        "i64": "rove_write_i64",
+                        "double": "rove_write_f64",
+                        "i1": "rove_write_bool",
+                        "ptr": "rove_write_str",
                     }.get(arg_ty)
                     if writer is None:
                         raise LLVMEmissionError(
@@ -1235,7 +1235,7 @@ class LLVMScalarEmitter:
                             argument.span,
                         )
                     block.emit(f"  call void @{writer}({arg_ty} {arg_val})")
-                block.emit("  call i32 (ptr, ...) @printf(ptr @__nyx_newline)")
+                block.emit("  call i32 (ptr, ...) @printf(ptr @__rove_newline)")
                 return "", "void", block
 
             struct = self.struct_map.get(expr.callee)

@@ -251,7 +251,7 @@ MIR_BACKEND_PROFILES["llvm"] = replace(
     }),
     legal_types=MIR_BACKEND_PROFILES["llvm"].legal_types | frozenset({"Array"}),
     legal_runtime_calls=MIR_BACKEND_PROFILES["llvm"].legal_runtime_calls | frozenset({
-        "builtin::len",
+        "builtin::len", "builtin::to_string",
     }),
     legal_effects=MIR_BACKEND_PROFILES["llvm"].legal_effects | frozenset({"may_allocate"}),
 )
@@ -820,7 +820,6 @@ class _Legalizer:
                         or self.target == "rust"
                         and self._rust_display_compatible(argument_type)
                         or self.target == "llvm"
-                        and value.function == "builtin::print"
                         and self._llvm_print_compatible(argument_type)
                         or self.target == "c"
                         and self._c_display_compatible(argument_type)
@@ -836,7 +835,7 @@ class _Legalizer:
                     )
             if (
                 self.target == "llvm"
-                and value.function == "builtin::print"
+                and value.function in {"builtin::print", "builtin::to_string"}
                 and any(
                     self._llvm_is_tagged_type(self._operand_mir_type(argument))
                     and not self._llvm_tagged_display_compatible(
@@ -851,7 +850,9 @@ class _Legalizer:
                     "payload types; match this value and print its payload instead",
                     value.span,
                 )
-            if self.target == "llvm" and value.function == "builtin::print":
+            if self.target == "llvm" and value.function in {
+                "builtin::print", "builtin::to_string"
+            }:
                 unsupported = tuple(
                     argument_type
                     for argument in value.arguments
@@ -861,8 +862,18 @@ class _Legalizer:
                 if unsupported:
                     self._issue(
                         "MIRG1007",
-                        "LLVM print supports scalar and concrete primitive/string/array "
+                        "LLVM display supports scalar, array, struct, and compatible "
                         f"tagged values, got {', '.join(str(item) for item in unsupported)}",
+                        value.span,
+                    )
+                if value.function == "builtin::to_string" and (
+                    len(value.arguments) != 1
+                    or value.destination is None
+                    or self._place_mir_type(value.destination) != MIRType("string")
+                ):
+                    self._issue(
+                        "MIRG1007",
+                        "LLVM to_string requires one value and a string destination",
                         value.span,
                     )
             if self.target == "c" and value.function in {
@@ -1133,29 +1144,10 @@ class _Legalizer:
                 )
             return
         if self.target == "wasm" and value.name == "Array" and len(value.arguments) == 1:
-            element_type = value.arguments[0]
-            if (
-                element_type not in (
-                    MIRType("int"), MIRType("bool"), MIRType("float"),
-                    MIRType("f64"), MIRType("string"),
-                )
-                and not isinstance(self.type_definitions.get(element_type.name), MIRStructDef)
-                and element_type not in (
-                    MIRType("Array", (MIRType("int"),)),
-                    MIRType("Array", (MIRType("bool"),)),
-                    MIRType("Array", (MIRType("float"),)),
-                    MIRType("Array", (MIRType("f64"),)),
-                    MIRType("Array", (MIRType("string"),)),
-                )
-                and not (
-                    element_type.name == "Array"
-                    and len(element_type.arguments) == 1
-                    and isinstance(self.type_definitions.get(element_type.arguments[0].name), MIRStructDef)
-                )
-            ):
+            if not self._wasm_array_compatible(value):
                 self._issue(
                     "MIRG1002",
-                    f"The Wasm MIR pilot supports int, bool, float, string, or struct arrays and one nested array level, got '{value}'",
+                    f"The Wasm MIR pilot supports recursively nested int, bool, float, string, or struct arrays, got '{value}'",
                     span,
                 )
             return
@@ -1680,6 +1672,24 @@ class _Legalizer:
                 payload.name != "any"
                 and self._llvm_printable_value_compatible(payload)
                 for payload in payloads
+            )
+        )
+
+    def _wasm_array_compatible(self, value_type: MIRType | None) -> bool:
+        if value_type is None or value_type.name != "Array":
+            return False
+        leaf = value_type
+        while leaf.name == "Array" and len(leaf.arguments) == 1:
+            if leaf.optional or leaf.pointer:
+                return False
+            leaf = leaf.arguments[0]
+        return bool(
+            not leaf.optional
+            and not leaf.pointer
+            and not leaf.arguments
+            and (
+                leaf.name in {"int", "bool", "float", "f64", "string"}
+                or isinstance(self.type_definitions.get(leaf.name), MIRStructDef)
             )
         )
 

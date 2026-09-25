@@ -22,7 +22,7 @@ from .types import MIRType
 
 _RUNTIME = r'''"use strict";
 
-const nyxI64 = value => BigInt.asIntN(64, value);
+const roveI64 = value => BigInt.asIntN(64, value);
 class RoveUserThrow {
   constructor(value) { this.value = value; }
 }
@@ -39,38 +39,38 @@ class RoveTask {
     return this.promise;
   }
 }
-const nyxDiv = (left, right) => {
+const roveDiv = (left, right) => {
   if (right === 0n) throw new Error("division by zero");
-  return nyxI64(left / right);
+  return roveI64(left / right);
 };
-const nyxRem = (left, right) => {
+const roveRem = (left, right) => {
   if (right === 0n) throw new Error("remainder by zero");
-  return nyxI64(left % right);
+  return roveI64(left % right);
 };
-const nyxClone = value => {
+const roveClone = value => {
   if (value instanceof RoveTask) return value;
-  if (Array.isArray(value)) return value.map(nyxClone);
+  if (Array.isArray(value)) return value.map(roveClone);
   if (value !== null && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, nyxClone(item)]));
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, roveClone(item)]));
   }
   return value;
 };
-const nyxIndex = (value, index) => {
+const roveIndex = (value, index) => {
   const position = Number(index);
   if (!Number.isInteger(position) || position < 0 || position >= value.length) {
     throw new RangeError(`index ${position} out of bounds for length ${value.length}`);
   }
   return value[position];
 };
-const nyxSetIndex = (value, index, item) => {
+const roveSetIndex = (value, index, item) => {
   const position = Number(index);
   if (!Number.isInteger(position) || position < 0 || position >= value.length) {
     throw new RangeError(`index ${position} out of bounds for length ${value.length}`);
   }
   value[position] = item;
 };
-const nyxField = (value, name) => value.fields[name];
-const nyxSetField = (value, name, item) => { value.fields[name] = item; };
+const roveField = (value, name) => value.fields[name];
+const roveSetField = (value, name, item) => { value.fields[name] = item; };
 const roveDisplay = value => {
   if (value === true) return "true";
   if (value === false) return "false";
@@ -102,7 +102,7 @@ class _JavaScriptEmitter:
     def __init__(self, module: MIRModule):
         self.module = module
         self.function_names = {
-            function.symbol: f"nyxFn_{_identifier(function.name)}"
+            function.symbol: f"roveFn_{_identifier(function.name)}"
             for function in module.functions
         }
         self.function_names.update({
@@ -213,7 +213,7 @@ class _JavaScriptEmitter:
             elif value.function == "builtin::len":
                 if len(value.arguments) != 1 or value.destination is None:
                     raise MIRCodegenError("builtin::len requires one argument and a destination")
-                line = f"{self._place(value.destination)} = nyxI64(BigInt({self._operand(value.arguments[0])}.length));"
+                line = f"{self._place(value.destination)} = roveI64(BigInt({self._operand(value.arguments[0])}.length));"
             elif value.function == "builtin::to_string":
                 if len(value.arguments) != 1 or value.destination is None:
                     raise MIRCodegenError("builtin::to_string requires one argument and a destination")
@@ -296,7 +296,7 @@ class _JavaScriptEmitter:
             if value.kind == "optional-unwrap" or value.type.optional:
                 return operand
             if value.type.name == "int":
-                return f"nyxI64(BigInt(Math.trunc(Number({operand}))))"
+                return f"roveI64(BigInt(Math.trunc(Number({operand}))))"
             if value.type.name in ("float", "f64"):
                 return f"Number({operand})"
             if value.type.name == "bool":
@@ -321,7 +321,7 @@ class _JavaScriptEmitter:
         if isinstance(value, DiscriminantRValue):
             return f"({self._operand(value.operand)}).tag"
         if isinstance(value, PayloadRValue):
-            return f"nyxIndex(({self._operand(value.operand)}).payload, {value.index}n)"
+            return f"roveIndex(({self._operand(value.operand)}).payload, {value.index}n)"
         if isinstance(value, UnaryRValue):
             operand = self._operand(value.operand)
             if value.op in ("!", "not"):
@@ -329,11 +329,11 @@ class _JavaScriptEmitter:
             if value.op == "+":
                 return operand
             if value.op == "-" and value.type.name == "int":
-                return f"nyxI64(-({operand}))"
+                return f"roveI64(-({operand}))"
             if value.op == "-":
                 return f"-({operand})"
             if value.op == "~":
-                return f"nyxI64(~({operand}))"
+                return f"roveI64(~({operand}))"
             raise MIRCodegenError(f"unsupported JavaScript unary operation '{value.op}'")
         raise MIRCodegenError(f"illegal rvalue reached JavaScript emitter: {type(value).__name__}")
 
@@ -351,13 +351,13 @@ class _JavaScriptEmitter:
             if value.op in ("+", "-", "*", "/", "%"):
                 return f"({left} {value.op} {right})"
         if value.op in ("+", "-", "*", "&", "|", "^"):
-            return f"nyxI64(({left}) {value.op} ({right}))"
+            return f"roveI64(({left}) {value.op} ({right}))"
         if value.op == "/":
-            return f"nyxDiv({left}, {right})"
+            return f"roveDiv({left}, {right})"
         if value.op == "%":
-            return f"nyxRem({left}, {right})"
+            return f"roveRem({left}, {right})"
         if value.op in ("<<", ">>"):
-            return f"nyxI64(({left}) {value.op} BigInt.asUintN(6, {right}))"
+            return f"roveI64(({left}) {value.op} BigInt.asUintN(6, {right}))"
         raise MIRCodegenError(f"unsupported JavaScript binary operation '{value.op}'")
 
     def _operand(self, value: Operand) -> str:
@@ -365,7 +365,7 @@ class _JavaScriptEmitter:
             return self._typed_constant(value)
         if isinstance(value, (CopyOperand, MoveOperand)):
             rendered = self._place(value.place)
-            return f"nyxClone({rendered})" if isinstance(value, CopyOperand) else rendered
+            return f"roveClone({rendered})" if isinstance(value, CopyOperand) else rendered
         raise MIRCodegenError(f"illegal operand reached JavaScript emitter: {type(value).__name__}")
 
     def _operand_type(self, value: Operand) -> MIRType:
@@ -409,11 +409,11 @@ class _JavaScriptEmitter:
         rendered = f"l{place.local}"
         for projection in place.projections:
             if isinstance(projection, FieldProjection):
-                rendered = f"nyxField({rendered}, {json.dumps(projection.name)})"
+                rendered = f"roveField({rendered}, {json.dumps(projection.name)})"
             elif isinstance(projection, ConstantIndexProjection):
-                rendered = f"nyxIndex({rendered}, {projection.index}n)"
+                rendered = f"roveIndex({rendered}, {projection.index}n)"
             elif isinstance(projection, IndexProjection):
-                rendered = f"nyxIndex({rendered}, l{projection.local})"
+                rendered = f"roveIndex({rendered}, l{projection.local})"
             else:
                 raise MIRCodegenError(f"illegal projection reached JavaScript emitter: {type(projection).__name__}")
         return rendered
@@ -425,11 +425,11 @@ class _JavaScriptEmitter:
         projection = place.projections[-1]
         rendered_parent = self._place(parent)
         if isinstance(projection, FieldProjection):
-            return f"nyxSetField({rendered_parent}, {json.dumps(projection.name)}, {value});"
+            return f"roveSetField({rendered_parent}, {json.dumps(projection.name)}, {value});"
         if isinstance(projection, ConstantIndexProjection):
-            return f"nyxSetIndex({rendered_parent}, {projection.index}n, {value});"
+            return f"roveSetIndex({rendered_parent}, {projection.index}n, {value});"
         if isinstance(projection, IndexProjection):
-            return f"nyxSetIndex({rendered_parent}, l{projection.local}, {value});"
+            return f"roveSetIndex({rendered_parent}, l{projection.local}, {value});"
         raise MIRCodegenError(f"illegal assignment projection reached JavaScript emitter: {type(projection).__name__}")
 
     def _place_type(self, place: Place) -> MIRType:

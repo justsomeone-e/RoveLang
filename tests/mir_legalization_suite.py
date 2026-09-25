@@ -71,6 +71,7 @@ LLVM_NESTED_ARRAY_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_llvm_neste
 LLVM_STRUCT_ARRAY_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_llvm_struct_arrays.rove"
 LLVM_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_llvm_tagged.rove"
 LLVM_OWNED_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_llvm_owned_tagged.rove"
+WASM_RECURSIVE_ARRAY_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_recursive_arrays.rove"
 RUST_VALIDATION_MODE = "runtime"
 
 
@@ -101,7 +102,7 @@ def _run_legacy_cpp() -> str:
 
 
 def _compile_and_run_cpp(source: str) -> str:
-    with tempfile.TemporaryDirectory(prefix="nyx_mir_codegen_") as temporary:
+    with tempfile.TemporaryDirectory(prefix="rove_mir_codegen_") as temporary:
         source_path = Path(temporary) / "program.cpp"
         executable = Path(temporary) / ("program.exe" if os.name == "nt" else "program")
         source_path.write_text(source, encoding="utf-8", newline="\n")
@@ -115,7 +116,7 @@ def _compile_and_run_cpp(source: str) -> str:
 def _compile_and_run_c17(source: str) -> str:
     clang = shutil.which("clang")
     assert clang is not None, "clang is required by the C17 MIR runtime gate"
-    with tempfile.TemporaryDirectory(prefix="nyx_mir_c17_") as temporary:
+    with tempfile.TemporaryDirectory(prefix="rove_mir_c17_") as temporary:
         source_path = Path(temporary) / "program.c"
         executable = Path(temporary) / ("program.exe" if os.name == "nt" else "program")
         source_path.write_text(source, encoding="utf-8", newline="\n")
@@ -135,7 +136,7 @@ def _compile_and_run_c17(source: str) -> str:
 def _compile_and_run_llvm(source: str) -> str:
     clang = shutil.which("clang")
     assert clang is not None, "clang is required by the existing LLVM conformance target"
-    with tempfile.TemporaryDirectory(prefix="nyx_mir_llvm_") as temporary:
+    with tempfile.TemporaryDirectory(prefix="rove_mir_llvm_") as temporary:
         source_path = Path(temporary) / "program.ll"
         executable = Path(temporary) / ("program.exe" if os.name == "nt" else "program")
         source_path.write_text(source, encoding="utf-8", newline="\n")
@@ -159,7 +160,7 @@ def _assert_rust_runtime(source: str, expected: str) -> None:
     global RUST_VALIDATION_MODE
     rustc = shutil.which("rustc")
     assert rustc is not None, "rustc is required by the Rust MIR runtime gate"
-    with tempfile.TemporaryDirectory(prefix="nyx_mir_rust_") as temporary:
+    with tempfile.TemporaryDirectory(prefix="rove_mir_rust_") as temporary:
         source_path = Path(temporary) / "program.rs"
         executable = Path(temporary) / ("program.exe" if os.name == "nt" else "program")
         source_path.write_text(source, encoding="utf-8", newline="\n")
@@ -219,7 +220,7 @@ def _assert_rust_runtime(source: str, expected: str) -> None:
 def _run_javascript(source: str) -> str:
     node = shutil.which("node")
     assert node is not None, "Node.js is required by the JavaScript MIR runtime gate"
-    with tempfile.TemporaryDirectory(prefix="nyx_mir_js_") as temporary:
+    with tempfile.TemporaryDirectory(prefix="rove_mir_js_") as temporary:
         source_path = Path(temporary) / "program.mjs"
         source_path.write_text(source, encoding="utf-8", newline="\n")
         executed = subprocess.run(
@@ -231,7 +232,7 @@ def _run_javascript(source: str) -> str:
 
 
 def _run_python(source: str) -> str:
-    with tempfile.TemporaryDirectory(prefix="nyx_mir_python_") as temporary:
+    with tempfile.TemporaryDirectory(prefix="rove_mir_python_") as temporary:
         source_path = Path(temporary) / "program.py"
         source_path.write_text(source, encoding="utf-8", newline="\n")
         executed = subprocess.run(
@@ -250,7 +251,7 @@ def _run_wasm_export(
 ) -> str:
     node = shutil.which("node")
     assert node is not None, "Node.js is required for the WebAssembly runtime gate"
-    with tempfile.TemporaryDirectory(prefix="nyx_mir_wasm_") as temporary:
+    with tempfile.TemporaryDirectory(prefix="rove_mir_wasm_") as temporary:
         wasm_path = Path(temporary) / "program.wasm"
         script_path = Path(temporary) / "run.mjs"
         wasm_path.write_bytes(wasm)
@@ -545,6 +546,24 @@ def _llvm_contract_rejection_modules() -> dict[str, MIRModule]:
     ))
     invalid_len.set_terminator(len_exit, ReturnTerminator(span))
 
+    invalid_to_string = MIRFunctionBuilder(
+        "main", "function::main", MIRType("any"), span
+    )
+    wrong_destination = invalid_to_string.new_local(
+        "wrong_destination", int_type, "variable", span
+    )
+    string_entry = invalid_to_string.new_block()
+    string_exit = invalid_to_string.new_block()
+    invalid_to_string.set_terminator(string_entry, CallTerminator(
+        "builtin::to_string",
+        (ConstOperand(int_type, 7),),
+        Place(wrong_destination),
+        string_exit,
+        None,
+        span,
+    ))
+    invalid_to_string.set_terminator(string_exit, ReturnTerminator(span))
+
     recursive = MIRStructDef(
         "Recursive",
         "type::Recursive",
@@ -562,6 +581,9 @@ def _llvm_contract_rejection_modules() -> dict[str, MIRModule]:
         ),
         "invalid-len": MIRModule(
             span.source, "llvm", (invalid_len.finish(),)
+        ),
+        "invalid-to-string": MIRModule(
+            span.source, "llvm", (invalid_to_string.finish(),)
         ),
         "recursive-struct": MIRModule(
             span.source, "llvm", (), (recursive,)
@@ -591,7 +613,7 @@ def run_mir_legalization_suite() -> bool:
     assert expected == ("13",), expected
 
     generated = emit_legalized_cpp(scalar)
-    assert "nyx_mir_runtime::add" in generated
+    assert "rove_mir_runtime::add" in generated
     assert "goto bb" in generated
     migrated_output = _compile_and_run_cpp(generated)
     assert migrated_output == "13\n", migrated_output
@@ -923,6 +945,36 @@ def run_mir_legalization_suite() -> bool:
     assert _run_wasm_export(
         emit_legalized_wasm(wasm_nested_struct_array), "nested_struct_array_probe"
     ) == "19528\n"
+
+    wasm_recursive_arrays = _lower(WASM_RECURSIVE_ARRAY_FIXTURE)
+    assert not collect_legalization_issues(
+        wasm_recursive_arrays, "wasm", require_emitter=True
+    )
+    recursive_wat = emit_legalized_wat(wasm_recursive_arrays)
+    assert recursive_wat.count("call $__rove_mir_array_clone_recursive") >= 2
+    recursive_wasm = emit_legalized_wasm(wasm_recursive_arrays)
+    for function, expected in (
+        ("recursive_int_probe", 19),
+        ("recursive_bool_probe", 1001),
+        ("recursive_float_probe", 11),
+        ("recursive_string_probe", 15),
+        ("recursive_struct_probe", 19227),
+        ("recursive_empty_probe", 0),
+        ("recursive_five_probe", 427),
+        ("recursive_call_probe", 19),
+    ):
+        assert MIRInterpreter(wasm_recursive_arrays).run(function).value == expected
+        assert _run_wasm_export(recursive_wasm, function) == f"{expected}\n"
+    unsupported_recursive_array = _lower_source(
+        "fn probe() -> int {\n"
+        "  let values: Array<Array<Array<Result<int, string>>>> = []\n"
+        "  return len(values)\n"
+        "}\n",
+        "m5-wasm-recursive-array-rejection.rove",
+    )
+    assert {issue.code for issue in collect_legalization_issues(
+        unsupported_recursive_array, "wasm", require_emitter=True
+    )} == {"MIRG1002"}
 
     wasm_struct = _lower_source(
         "struct Pair { x: int, y: int }\n"
@@ -1451,6 +1503,7 @@ def run_mir_legalization_suite() -> bool:
         "mixed-operands": {"MIRG1010"},
         "string-to-int-cast": {"MIRG1004"},
         "invalid-len": {"MIRG1007"},
+        "invalid-to-string": {"MIRG1007"},
         "recursive-struct": {"MIRG1002"},
     }
     for name, rejected_module in llvm_contract_rejections.items():
@@ -1485,9 +1538,7 @@ def run_mir_legalization_suite() -> bool:
             issues = collect_legalization_issues(
                 struct_display, target, require_emitter=True
             )
-            if target in {"cpp", "rust", "js", "python", "c"} or (
-                target == "llvm" and name != "to-string"
-            ):
+            if target in {"cpp", "llvm", "rust", "js", "python", "c"}:
                 assert not issues, (name, issues)
                 continue
             assert any(
@@ -2032,6 +2083,7 @@ def run_mir_legalization_suite() -> bool:
     assert MIRInterpreter(struct_to_string).run().output == ("Cell(6, rove)",)
     for target, emitter, runner in (
         ("cpp", emit_legalized_cpp, _compile_and_run_cpp),
+        ("llvm", emit_legalized_llvm, _compile_and_run_llvm),
         ("c", emit_legalized_c17, _compile_and_run_c17),
         ("js", emit_legalized_javascript, _run_javascript),
         ("python", emit_legalized_python, _run_python),
@@ -2044,6 +2096,24 @@ def run_mir_legalization_suite() -> bool:
         struct_to_string, "rust", require_emitter=True
     )
     _assert_rust_runtime(emit_legalized_rust(struct_to_string), "Cell(6, rove)\n")
+    long_label = "x" * 128
+    llvm_capture = _lower_source(
+        "struct Cell { value: int, label: string }\n"
+        "enum Packet { Data(Array<Array<Cell>>), Empty() }\n"
+        "fn main() { print("
+        f'to_string(Data([[Cell(-7, "{long_label}")], [Cell(2, "rove")]])), '
+        "to_string(Empty()), to_string(2.0), to_string(-0.0), "
+        'to_string(1.2345678901234567), to_string("")) }\n',
+        "m5-llvm-captured-display.rove",
+    )
+    expected_llvm_capture = "\n".join(MIRInterpreter(llvm_capture).run().output) + "\n"
+    assert f"Cell(-7, {long_label})" in expected_llvm_capture
+    assert not collect_legalization_issues(
+        llvm_capture, "llvm", require_emitter=True
+    )
+    assert _compile_and_run_llvm(emit_legalized_llvm(llvm_capture)) == (
+        expected_llvm_capture
+    )
     nested_struct_tag = _lower_source(
         "struct Cell { value: int }\n"
         "enum Batch { Cells(Array<Array<Cell>>), Empty() }\n"
@@ -2150,7 +2220,7 @@ def run_mir_legalization_suite() -> bool:
     ) + "\n"
     assert expected_cpp_call_unwind == "cleanup\ncaught boom\nlocal 5\n"
     generated_cpp_call_unwind = emit_legalized_cpp(cpp_call_unwind)
-    assert "catch (const nyx_mir_runtime::user_throw& thrown)" in generated_cpp_call_unwind
+    assert "catch (const rove_mir_runtime::user_throw& thrown)" in generated_cpp_call_unwind
     assert _compile_and_run_cpp(generated_cpp_call_unwind) == expected_cpp_call_unwind
     assert not collect_legalization_issues(
         cpp_call_unwind, "js", require_emitter=True
@@ -2819,7 +2889,7 @@ def run_mir_legalization_suite() -> bool:
     )
     print(
         "[PASS] 7 target profiles, stable negative diagnostics, no-fallback gate, "
-        "scalar/aggregate/payload/ownership MIR interpreter parity, C++/LLVM pilots with nested LLVM value structs, recursively deep-copied Array<int|bool|float|string|acyclic-struct> including nested arrays and tagged struct-array ownership, primitive/string tagged Result+enum payloads with canonical display, boxed multi-array/struct tagged payload clone/drop parity plus direct/tagged primitive/nested-array display and consuming-builtin cleanup, explicit LLVM deinit/drop destruction, and LLVM emitter-contract negatives, "
+        "scalar/aggregate/payload/ownership MIR interpreter parity, C++/LLVM pilots with nested LLVM value structs, recursively deep-copied Array<int|bool|float|string|acyclic-struct> including nested arrays and tagged struct-array ownership, primitive/string tagged Result+enum payloads with canonical display, boxed multi-array/struct tagged payload clone/drop parity plus direct/tagged primitive/nested-array display, captured LLVM to_string, and consuming-builtin cleanup, explicit LLVM deinit/drop destruction, and LLVM emitter-contract negatives, "
         f"executable Wasm/JavaScript/Python/C17 CFG pilots, {rust_evidence} validation, C17 acyclic deep-cloned value structs/recursive Array<int|bool|float|f64|string|struct>/nested collection fields/tagged multi-primitive|array|struct and binary64 display/to_string parity, Rust/JS/Python "
         "aggregate parity, Wasm Array<int|bool|float|string|struct>+nested int|bool|float|string|struct arrays/nested int+bool+float+string-struct/int+bool+float+string+struct-enum/Result<int|float|struct,int|bool|float|string> parity, "
         "C++/Rust/JS/Python local and interprocedural throw/catch parity, C++/LLVM/Rust/JS/Python nested struct-enum/Result<Array<int>,string> parity, C++/Rust/JS/Python lazy memoized async/await with suspend-unwind parity, Rust/JS/Python payload-enum parity, "

@@ -1376,7 +1376,7 @@ class HIRRustEmitter:
         if not clean or clean[0].isdigit():
             clean = "rove_" + clean
         if clean in _RUST_KEYWORDS:
-            clean += "_nyx"
+            clean += "_rove"
         return clean
 
     @staticmethod

@@ -2070,17 +2070,20 @@ Implementation status (through 2026-09-24):
   The MIR interpreter, C++, LLVM, Rust, JavaScript, Python, and C17 now use this
   display contract for direct structs, arrays of structs, and struct payloads
   in enum and Result values. The C17 executable gate also covers primitive
-  arrays, empty enum variants, and multi-primitive enum payloads. C++, Rust,
-  JavaScript, Python, and C17 also implement
-  `to_string(Struct)` with the same form. Rust's generated `RoveDisplay`
-  implementations pass metadata/type checks on this host; executable Rust
+  arrays, empty enum variants, and multi-primitive enum payloads. C++, LLVM,
+  Rust, JavaScript, Python, and C17 also implement `to_string(Struct)` with the
+  same form. LLVM routes `print` and `to_string`
+  through one typed display path; the latter captures UTF-8 output in a
+  growable runtime buffer. Captured LLVM strings remain process-owned until
+  string lifetime tracking is part of this pilot; repeated `to_string` calls
+  can retain those buffers. Rust's generated `RoveDisplay` implementations
+  pass metadata/type checks on this host; executable Rust
   parity remains unverified here. C17 shares one typed display path between
   `print` and `to_string`, with an owned capture buffer tracked by its existing
-  allocation runtime. Wasm still rejects `print` of nominal structs; LLVM
-  still rejects `to_string(Struct)`. The MIR interpreter, C++, LLVM, Python,
-  C17, and Rust emitters now follow the existing source scalar-text contract:
-  integral floats omit
-  `.0`, either zero sign prints as `0`, and shortest round-tripping decimals
+  allocation runtime. Wasm still rejects `print` of nominal structs. The MIR
+  interpreter, C++, LLVM, Python, C17, and Rust emitters now follow the existing
+  source scalar-text contract: integral floats omit `.0`, either zero sign
+  prints as `0`, and shortest round-tripping decimals
   use fixed notation for magnitudes in `[1e-6, 1e21)`. Scientific exponents
   omit padding and retain `+` for positive exponents. C++ uses `to_chars`;
   C17 and LLVM select the first decimal precision that round-trips through
@@ -2089,7 +2092,9 @@ Implementation status (through 2026-09-24):
   patterns against the MIR interpreter. The tested `print` paths include LLVM;
   `to_string` and nested aggregate coverage apply only to admitted backends.
   Rust passed generated-code metadata/type checking, but executable Rust float
-  parity is unverified on this Windows host. The seeded runtime gate is
+  parity is unverified on this Windows host. LLVM's captured `to_string` path
+  has executable struct/array/tagged/float coverage; this does not establish
+  full backend parity. The seeded runtime gate is
   evidence on the tested standard libraries, not a cross-platform proof.
   Legalization rejects unsupported display shapes before backend emission.
   C++'s tagged payload printer now dispatches the MIR types present in the
@@ -2220,8 +2225,10 @@ Implementation status (through 2026-09-24):
   bounds-checked index reads/writes, descriptor-aware immutable UTF-8 string
   elements, inline layout-sized struct elements, detached element copies, and
   `len`. Float elements use binary64 loads and stores, with byte-exact copies.
-  Nested int, bool, float, string, and nominal-struct arrays additionally deep-clone every inner
-  descriptor and data allocation and accept checked multi-index reads/writes;
+  Recursively nested int, bool, float, string, and nominal-struct arrays
+  deep-clone every inner descriptor and data allocation and accept checked
+  multi-index reads/writes. The executable gate covers three to five array
+  levels, empty arrays, detached projected copies, and by-value calls/returns;
   an inner array read first resolves the checked element address, then makes a
   detached copy. Other aggregate element types remain rejected before emitter
   dispatch. An explicitly typed empty literal such as
@@ -2333,8 +2340,9 @@ Implementation status (through 2026-09-24):
 - remaining multi-use/control-flow compiler-temporary lifetime elaboration, general
   place-sensitive partial-move/drop analysis, drop unwind edges, per-allocation
   reclamation for arena-backed targets,
-  remaining recursive Wasm aggregate combinations,
-  Wasm nominal-struct printing, LLVM nominal-struct `to_string`, and broader
+  remaining Wasm aggregate combinations such as array-bearing struct fields
+  and tagged payloads,
+  Wasm nominal-struct printing, and broader
   target runtime surfaces remain
   open M5 work. Every migration-order target now has a bounded executable pilot;
   none of those pilots imply full backend parity. C++, Rust, JavaScript, and

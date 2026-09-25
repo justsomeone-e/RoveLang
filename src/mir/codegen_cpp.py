@@ -73,7 +73,7 @@ class _CppEmitter:
     def __init__(self, module: MIRModule):
         self.module = module
         self.function_names = {
-            function.symbol: f"nyx_fn_{_identifier(function.name)}"
+            function.symbol: f"rove_fn_{_identifier(function.name)}"
             for function in module.functions
         }
         self.structs = {
@@ -126,7 +126,7 @@ class _CppEmitter:
 
     @staticmethod
     def _runtime() -> str:
-        return """namespace nyx_mir_runtime {
+        return """namespace rove_mir_runtime {
 struct user_throw {
     std::string value;
 };
@@ -334,34 +334,34 @@ void print(const Values&... values) {
     (print_one(first, values), ...);
     std::cout << '\\n';
 }
-}  // namespace nyx_mir_runtime"""
+}  // namespace rove_mir_runtime"""
 
     def _struct_definitions(self) -> list[str]:
         definitions: list[str] = [
-            "struct nyx_tagged_value {\n"
+            "struct rove_tagged_value {\n"
             "    std::string type_name;\n"
             "    std::string tag;\n"
             "    std::vector<std::any> payload;\n"
             "};",
-            "std::ostream& operator<<(std::ostream& output, const nyx_tagged_value& value);",
+            "std::ostream& operator<<(std::ostream& output, const rove_tagged_value& value);",
         ]
         for definition in self.enums.values():
             definitions.append(
-                f"using nyx_type_{_identifier(definition.name)} = nyx_tagged_value;"
+                f"using rove_type_{_identifier(definition.name)} = rove_tagged_value;"
             )
         for definition in self.structs.values():
-            lines = [f"struct nyx_type_{_identifier(definition.name)} {{"]
+            lines = [f"struct rove_type_{_identifier(definition.name)} {{"]
             for field in definition.fields:
                 lines.append(f"    {self._type(field.type)} {_identifier(field.name)}{{}};")
             lines.append("};")
             definitions.append("\n".join(lines))
         for definition in self.structs.values():
-            name = f"nyx_type_{_identifier(definition.name)}"
+            name = f"rove_type_{_identifier(definition.name)}"
             definitions.append(
                 f"std::ostream& operator<<(std::ostream& output, const {name}& value);"
             )
         for definition in self.structs.values():
-            name = f"nyx_type_{_identifier(definition.name)}"
+            name = f"rove_type_{_identifier(definition.name)}"
             lines = [
                 f"inline std::ostream& operator<<(std::ostream& output, const {name}& value) {{",
                 f"    output << {json.dumps(definition.name + '(')};",
@@ -370,13 +370,13 @@ void print(const Values&... values) {
                 if index:
                     lines.append('    output << ", ";')
                 lines.append(
-                    f"    nyx_mir_runtime::rove_print_value(output, value.{_identifier(field.name)});"
+                    f"    rove_mir_runtime::rove_print_value(output, value.{_identifier(field.name)});"
                 )
             lines.extend(("    return output << ')';", "}"))
             definitions.append("\n".join(lines))
         payload_types = [
-            "std::int64_t", "double", "bool", "std::string", "nyx_tagged_value",
-            *(f"nyx_type_{_identifier(name)}" for name in self.structs),
+            "std::int64_t", "double", "bool", "std::string", "rove_tagged_value",
+            *(f"rove_type_{_identifier(name)}" for name in self.structs),
             *(self._type(value) for value in self._display_array_types()),
         ]
         payload_lines = [
@@ -385,7 +385,7 @@ void print(const Values&... values) {
         for value_type in dict.fromkeys(payload_types):
             payload_lines.extend((
                 f"    if (item.type() == typeid({value_type})) {{",
-                "        nyx_mir_runtime::rove_print_value("
+                "        rove_mir_runtime::rove_print_value("
                 f"output, std::any_cast<const {value_type}&>(item));",
                 "        return;",
                 "    }",
@@ -396,7 +396,7 @@ void print(const Values&... values) {
         ))
         definitions.append("\n".join(payload_lines))
         definitions.append(
-            "inline std::ostream& operator<<(std::ostream& output, const nyx_tagged_value& value) {\n"
+            "inline std::ostream& operator<<(std::ostream& output, const rove_tagged_value& value) {\n"
             "    output << value.tag << '(';\n"
             "    for (std::size_t index = 0; index < value.payload.size(); ++index) {\n"
             "        if (index) output << \", \";\n"
@@ -452,7 +452,7 @@ void print(const Values&... values) {
         return_type = function.locals[function.return_local].type
         rendered_return = "void" if function.name == "main" and return_type.name == "any" else self._type(return_type)
         if function.is_async:
-            rendered_return = f"nyx_mir_runtime::task<{rendered_return}>"
+            rendered_return = f"rove_mir_runtime::task<{rendered_return}>"
         return f"static {rendered_return} {name}({parameters})"
 
     def _function(self, function: MIRFunction) -> str:
@@ -479,7 +479,7 @@ void print(const Values&... values) {
             body_return = "void" if function.name == "main" and return_type.name == "any" else self._type(return_type)
             rendered_lines = [
                 signature,
-                f"    return nyx_mir_runtime::task<{body_return}>([=]() mutable -> {body_return} {{",
+                f"    return rove_mir_runtime::task<{body_return}>([=]() mutable -> {body_return} {{",
             ]
             rendered_lines.extend(f"    {line}" for line in lines)
             rendered_lines.extend(("    });", "}"))
@@ -537,7 +537,7 @@ void print(const Values&... values) {
                 raise MIRCodegenError(f"call '{terminator.function}' has no continuation")
             arguments = ", ".join(self._operand(argument) for argument in terminator.arguments)
             if terminator.function == "builtin::print":
-                lines = [f"    nyx_mir_runtime::print({arguments});"]
+                lines = [f"    rove_mir_runtime::print({arguments});"]
             elif terminator.function == "builtin::len":
                 if len(terminator.arguments) != 1 or terminator.destination is None:
                     raise MIRCodegenError("builtin::len requires one argument and a destination")
@@ -550,7 +550,7 @@ void print(const Values&... values) {
                     raise MIRCodegenError("builtin::to_string requires one argument and a destination")
                 lines = [
                     f"    {self._place(terminator.destination)} = "
-                    f"nyx_mir_runtime::to_string({self._operand(terminator.arguments[0])});"
+                    f"rove_mir_runtime::to_string({self._operand(terminator.arguments[0])});"
                 ]
             elif terminator.function in self.function_names:
                 call = f"{self.function_names[terminator.function]}({arguments})"
@@ -575,7 +575,7 @@ void print(const Values&... values) {
                 wrapped = ["    try {"]
                 wrapped.extend(f"    {line}" for line in lines)
                 wrapped.extend((
-                    "    } catch (const nyx_mir_runtime::user_throw& thrown) {",
+                    "    } catch (const rove_mir_runtime::user_throw& thrown) {",
                     f"        {self._place(terminator.error_destination)} = thrown.value;",
                     f"        goto bb{terminator.unwind};",
                     "    }",
@@ -598,7 +598,7 @@ void print(const Values&... values) {
                 if terminator.error_destination is None:
                     raise MIRCodegenError("C++ MIR suspend unwind requires an error destination")
                 lines = ["    try {", f"    {assignment}",
-                         "    } catch (const nyx_mir_runtime::user_throw& thrown) {",
+                         "    } catch (const rove_mir_runtime::user_throw& thrown) {",
                          f"        {self._place(terminator.error_destination)} = thrown.value;",
                          f"        goto bb{terminator.unwind};", "    }"]
             lines.append(f"    goto bb{terminator.resume};")
@@ -619,7 +619,7 @@ void print(const Values&... values) {
                     f"    goto bb{terminator.target};",
                 ]
             return [
-                f"    throw nyx_mir_runtime::user_throw{{nyx_mir_runtime::to_string({thrown})}};"
+                f"    throw rove_mir_runtime::user_throw{{rove_mir_runtime::to_string({thrown})}};"
             ]
         if isinstance(terminator, DropTerminator):
             if terminator.unwind is not None:
@@ -650,11 +650,11 @@ void print(const Values&... values) {
             if value.op in ("!", "not"):
                 return f"(!static_cast<bool>({operand}))"
             if value.op == "-" and value.type.name in _INTEGER_TYPES:
-                return f"nyx_mir_runtime::neg({operand})"
+                return f"rove_mir_runtime::neg({operand})"
             if value.op in ("+", "-"):
                 return f"({value.op}{operand})"
             if value.op == "~":
-                return f"nyx_mir_runtime::from_bits(~nyx_mir_runtime::to_bits({operand}))"
+                return f"rove_mir_runtime::from_bits(~rove_mir_runtime::to_bits({operand}))"
             raise MIRCodegenError(f"unsupported unary operation '{value.op}'")
         if isinstance(value, CastRValue):
             operand = self._operand(value.operand)
@@ -709,11 +709,11 @@ void print(const Values&... values) {
             "<<": "shl", ">>": "shr",
         }
         if value.op in runtime_ops:
-            return f"nyx_mir_runtime::{runtime_ops[value.op]}({left}, {right})"
+            return f"rove_mir_runtime::{runtime_ops[value.op]}({left}, {right})"
         if value.op in ("&", "|", "^"):
             return (
-                "nyx_mir_runtime::from_bits("
-                f"nyx_mir_runtime::to_bits({left}) {value.op} nyx_mir_runtime::to_bits({right}))"
+                "rove_mir_runtime::from_bits("
+                f"rove_mir_runtime::to_bits({left}) {value.op} rove_mir_runtime::to_bits({right}))"
             )
         raise MIRCodegenError(f"unsupported binary operation '{value.op}'")
 
@@ -743,10 +743,10 @@ void print(const Values&... values) {
                 rendered = f"({rendered}).{_identifier(projection.name)}"
                 value_type = self._field_type(value_type, projection.name)
             elif isinstance(projection, ConstantIndexProjection):
-                rendered = f"nyx_mir_runtime::index({rendered}, {projection.index})"
+                rendered = f"rove_mir_runtime::index({rendered}, {projection.index})"
                 value_type = self._index_type(value_type)
             elif isinstance(projection, IndexProjection):
-                rendered = f"nyx_mir_runtime::index({rendered}, _{projection.local})"
+                rendered = f"rove_mir_runtime::index({rendered}, _{projection.local})"
                 value_type = self._index_type(value_type)
             elif isinstance(projection, DerefProjection):
                 if not value_type.pointer:
@@ -795,7 +795,7 @@ void print(const Values&... values) {
             return "std::nullopt"
         if operand.type.name in _INTEGER_TYPES:
             bits = int(value) & ((1 << 64) - 1)
-            return f"nyx_mir_runtime::from_bits(UINT64_C({bits}))"
+            return f"rove_mir_runtime::from_bits(UINT64_C({bits}))"
         if operand.type.name in _FLOAT_TYPES:
             number = float(value)
             if math.isnan(number):
@@ -835,9 +835,9 @@ void print(const Values&... values) {
         if value.name == "Array" and len(value.arguments) == 1:
             return f"std::vector<{_CppEmitter._type(value.arguments[0])}>"
         if value.name == "Task" and len(value.arguments) == 1:
-            return f"nyx_mir_runtime::task<{_CppEmitter._type(value.arguments[0])}>"
+            return f"rove_mir_runtime::task<{_CppEmitter._type(value.arguments[0])}>"
         if value.name in ("Option", "Result") and value.arguments:
-            return "nyx_tagged_value"
+            return "rove_tagged_value"
         if value.name == "void":
             return "void"
         if value.name == "bool":
@@ -851,7 +851,7 @@ void print(const Values&... values) {
         if value.name == "char":
             return "char32_t"
         if value.name and not value.arguments and not value.pointer and not value.is_function:
-            return f"nyx_type_{_identifier(value.name)}"
+            return f"rove_type_{_identifier(value.name)}"
         raise MIRCodegenError(f"unsupported C++ MIR type '{value}'")
 
 

@@ -2630,7 +2630,7 @@ class HIRCppEmitter:
         if clean[0].isdigit():
             clean = "_" + clean
         if clean in _CPP_RESERVED:
-            clean += "_nyx"
+            clean += "_rove"
         return clean
 
     @staticmethod

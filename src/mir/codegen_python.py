@@ -25,8 +25,8 @@ _RUNTIME = r'''import copy
 import math
 import sys
 
-NYX_I64_MASK = (1 << 64) - 1
-NYX_I64_SIGN = 1 << 63
+ROVE_I64_MASK = (1 << 64) - 1
+ROVE_I64_SIGN = 1 << 63
 
 class RoveUserThrow(Exception):
     def __init__(self, value):
@@ -56,26 +56,26 @@ class RoveTask:
             self.done = True
         if self.error is not None:
             raise self.error
-        return nyx_clone(self.value)
+        return rove_clone(self.value)
 
-def nyx_i64(value):
-    value = int(value) & NYX_I64_MASK
-    return value - (1 << 64) if value & NYX_I64_SIGN else value
+def rove_i64(value):
+    value = int(value) & ROVE_I64_MASK
+    return value - (1 << 64) if value & ROVE_I64_SIGN else value
 
-def nyx_i64_div(left, right):
+def rove_i64_div(left, right):
     if right == 0:
         raise RuntimeError("division by zero")
     quotient = abs(left) // abs(right)
     if (left < 0) != (right < 0):
         quotient = -quotient
-    return nyx_i64(quotient)
+    return rove_i64(quotient)
 
-def nyx_i64_rem(left, right):
+def rove_i64_rem(left, right):
     if right == 0:
         raise RuntimeError("remainder by zero")
-    return nyx_i64(left - nyx_i64_div(left, right) * right)
+    return rove_i64(left - rove_i64_div(left, right) * right)
 
-def nyx_f64_div(left, right):
+def rove_f64_div(left, right):
     left = float(left)
     right = float(right)
     if right != 0.0:
@@ -85,31 +85,31 @@ def nyx_f64_div(left, right):
     negative = math.copysign(1.0, left) != math.copysign(1.0, right)
     return -math.inf if negative else math.inf
 
-def nyx_f64_rem(left, right):
+def rove_f64_rem(left, right):
     try:
         return math.fmod(float(left), float(right))
     except ValueError:
         return math.nan
 
-def nyx_clone(value):
+def rove_clone(value):
     return copy.deepcopy(value)
 
-def nyx_index(value, index):
+def rove_index(value, index):
     position = int(index)
     if position < 0 or position >= len(value):
         raise IndexError(f"index {position} out of bounds for length {len(value)}")
     return value[position]
 
-def nyx_set_index(value, index, item):
+def rove_set_index(value, index, item):
     position = int(index)
     if position < 0 or position >= len(value):
         raise IndexError(f"index {position} out of bounds for length {len(value)}")
     value[position] = item
 
-def nyx_field(value, name):
+def rove_field(value, name):
     return value["fields"][name]
 
-def nyx_set_field(value, name, item):
+def rove_set_field(value, name, item):
     value["fields"][name] = item
 
 def rove_f64_to_string(value):
@@ -172,7 +172,7 @@ class _PythonEmitter:
     def __init__(self, module: MIRModule):
         self.module = module
         self.function_names = {
-            function.symbol: f"nyx_fn_{_identifier(function.name)}"
+            function.symbol: f"rove_fn_{_identifier(function.name)}"
             for function in module.functions
         }
         self.function_names.update({
@@ -283,7 +283,7 @@ class _PythonEmitter:
             elif value.function == "builtin::len":
                 if len(value.arguments) != 1 or value.destination is None:
                     raise MIRCodegenError("builtin::len requires one argument and a destination")
-                line = f"{self._place(value.destination)} = nyx_i64(len({self._operand(value.arguments[0])}))"
+                line = f"{self._place(value.destination)} = rove_i64(len({self._operand(value.arguments[0])}))"
             elif value.function == "builtin::to_string":
                 if len(value.arguments) != 1 or value.destination is None:
                     raise MIRCodegenError("builtin::to_string requires one argument and a destination")
@@ -365,7 +365,7 @@ class _PythonEmitter:
             if value.kind == "optional-unwrap" or value.type.optional:
                 return operand
             if value.type.name == "int":
-                return f"nyx_i64({operand})"
+                return f"rove_i64({operand})"
             if value.type.name in ("float", "f64"):
                 return f"float({operand})"
             if value.type.name == "bool":
@@ -390,7 +390,7 @@ class _PythonEmitter:
         if isinstance(value, DiscriminantRValue):
             return f"({self._operand(value.operand)})['tag']"
         if isinstance(value, PayloadRValue):
-            return f"nyx_index(({self._operand(value.operand)})['payload'], {value.index})"
+            return f"rove_index(({self._operand(value.operand)})['payload'], {value.index})"
         if isinstance(value, UnaryRValue):
             operand = self._operand(value.operand)
             if value.op in ("!", "not"):
@@ -398,11 +398,11 @@ class _PythonEmitter:
             if value.op == "+":
                 return operand
             if value.op == "-" and value.type.name == "int":
-                return f"nyx_i64(-({operand}))"
+                return f"rove_i64(-({operand}))"
             if value.op == "-":
                 return f"-({operand})"
             if value.op == "~":
-                return f"nyx_i64(~({operand}))"
+                return f"rove_i64(~({operand}))"
             raise MIRCodegenError(f"unsupported Python unary operation '{value.op}'")
         raise MIRCodegenError(f"illegal rvalue reached Python emitter: {type(value).__name__}")
 
@@ -419,19 +419,19 @@ class _PythonEmitter:
             if value.op in ("+", "-", "*"):
                 return f"({left} {value.op} {right})"
             if value.op == "/":
-                return f"nyx_f64_div({left}, {right})"
+                return f"rove_f64_div({left}, {right})"
             if value.op == "%":
-                return f"nyx_f64_rem({left}, {right})"
+                return f"rove_f64_rem({left}, {right})"
         if value.op in ("+", "-", "*", "&", "|", "^"):
-            return f"nyx_i64(({left}) {value.op} ({right}))"
+            return f"rove_i64(({left}) {value.op} ({right}))"
         if value.op == "/":
-            return f"nyx_i64_div({left}, {right})"
+            return f"rove_i64_div({left}, {right})"
         if value.op == "%":
-            return f"nyx_i64_rem({left}, {right})"
+            return f"rove_i64_rem({left}, {right})"
         if value.op == "<<":
-            return f"nyx_i64(({left}) << (({right}) & 63))"
+            return f"rove_i64(({left}) << (({right}) & 63))"
         if value.op == ">>":
-            return f"nyx_i64(({left}) >> (({right}) & 63))"
+            return f"rove_i64(({left}) >> (({right}) & 63))"
         raise MIRCodegenError(f"unsupported Python binary operation '{value.op}'")
 
     def _operand(self, value: Operand) -> str:
@@ -439,7 +439,7 @@ class _PythonEmitter:
             return self._typed_constant(value)
         if isinstance(value, (CopyOperand, MoveOperand)):
             rendered = self._place(value.place)
-            return f"nyx_clone({rendered})" if isinstance(value, CopyOperand) else rendered
+            return f"rove_clone({rendered})" if isinstance(value, CopyOperand) else rendered
         raise MIRCodegenError(f"illegal operand reached Python emitter: {type(value).__name__}")
 
     def _operand_type(self, value: Operand) -> MIRType:
@@ -452,7 +452,7 @@ class _PythonEmitter:
     @staticmethod
     def _typed_constant(value: ConstOperand) -> str:
         if value.type.name == "int":
-            return f"nyx_i64({value.value})"
+            return f"rove_i64({value.value})"
         if value.type.name == "string":
             return json.dumps(str(value.value), ensure_ascii=False)
         if value.type.name == "bool":
@@ -490,11 +490,11 @@ class _PythonEmitter:
         rendered = f"l{place.local}"
         for projection in place.projections:
             if isinstance(projection, FieldProjection):
-                rendered = f"nyx_field({rendered}, {projection.name!r})"
+                rendered = f"rove_field({rendered}, {projection.name!r})"
             elif isinstance(projection, ConstantIndexProjection):
-                rendered = f"nyx_index({rendered}, {projection.index})"
+                rendered = f"rove_index({rendered}, {projection.index})"
             elif isinstance(projection, IndexProjection):
-                rendered = f"nyx_index({rendered}, l{projection.local})"
+                rendered = f"rove_index({rendered}, l{projection.local})"
             else:
                 raise MIRCodegenError(f"illegal projection reached Python emitter: {type(projection).__name__}")
         return rendered
@@ -506,11 +506,11 @@ class _PythonEmitter:
         projection = place.projections[-1]
         rendered_parent = self._place(parent)
         if isinstance(projection, FieldProjection):
-            return f"nyx_set_field({rendered_parent}, {projection.name!r}, {value})"
+            return f"rove_set_field({rendered_parent}, {projection.name!r}, {value})"
         if isinstance(projection, ConstantIndexProjection):
-            return f"nyx_set_index({rendered_parent}, {projection.index}, {value})"
+            return f"rove_set_index({rendered_parent}, {projection.index}, {value})"
         if isinstance(projection, IndexProjection):
-            return f"nyx_set_index({rendered_parent}, l{projection.local}, {value})"
+            return f"rove_set_index({rendered_parent}, l{projection.local}, {value})"
         raise MIRCodegenError(f"illegal assignment projection reached Python emitter: {type(projection).__name__}")
 
     def _place_type(self, place: Place) -> MIRType:

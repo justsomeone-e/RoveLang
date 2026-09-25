@@ -96,19 +96,19 @@
   (func $total (export "total") (param $values_ptr i32) (param $values_len i32) (result f64)
     (local $result f64)
     (local $value f64)
-    (local $__nyx_for_index_1 i32)
+    (local $__rove_for_index_1 i32)
     f64.const 0.0
     local.set $result
     i32.const 0
-    local.set $__nyx_for_index_1
+    local.set $__rove_for_index_1
     block $for_break_1
       loop $for_loop_2
-        local.get $__nyx_for_index_1
+        local.get $__rove_for_index_1
         local.get $values_len
         i32.ge_s
         br_if $for_break_1
         local.get $values_ptr
-        local.get $__nyx_for_index_1
+        local.get $__rove_for_index_1
         i32.const 8
         i32.mul
         i32.add
@@ -120,10 +120,10 @@
           f64.add
           local.set $result
         end
-        local.get $__nyx_for_index_1
+        local.get $__rove_for_index_1
         i32.const 1
         i32.add
-        local.set $__nyx_for_index_1
+        local.set $__rove_for_index_1
         br $for_loop_2
       end
     end
@@ -154,7 +154,7 @@
     (local $result f64)
     (local $first i32)
     (local $value f64)
-    (local $__nyx_for_index_2 i32)
+    (local $__rove_for_index_2 i32)
     local.get $values_len
     i32.const 0
     i32.eq
@@ -167,15 +167,15 @@
     i32.const 1
     local.set $first
     i32.const 0
-    local.set $__nyx_for_index_2
+    local.set $__rove_for_index_2
     block $for_break_4
       loop $for_loop_5
-        local.get $__nyx_for_index_2
+        local.get $__rove_for_index_2
         local.get $values_len
         i32.ge_s
         br_if $for_break_4
         local.get $values_ptr
-        local.get $__nyx_for_index_2
+        local.get $__rove_for_index_2
         i32.const 8
         i32.mul
         i32.add
@@ -197,10 +197,10 @@
           i32.const 0
           local.set $first
         end
-        local.get $__nyx_for_index_2
+        local.get $__rove_for_index_2
         i32.const 1
         i32.add
-        local.set $__nyx_for_index_2
+        local.set $__rove_for_index_2
         br $for_loop_5
       end
     end
@@ -212,7 +212,7 @@
   (func $maximum (export "maximum") (param $values_ptr i32) (param $values_len i32) (result f64)
     (local $result f64)
     (local $value f64)
-    (local $__nyx_for_index_3 i32)
+    (local $__rove_for_index_3 i32)
     local.get $values_len
     i32.const 0
     i32.eq
@@ -223,15 +223,15 @@
     f64.const 0.0
     local.set $result
     i32.const 0
-    local.set $__nyx_for_index_3
+    local.set $__rove_for_index_3
     block $for_break_7
       loop $for_loop_8
-        local.get $__nyx_for_index_3
+        local.get $__rove_for_index_3
         local.get $values_len
         i32.ge_s
         br_if $for_break_7
         local.get $values_ptr
-        local.get $__nyx_for_index_3
+        local.get $__rove_for_index_3
         i32.const 8
         i32.mul
         i32.add
@@ -246,10 +246,10 @@
             local.set $result
           end
         end
-        local.get $__nyx_for_index_3
+        local.get $__rove_for_index_3
         i32.const 1
         i32.add
-        local.set $__nyx_for_index_3
+        local.set $__rove_for_index_3
         br $for_loop_8
       end
     end
@@ -261,19 +261,19 @@
   (func $count_over (export "count_over") (param $values_ptr i32) (param $values_len i32) (param $budget f64) (result i32)
     (local $result i32)
     (local $value f64)
-    (local $__nyx_for_index_4 i32)
+    (local $__rove_for_index_4 i32)
     i32.const 0
     local.set $result
     i32.const 0
-    local.set $__nyx_for_index_4
+    local.set $__rove_for_index_4
     block $for_break_10
       loop $for_loop_11
-        local.get $__nyx_for_index_4
+        local.get $__rove_for_index_4
         local.get $values_len
         i32.ge_s
         br_if $for_break_10
         local.get $values_ptr
-        local.get $__nyx_for_index_4
+        local.get $__rove_for_index_4
         i32.const 8
         i32.mul
         i32.add
@@ -290,10 +290,10 @@
             local.set $result
           end
         end
-        local.get $__nyx_for_index_4
+        local.get $__rove_for_index_4
         i32.const 1
         i32.add
-        local.set $__nyx_for_index_4
+        local.set $__rove_for_index_4
         br $for_loop_11
       end
     end
@@ -305,19 +305,19 @@
   (func $count_between (export "count_between") (param $values_ptr i32) (param $values_len i32) (param $lower f64) (param $upper f64) (result i32)
     (local $result i32)
     (local $value f64)
-    (local $__nyx_for_index_5 i32)
+    (local $__rove_for_index_5 i32)
     i32.const 0
     local.set $result
     i32.const 0
-    local.set $__nyx_for_index_5
+    local.set $__rove_for_index_5
     block $for_break_13
       loop $for_loop_14
-        local.get $__nyx_for_index_5
+        local.get $__rove_for_index_5
         local.get $values_len
         i32.ge_s
         br_if $for_break_13
         local.get $values_ptr
-        local.get $__nyx_for_index_5
+        local.get $__rove_for_index_5
         i32.const 8
         i32.mul
         i32.add
@@ -341,10 +341,10 @@
             local.set $result
           end
         end
-        local.get $__nyx_for_index_5
+        local.get $__rove_for_index_5
         i32.const 1
         i32.add
-        local.set $__nyx_for_index_5
+        local.set $__rove_for_index_5
         br $for_loop_14
       end
     end

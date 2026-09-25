@@ -1,0 +1,79 @@
+struct Cell { value: int, label: string }
+
+fn recursive_int_probe() -> int {
+  var original = [[[1, 2], [3]]]
+  var copied = original
+  set copied[0][0][0] = 9
+  return original[0][0][0] * 10 + copied[0][0][0]
+}
+
+fn recursive_bool_probe() -> int {
+  var original = [[[true, false], [false, true]]]
+  var copied = original
+  set copied[0][0][0] = false
+  set copied[0][1][0] = true
+  var score = 0
+  if original[0][0][0] { set score = score + 1000 }
+  if copied[0][0][0] { set score = score + 100 }
+  if original[0][1][0] { set score = score + 10 }
+  if copied[0][1][0] { set score = score + 1 }
+  return score
+}
+
+fn recursive_float_probe() -> int {
+  var original = [[[1.25, 2.5]]]
+  var copied = original
+  set copied[0][0][0] = 9.5
+  var score = 0
+  if original[0][0][0] == 1.25 { set score = score + 10 }
+  if copied[0][0][0] == 9.5 { set score = score + 1 }
+  return score
+}
+
+fn recursive_string_probe() -> int {
+  var original = [[["a"]]]
+  var copied = original
+  set copied[0][0][0] = "hello"
+  return len(original[0][0][0]) * 10 + len(copied[0][0][0])
+}
+
+fn recursive_struct_probe() -> int {
+  var original = [[[[Cell(1, "a")]]], [[[Cell(2, "bb")]]]]
+  var copied = original
+  set copied[0][0][0][0] = Cell(9, "hello")
+  var detached = copied[1][0]
+  set detached[0][0] = Cell(7, "compiler")
+  let original_first = original[0][0][0][0]
+  let copied_first = copied[0][0][0][0]
+  let original_second = original[1][0][0][0]
+  let copied_second = copied[1][0][0][0]
+  let detached_first = detached[0][0]
+  return original_first.value * 10000 + copied_first.value * 1000 +
+    original_second.value * 100 + copied_second.value * 10 +
+    detached_first.value
+}
+
+fn recursive_empty_probe() -> int {
+  var original: Array<Array<Array<int>>> = []
+  var copied = original
+  return len(copied)
+}
+
+fn recursive_five_probe() -> int {
+  var original = [[[[[42]]]]]
+  var copied = original
+  set copied[0][0][0][0][0] = 7
+  return original[0][0][0][0][0] * 10 + copied[0][0][0][0][0]
+}
+
+fn recursive_transport(values: Array<Array<Array<int>>>) -> Array<Array<Array<int>>> {
+  var copied = values
+  set copied[0][0][0] = 9
+  return copied
+}
+
+fn recursive_call_probe() -> int {
+  var original = [[[1]]]
+  var changed = recursive_transport(original)
+  return original[0][0][0] * 10 + changed[0][0][0]
+}
