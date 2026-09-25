@@ -517,12 +517,14 @@ class _Legalizer:
                             )
                             and not (
                                 isinstance(self.type_definitions.get(payload_type.name), MIRStructDef)
-                                and not self._wasm_struct_has_array(payload_type)
+                                and not payload_type.arguments
+                                and not payload_type.optional
+                                and not payload_type.pointer
                             )
                         ):
                             self._issue(
                                 "MIRG1002",
-                                f"The Wasm MIR enum pilot requires int, bool, float, string, or array-free nominal struct payloads; "
+                                f"The Wasm MIR enum pilot requires int, bool, float, string, or nominal struct payloads; "
                                 f"'{definition.name}.{variant.name}' contains '{payload_type}'",
                                 span,
                             )
@@ -1147,7 +1149,7 @@ class _Legalizer:
             if not self._wasm_result_compatible(value):
                 self._issue(
                     "MIRG1002",
-                    f"The Wasm MIR Result pilot supports int, bool, float, string, and array-free nominal struct payloads, got '{value}'",
+                    f"The Wasm MIR Result pilot supports int, bool, float, string, and nominal struct payloads, got '{value}'",
                     span,
                 )
             return
@@ -1685,18 +1687,6 @@ class _Legalizer:
             )
         )
 
-    def _wasm_struct_has_array(
-        self, value_type: MIRType, seen: frozenset[str] = frozenset()
-    ) -> bool:
-        definition = self.type_definitions.get(value_type.name)
-        if not isinstance(definition, MIRStructDef) or value_type.name in seen:
-            return False
-        return any(
-            field.type.name == "Array"
-            or self._wasm_struct_has_array(field.type, seen | {value_type.name})
-            for field in definition.fields
-        )
-
     def _wasm_result_compatible(self, value_type: MIRType | None) -> bool:
         def compatible(argument: MIRType) -> bool:
             return (
@@ -1709,7 +1699,6 @@ class _Legalizer:
                     and not argument.arguments
                     and not argument.optional
                     and not argument.pointer
-                    and not self._wasm_struct_has_array(argument)
                 )
             )
 

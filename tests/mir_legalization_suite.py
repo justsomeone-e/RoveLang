@@ -28,6 +28,7 @@ from src.mir import (
     DeinitStatement,
     DerefProjection,
     DropTerminator,
+    LayoutEngine,
     MIR_BACKEND_MIGRATION_ORDER,
     MIR_BACKEND_PROFILES,
     MIRFunctionBuilder,
@@ -73,6 +74,7 @@ LLVM_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_llvm_tagged.rove
 LLVM_OWNED_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_llvm_owned_tagged.rove"
 WASM_RECURSIVE_ARRAY_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_recursive_arrays.rove"
 WASM_ARRAY_FIELD_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_array_fields.rove"
+WASM_OWNED_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_owned_tagged.rove"
 C17_MULTI_OWNED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_c17_multi_owned_payload.rove"
 RUST_VALIDATION_MODE = "runtime"
 
@@ -279,6 +281,37 @@ def _run_wasm_export(
             return ""
         assert executed.returncode == 0, executed.stdout + executed.stderr
         return executed.stdout.replace("\r\n", "\n")
+
+
+def _assert_wasm_tagged_copy_is_owned(
+    wasm: bytes, make: str, copy: str, payload_offset: int, original: int,
+) -> None:
+    node = shutil.which("node")
+    assert node is not None, "Node.js is required for the WebAssembly runtime gate"
+    with tempfile.TemporaryDirectory(prefix="rove_mir_wasm_owned_tagged_") as temporary:
+        wasm_path = Path(temporary) / "program.wasm"
+        script_path = Path(temporary) / "run.mjs"
+        wasm_path.write_bytes(wasm)
+        script_path.write_text(
+            "import fs from 'node:fs';\n"
+            "const bytes = fs.readFileSync(new URL('./program.wasm', import.meta.url));\n"
+            "const { instance } = await WebAssembly.instantiate(bytes, {});\n"
+            f"const source = instance.exports[{json.dumps(make)}]();\n"
+            f"const cloned = instance.exports[{json.dumps(copy)}](source);\n"
+            "const view = new DataView(instance.exports.memory.buffer);\n"
+            f"const sourceData = view.getUint32(source + {payload_offset}, true);\n"
+            f"const clonedData = view.getUint32(cloned + {payload_offset}, true);\n"
+            "view.setBigInt64(clonedData, 9n, true);\n"
+            "console.log(String(view.getBigInt64(sourceData, true)) + ' ' + "
+            "String(view.getBigInt64(clonedData, true)));\n",
+            encoding="utf-8", newline="\n",
+        )
+        executed = subprocess.run(
+            [node, str(script_path)], capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=30,
+        )
+        assert executed.returncode == 0, executed.stdout + executed.stderr
+        assert executed.stdout.strip() == f"{original} 9", executed.stdout
 
 
 def _ownership_module() -> MIRModule:
@@ -999,24 +1032,47 @@ def run_mir_legalization_suite() -> bool:
     _run_wasm_export(array_field_wasm, "bad_index", -1, expect_trap=True)
     _run_wasm_export(array_field_wasm, "bad_index", 1, expect_trap=True)
 
-    # Tagged copies still need payload-aware deep cloning before admitting
-    # structs that own arrays as enum/Result payloads.
-    owned_struct_enum = _lower_source(
-        "struct Box { values: Array<int> }\n"
-        "enum Packet { Data(Box), Empty() }\n"
-        "fn make() -> Packet { return Data(Box([1])) }\n",
-        "m5-wasm-array-struct-enum-rejection.rove",
+    wasm_owned_tagged = _lower(WASM_OWNED_TAGGED_FIXTURE)
+    assert not collect_legalization_issues(
+        wasm_owned_tagged, "wasm", require_emitter=True
     )
-    assert {issue.code for issue in collect_legalization_issues(
-        owned_struct_enum, "wasm", require_emitter=True
-    )} == {"MIRG1002"}
-    owned_struct_result = _lower_source(
-        "struct Box { values: Array<int> }\n"
-        "fn make() -> Result<Box, string> { return Ok(Box([1])) }\n",
-        "m5-wasm-array-struct-result-rejection.rove",
+    owned_tagged_wasm = emit_legalized_wasm(wasm_owned_tagged)
+    for function, expected in (
+        ("enum_payload_probe", 19),
+        ("enum_second_variant_probe", 48),
+        ("enum_empty_probe", 0),
+        ("result_ok_probe", 29),
+        ("result_string_probe", 4),
+        ("result_err_probe", 38),
+    ):
+        assert MIRInterpreter(wasm_owned_tagged).run(function).value == expected
+        assert _run_wasm_export(owned_tagged_wasm, function) == f"{expected}\n"
+    layouts = LayoutEngine(wasm_owned_tagged, "wasm")
+    _assert_wasm_tagged_copy_is_owned(
+        owned_tagged_wasm, "make_packet", "copy_packet",
+        layouts.layout_of(MIRType("Packet")).payload_offset, 1,
+    )
+    _assert_wasm_tagged_copy_is_owned(
+        owned_tagged_wasm, "make_more_packet", "copy_packet",
+        layouts.layout_of(MIRType("Packet")).payload_offset, 4,
+    )
+    _assert_wasm_tagged_copy_is_owned(
+        owned_tagged_wasm, "make_result", "copy_result",
+        layouts.layout_of(MIRType("Result", (MIRType("Box"), MIRType("string")))).payload_offset,
+        2,
+    )
+    _assert_wasm_tagged_copy_is_owned(
+        owned_tagged_wasm, "make_err_result", "copy_err_result",
+        layouts.layout_of(MIRType("Result", (MIRType("string"), MIRType("Box")))).payload_offset,
+        3,
+    )
+    unsupported_tagged_array = _lower_source(
+        "enum Packet { Data(Array<int>), Empty() }\n"
+        "fn make() -> Packet { return Data([1]) }\n",
+        "m5-wasm-direct-array-enum-rejection.rove",
     )
     assert "MIRG1002" in {issue.code for issue in collect_legalization_issues(
-        owned_struct_result, "wasm", require_emitter=True
+        unsupported_tagged_array, "wasm", require_emitter=True
     )}
 
     wasm_struct = _lower_source(

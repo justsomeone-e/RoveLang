@@ -2246,10 +2246,15 @@ Implementation status (through 2026-09-25):
   mixed field/index projection chains use checked element addresses. The
   executable gate includes a finite `Array<Node>` recursive value, empty
   fields, projected writes, detached array elements, and invalid-index traps.
-  Enum and Result payloads containing an array-owning struct remain rejected
-  until tagged copies receive the same deep-clone path. Nominal enums with int payloads or one
-  bool/float/immutable string/nominal-struct payload keep their canonical named MIR tags while Wasm
-  legalization maps them to deterministic `i32` discriminants and stores
+  Enum and Result variants with one array-owning nominal struct payload use
+  tag-aware clone helpers, so copying a tagged value and extracting its payload
+  both detach nested arrays. The executable gate covers both Result branches,
+  two enum payload variants, empty variants, typed-Result re-homing, and direct
+  linear-memory mutation of copied array elements. Direct Array payloads and
+  multi-payload non-int enum variants remain gated. Nominal enums with int
+  payloads or one bool/float/immutable string/nominal-struct payload keep their
+  canonical named MIR tags while Wasm legalization maps them to deterministic
+  `i32` discriminants and stores
   payloads at layout-defined offsets. Results with int, bool, float, string, or
   nominal-struct payloads share the same tagged representation and are verified on both `Ok` and `Err`
   control-flow paths.
@@ -2350,7 +2355,7 @@ Implementation status (through 2026-09-25):
 - remaining multi-use/control-flow compiler-temporary lifetime elaboration, general
   place-sensitive partial-move/drop analysis, drop unwind edges, per-allocation
   reclamation for arena-backed targets,
-  remaining Wasm aggregate combinations such as array-bearing tagged payloads,
+  remaining Wasm aggregate combinations such as direct Array tagged payloads,
   Wasm nominal-struct printing, and broader
   target runtime surfaces remain
   open M5 work. Every migration-order target now has a bounded executable pilot;

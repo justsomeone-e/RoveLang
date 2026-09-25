@@ -1248,10 +1248,7 @@ class _WasmEmitter:
             if value.type == MIRType("string"):
                 return address
             if value.type.name in self.structs:
-                return address + [
-                    Instruction("i32.const", self.layouts.layout_of(value.type).size),
-                    Instruction("call", "__rove_mir_clone_bytes"),
-                ]
+                return address + self._clone_value(value.type)
             return address + [Instruction(self._load_instruction(value.type))]
         if isinstance(value, BinaryRValue):
             left_type = self._operand_type(value.left)
@@ -1376,13 +1373,7 @@ class _WasmEmitter:
                 ))
             elif self._is_memory_aggregate(local_type):
                 if isinstance(value, CopyOperand):
-                    if local_type.name in self.structs:
-                        output.extend(self._clone_value(local_type))
-                    else:
-                        output.extend((
-                            Instruction("i32.const", self.layouts.layout_of(local_type).size),
-                            Instruction("call", "__rove_mir_clone_bytes"),
-                        ))
+                    output.extend(self._clone_value(local_type))
                 else:
                     output.extend((
                         Instruction("i32.const", 0),
@@ -1422,9 +1413,31 @@ class _WasmEmitter:
             leaf = leaf.arguments[0]
         return self._struct_has_array(leaf)
 
+    def _tagged_owned_payloads(self, value_type: MIRType) -> tuple[tuple[int, MIRType], ...]:
+        if value_type.name in self.enums:
+            variants = (
+                variant.payload_types for variant in self.enums[value_type.name].variants
+            )
+        elif self._is_result_compatible(value_type):
+            variants = ((argument,) for argument in value_type.arguments)
+        else:
+            return ()
+        return tuple(
+            (index, payloads[0])
+            for index, payloads in enumerate(variants)
+            if len(payloads) == 1 and self._struct_has_array(payloads[0])
+        )
+
     def _clone_value(self, value_type: MIRType) -> list[Instruction]:
         if value_type.name in self.structs:
             if self._struct_has_array(value_type):
+                return [Instruction("call", self._ensure_owned_clone(value_type))]
+            return [
+                Instruction("i32.const", self.layouts.layout_of(value_type).size),
+                Instruction("call", "__rove_mir_clone_bytes"),
+            ]
+        if self._is_tagged_aggregate(value_type):
+            if self._tagged_owned_payloads(value_type):
                 return [Instruction("call", self._ensure_owned_clone(value_type))]
             return [
                 Instruction("i32.const", self.layouts.layout_of(value_type).size),
@@ -1495,6 +1508,37 @@ class _WasmEmitter:
                 body.extend((
                     Instruction("i32.const", self.layouts.layout_of(field.type).size),
                     Instruction("memory.copy"),
+                ))
+            body.extend((Instruction("local.get", "copy"), Instruction("return")))
+            helper = FunctionIR(
+                name, [("source", I32)], I32, locals=[("copy", I32)],
+                body=body, export=False,
+            )
+        elif self._is_tagged_aggregate(value_type):
+            layout = self.layouts.layout_of(value_type)
+            body = [
+                Instruction("local.get", "source"), Instruction("i32.eqz"),
+                Instruction("if"), Instruction("i32.const", 0),
+                Instruction("return"), Instruction("end"),
+                Instruction("local.get", "source"),
+                Instruction("i32.const", layout.size),
+                Instruction("call", "__rove_mir_clone_bytes"),
+                Instruction("local.set", "copy"),
+            ]
+            for tag, payload_type in self._tagged_owned_payloads(value_type):
+                body.extend((
+                    Instruction("local.get", "source"), Instruction("i32.load"),
+                    Instruction("i32.const", tag), Instruction("i32.eq"),
+                    Instruction("if"),
+                    Instruction("local.get", "copy"),
+                    Instruction("i32.const", layout.payload_offset), Instruction("i32.add"),
+                    Instruction("local.get", "source"),
+                    Instruction("i32.const", layout.payload_offset), Instruction("i32.add"),
+                ))
+                body.extend(self._clone_value(payload_type))
+                body.extend((
+                    Instruction("i32.const", self.layouts.layout_of(payload_type).size),
+                    Instruction("memory.copy"), Instruction("end"),
                 ))
             body.extend((Instruction("local.get", "copy"), Instruction("return")))
             helper = FunctionIR(
