@@ -14,7 +14,7 @@ from src.codegen.cpp_toolchain import CppToolchain
 
 def run_native_library_suite() -> bool:
     print("=" * 70)
-    print("⚡ NYX PHASE 3.2 NATIVE LIBRARY API & STDLIB HARNESS")
+    print("⚡ ROVE PHASE 3.2 NATIVE LIBRARY API & STDLIB HARNESS")
     print("=" * 70)
 
     compiler = CppToolchain.find_compiler()

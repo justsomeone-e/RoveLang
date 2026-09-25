@@ -118,7 +118,7 @@ unsafe {
 
 def run_cpp_e2e_tests():
     print("=" * 70)
-    print("⚡ NYX C++20 END-TO-END CONFORMANCE HARNESS")
+    print("⚡ ROVE C++20 END-TO-END CONFORMANCE HARNESS")
     print("=" * 70)
     
     compiler_path = CppToolchain.find_compiler()

@@ -81,7 +81,7 @@ int main() {
 
 def run_linking_suite() -> bool:
     print("=" * 70)
-    print("NYX PHASE 3.4 STATIC/SHARED LINKING TEST HARNESS")
+    print("ROVE PHASE 3.4 STATIC/SHARED LINKING TEST HARNESS")
     print("=" * 70)
     try:
         test_static_and_shared_linking()

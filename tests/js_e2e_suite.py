@@ -115,7 +115,7 @@ print("Array Sum:", total)
 
 def run_js_e2e_tests():
     print("=" * 70)
-    print("⚡ NYX JS (Node.js ES2022) END-TO-END CONFORMANCE HARNESS")
+    print("⚡ ROVE JS (Node.js ES2022) END-TO-END CONFORMANCE HARNESS")
     print("=" * 70)
     
     passed = 0

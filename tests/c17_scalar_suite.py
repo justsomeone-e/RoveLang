@@ -71,7 +71,7 @@ def _run_cpp_oracle(source: str) -> str:
 
 def run_c17_scalar_suite() -> bool:
     print("=" * 70)
-    print("NYX C17 NATIVE SCALAR PILOT CONTRACT")
+    print("ROVE C17 NATIVE SCALAR PILOT CONTRACT")
     print("=" * 70)
 
     # 1. Capability spec check
