@@ -72,6 +72,7 @@ LLVM_STRUCT_ARRAY_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_llvm_struc
 LLVM_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_llvm_tagged.rove"
 LLVM_OWNED_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_llvm_owned_tagged.rove"
 WASM_RECURSIVE_ARRAY_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_recursive_arrays.rove"
+C17_MULTI_OWNED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_c17_multi_owned_payload.rove"
 RUST_VALIDATION_MODE = "runtime"
 
 
@@ -2737,18 +2738,39 @@ def run_mir_legalization_suite() -> bool:
         generated_c17_multi_payload
     ) == expected_c17_multi_payload
 
-    c17_multi_object_payload = _lower_source(
-        "enum Unsupported { Pair(Array<int>, int) }\n"
-        "fn main() { print(0) }\n",
-        "m5-c17-multi-object-payload-rejected.rove",
+    c17_multi_owned = _lower(C17_MULTI_OWNED_FIXTURE)
+    assert not collect_legalization_issues(
+        c17_multi_owned, "c", require_emitter=True
     )
-    c17_multi_object_issues = collect_legalization_issues(
-        c17_multi_object_payload, "c", require_emitter=True
+    expected_c17_multi_owned = (
+        "[9, 2] Envelope([3, 4]) [[false, false]]\n"
+        "Bundle([1, 2], Envelope([3, 4]), [[true, false]])\n"
+        "Bundle([1, 2], Envelope([3, 4]), [[true, false]])\n"
+        "5608\n"
+    )
+    assert "\n".join(MIRInterpreter(c17_multi_owned).run().output) + "\n" == (
+        expected_c17_multi_owned
+    )
+    generated_c17_multi_owned = emit_legalized_c17(c17_multi_owned)
+    assert "RoveTaggedPayload payload[4];" in generated_c17_multi_owned
+    assert "rove_box_array_i64" in generated_c17_multi_owned
+    assert "rove_box_Envelope" in generated_c17_multi_owned
+    assert _compile_and_run_c17(generated_c17_multi_owned) == (
+        expected_c17_multi_owned
+    )
+
+    c17_unsupported_payload = _lower_source(
+        "enum Unsupported { Pair(Array<Result<int, string>>, int) }\n"
+        "fn main() { print(0) }\n",
+        "m5-c17-unsupported-payload.rove",
+    )
+    c17_unsupported_issues = collect_legalization_issues(
+        c17_unsupported_payload, "c", require_emitter=True
     )
     assert any(
-        issue.code == "MIRG1002" and "multiple primitive payloads" in issue.message
-        for issue in c17_multi_object_issues
-    ), c17_multi_object_issues
+        issue.code == "MIRG1002" and "supported scalar, array" in issue.message
+        for issue in c17_unsupported_issues
+    ), c17_unsupported_issues
 
     c17_array_tagged = _lower_source(
         "enum Batch { Data(Array<int>), Empty() }\n"

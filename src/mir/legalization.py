@@ -365,8 +365,8 @@ MIR_BACKEND_PROFILES["python"] = replace(
 )
 
 # C17 uses explicit bit conversions and a tiny tracked allocation runtime.
-# Supported acyclic value structs, recursive arrays, multi-primitive tagged
-# payloads, and one ownership-bearing tagged payload are legalized explicitly;
+# Supported acyclic value structs, recursive arrays, and multi-payload tagged
+# values, including multiple ownership-bearing slots, are legalized explicitly;
 # non-unwinding deinit/drop clears values while tracked allocations remain
 # process-owned; unwind cleanup edges remain gated.
 MIR_BACKEND_PROFILES["c"] = replace(
@@ -478,18 +478,11 @@ class _Legalizer:
                         not self._c_payload_compatible(payload_type)
                         for payload_type in variant.payload_types
                     )
-                    has_multi_object_payload = len(variant.payload_types) > 1 and any(
-                        payload_type.name not in ("int", "bool", "string", "float", "f64")
-                        or payload_type.arguments
-                        or payload_type.optional
-                        or payload_type.pointer
-                        for payload_type in variant.payload_types
-                    )
-                    if has_unsupported_payload or has_multi_object_payload:
+                    if has_unsupported_payload:
                         self._issue(
                             "MIRG1002",
-                            f"The C17 MIR enum pilot permits multiple primitive payloads or "
-                            f"one supported array/nominal-struct payload; "
+                            f"The C17 MIR enum pilot requires supported scalar, array, "
+                            f"or nominal-struct payloads; "
                             f"'{definition.name}.{variant.name}' has "
                             f"{', '.join(str(item) for item in variant.payload_types) or 'no payload'}",
                             span,

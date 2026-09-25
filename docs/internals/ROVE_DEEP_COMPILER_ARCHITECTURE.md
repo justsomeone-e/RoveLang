@@ -2019,7 +2019,7 @@ Every migrated backend passes positive, negative, runtime, and parity corpora.
 Fallback to approximate target semantics is impossible.
 ```
 
-Implementation status (through 2026-09-24):
+Implementation status (through 2026-09-25):
 
 - `src/mir/legalization.py` publishes versioned operation, type, runtime,
   ownership, effect, and ABI profiles in the required migration order;
@@ -2329,9 +2329,11 @@ Implementation status (through 2026-09-24):
   `{data, length}` representations, tracked allocation, deep value copies,
   checked constant/dynamic index reads and writes, and `len`. Tagged enum,
   Option, and Result values preserve their discriminants. Enum variants may
-  carry multiple indexed int, bool, float/f64, and immutable string payloads, or one
-  supported array/nominal-struct payload. Multiple ownership-bearing payloads
-  remain rejected until their clone/drop layout is explicit. C17 now renders
+  carry multiple indexed int, bool, float/f64, immutable string, supported
+  array, and nominal-struct payloads. Each array or struct payload occupies its
+  own boxed slot; the executable gate covers mixed scalar/object slots,
+  copied enum values, match extraction, and display. Unsupported aggregate
+  leaves remain rejected. C17 now renders
   admitted arrays, structs, and tagged payloads recursively through typed
   `rove_print_value_*` helpers for both stdout and captured `to_string` output;
   its generated internal types and helpers use
