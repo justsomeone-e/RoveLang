@@ -515,6 +515,7 @@ class _Legalizer:
                                 MIRType("int"), MIRType("bool"), MIRType("float"),
                                 MIRType("f64"), MIRType("string"),
                             )
+                            and not self._wasm_array_compatible(payload_type)
                             and not (
                                 isinstance(self.type_definitions.get(payload_type.name), MIRStructDef)
                                 and not payload_type.arguments
@@ -524,7 +525,7 @@ class _Legalizer:
                         ):
                             self._issue(
                                 "MIRG1002",
-                                f"The Wasm MIR enum pilot requires int, bool, float, string, or nominal struct payloads; "
+                                f"The Wasm MIR enum pilot requires int, bool, float, string, supported Array, or nominal struct payloads; "
                                 f"'{definition.name}.{variant.name}' contains '{payload_type}'",
                                 span,
                             )
@@ -1149,7 +1150,7 @@ class _Legalizer:
             if not self._wasm_result_compatible(value):
                 self._issue(
                     "MIRG1002",
-                    f"The Wasm MIR Result pilot supports int, bool, float, string, and nominal struct payloads, got '{value}'",
+                    f"The Wasm MIR Result pilot supports int, bool, float, string, supported Array, and nominal struct payloads, got '{value}'",
                     span,
                 )
             return
@@ -1694,6 +1695,7 @@ class _Legalizer:
                     MIRType("int"), MIRType("bool"), MIRType("float"),
                     MIRType("f64"), MIRType("string"), MIRType("any"),
                 )
+                or self._wasm_array_compatible(argument)
                 or (
                     isinstance(self.type_definitions.get(argument.name), MIRStructDef)
                     and not argument.arguments

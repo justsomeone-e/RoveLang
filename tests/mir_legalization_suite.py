@@ -75,6 +75,7 @@ LLVM_OWNED_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_llvm_owned
 WASM_RECURSIVE_ARRAY_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_recursive_arrays.rove"
 WASM_ARRAY_FIELD_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_array_fields.rove"
 WASM_OWNED_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_owned_tagged.rove"
+WASM_ARRAY_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_array_tagged.rove"
 C17_MULTI_OWNED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_c17_multi_owned_payload.rove"
 RUST_VALIDATION_MODE = "runtime"
 
@@ -285,6 +286,7 @@ def _run_wasm_export(
 
 def _assert_wasm_tagged_copy_is_owned(
     wasm: bytes, make: str, copy: str, payload_offset: int, original: int,
+    indirections: int = 0,
 ) -> None:
     node = shutil.which("node")
     assert node is not None, "Node.js is required for the WebAssembly runtime gate"
@@ -299,8 +301,12 @@ def _assert_wasm_tagged_copy_is_owned(
             f"const source = instance.exports[{json.dumps(make)}]();\n"
             f"const cloned = instance.exports[{json.dumps(copy)}](source);\n"
             "const view = new DataView(instance.exports.memory.buffer);\n"
-            f"const sourceData = view.getUint32(source + {payload_offset}, true);\n"
-            f"const clonedData = view.getUint32(cloned + {payload_offset}, true);\n"
+            f"let sourceData = view.getUint32(source + {payload_offset}, true);\n"
+            f"let clonedData = view.getUint32(cloned + {payload_offset}, true);\n"
+            f"for (let depth = 0; depth < {indirections}; depth++) {{\n"
+            "  sourceData = view.getUint32(sourceData, true);\n"
+            "  clonedData = view.getUint32(clonedData, true);\n"
+            "}\n"
             "view.setBigInt64(clonedData, 9n, true);\n"
             "console.log(String(view.getBigInt64(sourceData, true)) + ' ' + "
             "String(view.getBigInt64(clonedData, true)));\n",
@@ -1066,10 +1072,52 @@ def run_mir_legalization_suite() -> bool:
         layouts.layout_of(MIRType("Result", (MIRType("string"), MIRType("Box")))).payload_offset,
         3,
     )
+    wasm_array_tagged = _lower(WASM_ARRAY_TAGGED_FIXTURE)
+    assert not collect_legalization_issues(
+        wasm_array_tagged, "wasm", require_emitter=True
+    )
+    array_tagged_wasm = emit_legalized_wasm(wasm_array_tagged)
+    for function, expected in (
+        ("enum_numbers_probe", 19),
+        ("enum_boxes_probe", 28),
+        ("enum_nested_probe", 59),
+        ("enum_empty_probe", 0),
+        ("result_ok_probe", 49),
+        ("result_string_probe", 4),
+        ("result_err_probe", 68),
+    ):
+        assert MIRInterpreter(wasm_array_tagged).run(function).value == expected
+        assert _run_wasm_export(array_tagged_wasm, function) == f"{expected}\n"
+    array_tag_layouts = LayoutEngine(wasm_array_tagged, "wasm")
+    packet_payload_offset = array_tag_layouts.layout_of(MIRType("Payload")).payload_offset
+    for make, original, indirections in (
+        ("make_payload", 3, 0),
+        ("make_boxes_payload", 2, 1),
+        ("make_nested_payload", 5, 1),
+    ):
+        _assert_wasm_tagged_copy_is_owned(
+            array_tagged_wasm, make, "copy_payload", packet_payload_offset,
+            original, indirections,
+        )
+    _assert_wasm_tagged_copy_is_owned(
+        array_tagged_wasm, "make_result", "copy_result",
+        array_tag_layouts.layout_of(MIRType(
+            "Result", (MIRType("Array", (MIRType("int"),)), MIRType("string"))
+        )).payload_offset, 5,
+    )
+    _assert_wasm_tagged_copy_is_owned(
+        array_tagged_wasm, "make_err_result", "copy_err_result",
+        array_tag_layouts.layout_of(MIRType(
+            "Result", (MIRType("string"), MIRType("Array", (MIRType("int"),)))
+        )).payload_offset, 7,
+    )
     unsupported_tagged_array = _lower_source(
-        "enum Packet { Data(Array<int>), Empty() }\n"
-        "fn make() -> Packet { return Data([1]) }\n",
-        "m5-wasm-direct-array-enum-rejection.rove",
+        "enum Packet { Data(Array<Result<int, string>>), Empty() }\n"
+        "fn make() -> Packet {\n"
+        "  let values: Array<Result<int, string>> = []\n"
+        "  return Data(values)\n"
+        "}\n",
+        "m5-wasm-unsupported-array-enum-rejection.rove",
     )
     assert "MIRG1002" in {issue.code for issue in collect_legalization_issues(
         unsupported_tagged_array, "wasm", require_emitter=True

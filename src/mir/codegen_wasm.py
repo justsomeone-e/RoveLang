@@ -1070,7 +1070,7 @@ class _WasmEmitter:
                     payload_types = definition.variants[variant_index].payload_types
                 else:
                     if not self._is_result_compatible(value.type):
-                        raise MIRCodegenError("Wasm MIR result pilot requires scalar, string, or struct payloads")
+                        raise MIRCodegenError("Wasm MIR result pilot requires scalar, string, array, or struct payloads")
                     if value.name not in ("Ok", "Err"):
                         raise MIRCodegenError(f"Unknown Wasm MIR Result variant '{value.name}'")
                     variant_index = 0 if value.name == "Ok" else 1
@@ -1092,9 +1092,10 @@ class _WasmEmitter:
                             MIRType("f64"), MIRType("string"),
                         )
                         and payload_type.name not in self.structs
+                        and payload_type.name != "Array"
                     ):
                         raise MIRCodegenError(
-                            f"Wasm MIR enum payload '{value.type.name}.{value.name}[{index}]' is not int, bool, float, string, or struct"
+                            f"Wasm MIR enum payload '{value.type.name}.{value.name}[{index}]' is not int, bool, float, string, array, or struct"
                         )
                     if (
                         value.kind == "enum"
@@ -1105,9 +1106,9 @@ class _WasmEmitter:
                     if value.kind == "result" and payload_type not in (
                         MIRType("int"), MIRType("bool"), MIRType("float"),
                         MIRType("f64"), MIRType("string"),
-                    ) and payload_type.name not in self.structs:
+                    ) and payload_type.name not in self.structs and payload_type.name != "Array":
                         raise MIRCodegenError(
-                            f"Wasm MIR Result payload '{value.name}' is not int, bool, float, string, or struct"
+                            f"Wasm MIR Result payload '{value.name}' is not int, bool, float, string, array, or struct"
                         )
                     payload_offset = layout.payload_offset + (index * 8 if value.kind == "enum" else 0)
                     output.extend((
@@ -1116,7 +1117,7 @@ class _WasmEmitter:
                         Instruction("i32.add"),
                     ))
                     output.extend(self._operand(operand))
-                    if payload_type == MIRType("string") or payload_type.name in self.structs:
+                    if payload_type == MIRType("string") or payload_type.name in self.structs or payload_type.name == "Array":
                         output.extend((
                             Instruction("i32.const", self.layouts.layout_of(payload_type).size),
                             Instruction("memory.copy"),
@@ -1223,8 +1224,9 @@ class _WasmEmitter:
                     MIRType("f64"), MIRType("string"),
                 )
                 and value.type.name not in self.structs
+                and value.type.name != "Array"
             ):
-                raise MIRCodegenError("Wasm MIR payload pilot requires an int, bool, float, string, or struct payload")
+                raise MIRCodegenError("Wasm MIR payload pilot requires an int, bool, float, string, array, or struct payload")
             if (
                 subject_type.name in self.enums
                 and value.type not in (
@@ -1232,8 +1234,9 @@ class _WasmEmitter:
                     MIRType("f64"), MIRType("string"),
                 )
                 and value.type.name not in self.structs
+                and value.type.name != "Array"
             ):
-                raise MIRCodegenError("Wasm MIR enum payload pilot requires an int, bool, float, string, or struct payload")
+                raise MIRCodegenError("Wasm MIR enum payload pilot requires an int, bool, float, string, array, or struct payload")
             if (
                 subject_type.name in self.enums
                 and value.type != MIRType("int")
@@ -1247,7 +1250,7 @@ class _WasmEmitter:
             ]
             if value.type == MIRType("string"):
                 return address
-            if value.type.name in self.structs:
+            if value.type.name in self.structs or value.type.name == "Array":
                 return address + self._clone_value(value.type)
             return address + [Instruction(self._load_instruction(value.type))]
         if isinstance(value, BinaryRValue):
@@ -1425,7 +1428,9 @@ class _WasmEmitter:
         return tuple(
             (index, payloads[0])
             for index, payloads in enumerate(variants)
-            if len(payloads) == 1 and self._struct_has_array(payloads[0])
+            if len(payloads) == 1 and (
+                payloads[0].name == "Array" or self._struct_has_array(payloads[0])
+            )
         )
 
     def _clone_value(self, value_type: MIRType) -> list[Instruction]:
@@ -1788,6 +1793,11 @@ class _WasmEmitter:
             ) or (
                 argument.name in self.structs
                 and not argument.arguments
+                and not argument.optional
+                and not argument.pointer
+            ) or (
+                argument.name == "Array"
+                and len(argument.arguments) == 1
                 and not argument.optional
                 and not argument.pointer
             )

@@ -2250,7 +2250,9 @@ Implementation status (through 2026-09-25):
   tag-aware clone helpers, so copying a tagged value and extracting its payload
   both detach nested arrays. The executable gate covers both Result branches,
   two enum payload variants, empty variants, typed-Result re-homing, and direct
-  linear-memory mutation of copied array elements. Direct Array payloads and
+  linear-memory mutation of copied array elements. Supported `Array<T>`
+  payloads use the same variant-aware clone path, including nested arrays and
+  arrays of structs with array fields. Unsupported array element types and
   multi-payload non-int enum variants remain gated. Nominal enums with int
   payloads or one bool/float/immutable string/nominal-struct payload keep their
   canonical named MIR tags while Wasm legalization maps them to deterministic
@@ -2355,7 +2357,7 @@ Implementation status (through 2026-09-25):
 - remaining multi-use/control-flow compiler-temporary lifetime elaboration, general
   place-sensitive partial-move/drop analysis, drop unwind edges, per-allocation
   reclamation for arena-backed targets,
-  remaining Wasm aggregate combinations such as direct Array tagged payloads,
+  remaining Wasm aggregate combinations such as multi-payload non-int enum variants,
   Wasm nominal-struct printing, and broader
   target runtime surfaces remain
   open M5 work. Every migration-order target now has a bounded executable pilot;
