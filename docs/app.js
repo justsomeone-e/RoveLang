@@ -388,6 +388,20 @@ main()`
       state.completed = {};
     }
 
+    // An older mode switch could save a Studio example over a Tour exercise.
+    // Recover only exact built-in examples; preserve edited exercise drafts.
+    const studioExamples = new Set(PLAYGROUND_TEMPLATES.map((template) => template.code));
+    let recoveredDraft = false;
+    state.exercises.forEach((ex) => {
+      if (studioExamples.has(state.userCodeCache[ex.id])) {
+        delete state.userCodeCache[ex.id];
+        recoveredDraft = true;
+      }
+    });
+    if (recoveredDraft) {
+      localStorage.setItem('rove_tour_code_cache', JSON.stringify(state.userCodeCache));
+    }
+
     populateTemplateSelect();
     el.templateSelect.closest('.template-control').style.display = 'none';
     buildExerciseTree();
@@ -455,18 +469,21 @@ main()`
   }
 
   // --- Load Exercise ---
-  function switchExercise(index) {
-    if (index < 0 || index >= state.exercises.length) return;
-
-    // Save previous exercise code IF non-empty
+  function saveCurrentExerciseCode() {
     if (state.editor && state.mode === 'tour') {
-      const prevEx = state.exercises[state.currentExerciseIndex];
+      const ex = state.exercises[state.currentExerciseIndex];
       const currentCode = getEditorCode();
-      if (prevEx && currentCode && currentCode.trim().length > 0) {
-        state.userCodeCache[prevEx.id] = currentCode;
+      if (ex && currentCode && currentCode.trim().length > 0) {
+        state.userCodeCache[ex.id] = currentCode;
         localStorage.setItem('rove_tour_code_cache', JSON.stringify(state.userCodeCache));
       }
     }
+  }
+
+  function switchExercise(index) {
+    if (index < 0 || index >= state.exercises.length) return;
+
+    saveCurrentExerciseCode();
 
     state.currentExerciseIndex = index;
     const ex = state.exercises[index];
@@ -840,16 +857,19 @@ main()`
 
     // Modes: Tour vs Playground
     el.btnModeTour.addEventListener('click', () => {
+      // Load the exercise while still in Studio mode so its example is not
+      // persisted as the current Tour draft.
+      switchExercise(state.currentExerciseIndex);
       state.mode = 'tour';
       el.btnModeTour.classList.add('active');
       el.btnModePlayground.classList.remove('active');
       el.templateSelect.closest('.template-control').style.display = 'none';
       el.leftPane.style.display = 'flex';
-      switchExercise(state.currentExerciseIndex);
       if (state.editor) setTimeout(() => state.editor.resize(), 100);
     });
 
     el.btnModePlayground.addEventListener('click', () => {
+      saveCurrentExerciseCode();
       state.mode = 'playground';
       el.btnModePlayground.classList.add('active');
       el.btnModeTour.classList.remove('active');
