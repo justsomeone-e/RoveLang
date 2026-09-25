@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=rove-studio-2">
+  <link rel="stylesheet" href="styles.css?v=rove-studio-3">
   <!-- Ace Editor & Language Tools (Fast, Synchronous, Zero CORS / Zero WebWorker dependency) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ace.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ext-language_tools.js"></script>
@@ -27,7 +27,7 @@
       <span class="version-badge">v5.0.3 Daydream</span>
 
       <!-- Main Mode Switcher -->
-      <nav class="mode-nav">
+      <nav class="mode-nav" aria-label="Studio mode">
         <button class="mode-btn active" id="btnModeTour" title="Interactive 81-step guided curriculum">
           <span class="mode-mark" aria-hidden="true">01</span> Learn
         </button>
@@ -64,12 +64,12 @@
     <aside class="left-pane" id="leftPane">
       
       <!-- Curriculum Sidebar Drawer -->
-      <div class="curriculum-drawer" id="curriculumDrawer">
+      <div class="curriculum-drawer" id="curriculumDrawer" aria-hidden="true" inert>
         <div class="drawer-header">
           <div class="sidebar-search">
-            <input type="text" class="search-input" id="searchExercises" placeholder="Filter 81 exercises... (/)" autocomplete="off">
+            <input type="text" class="search-input" id="searchExercises" aria-label="Filter exercises" placeholder="Filter 81 exercises... (/)" autocomplete="off">
           </div>
-          <button class="btn-icon" id="btnCloseDrawer" title="Hide Curriculum Tree">✕</button>
+          <button class="btn-icon" id="btnCloseDrawer" title="Hide Curriculum Tree" aria-label="Close exercise list">✕</button>
         </div>
         <div class="exercise-tree" id="exerciseTree">
           <!-- Populated from tour_data.js -->
@@ -85,7 +85,7 @@
           </div>
           <div class="lesson-title-row">
             <h1 class="lesson-title" id="exerciseTitle">Welcome to Rove</h1>
-            <button class="btn-secondary btn-sm" id="btnToggleDrawer" title="Open Curriculum List">
+            <button class="btn-secondary btn-sm" id="btnToggleDrawer" title="Open Curriculum List" aria-controls="curriculumDrawer" aria-expanded="false">
               All Exercises
             </button>
           </div>
@@ -266,6 +266,6 @@
   <!-- Load Curriculum Data and Studio Application Script -->
   <script src="tour_data.js"></script>
   <script src="evaluator.js?v=5.0.3-studio-1"></script>
-  <script src="app.js?v=5.0.3-studio-2"></script>
+  <script src="app.js?v=5.0.3-studio-3"></script>
 </body>
 </html>
