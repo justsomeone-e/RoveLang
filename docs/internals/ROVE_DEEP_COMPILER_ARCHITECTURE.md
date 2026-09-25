@@ -2019,7 +2019,7 @@ Every migrated backend passes positive, negative, runtime, and parity corpora.
 Fallback to approximate target semantics is impossible.
 ```
 
-Implementation status (through 2026-09-24):
+Implementation status (through 2026-09-25):
 
 - `src/mir/legalization.py` publishes versioned operation, type, runtime,
   ownership, effect, and ABI profiles in the required migration order;
@@ -2239,9 +2239,24 @@ Implementation status (through 2026-09-24):
   width-correct `i32.store8`/`i32.load8_u` bool access, descriptor-aware field
   construction/assignment, byte-level value copies, and checked field selection.
   Nested nominal structs are stored inline and chained field projections use
-  layout-derived offsets while preserving outer value-copy isolation. Nominal enums with int payloads or one
-  bool/float/immutable string/nominal-struct payload keep their canonical named MIR tags while Wasm
-  legalization maps them to deterministic `i32` discriminants and stores
+  layout-derived offsets while preserving outer value-copy isolation. Structs
+  may also own supported arrays, including nested arrays and arrays of structs
+  with array fields. Type-specific clone helpers recursively detach these fields
+  through struct and array copies, calls, returns, and field assignments;
+  mixed field/index projection chains use checked element addresses. The
+  executable gate includes a finite `Array<Node>` recursive value, empty
+  fields, projected writes, detached array elements, and invalid-index traps.
+  Enum and Result variants with one array-owning nominal struct payload use
+  tag-aware clone helpers, so copying a tagged value and extracting its payload
+  both detach nested arrays. The executable gate covers both Result branches,
+  two enum payload variants, empty variants, typed-Result re-homing, and direct
+  linear-memory mutation of copied array elements. Supported `Array<T>`
+  payloads use the same variant-aware clone path, including nested arrays and
+  arrays of structs with array fields. Unsupported array element types and
+  multi-payload non-int enum variants remain gated. Nominal enums with int
+  payloads or one bool/float/immutable string/nominal-struct payload keep their
+  canonical named MIR tags while Wasm legalization maps them to deterministic
+  `i32` discriminants and stores
   payloads at layout-defined offsets. Results with int, bool, float, string, or
   nominal-struct payloads share the same tagged representation and are verified on both `Ok` and `Err`
   control-flow paths.
@@ -2329,9 +2344,11 @@ Implementation status (through 2026-09-24):
   `{data, length}` representations, tracked allocation, deep value copies,
   checked constant/dynamic index reads and writes, and `len`. Tagged enum,
   Option, and Result values preserve their discriminants. Enum variants may
-  carry multiple indexed int, bool, float/f64, and immutable string payloads, or one
-  supported array/nominal-struct payload. Multiple ownership-bearing payloads
-  remain rejected until their clone/drop layout is explicit. C17 now renders
+  carry multiple indexed int, bool, float/f64, immutable string, supported
+  array, and nominal-struct payloads. Each array or struct payload occupies its
+  own boxed slot; the executable gate covers mixed scalar/object slots,
+  copied enum values, match extraction, and display. Unsupported aggregate
+  leaves remain rejected. C17 now renders
   admitted arrays, structs, and tagged payloads recursively through typed
   `rove_print_value_*` helpers for both stdout and captured `to_string` output;
   its generated internal types and helpers use
@@ -2340,8 +2357,7 @@ Implementation status (through 2026-09-24):
 - remaining multi-use/control-flow compiler-temporary lifetime elaboration, general
   place-sensitive partial-move/drop analysis, drop unwind edges, per-allocation
   reclamation for arena-backed targets,
-  remaining Wasm aggregate combinations such as array-bearing struct fields
-  and tagged payloads,
+  remaining Wasm aggregate combinations such as multi-payload non-int enum variants,
   Wasm nominal-struct printing, and broader
   target runtime surfaces remain
   open M5 work. Every migration-order target now has a bounded executable pilot;

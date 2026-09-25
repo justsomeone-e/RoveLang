@@ -4,8 +4,8 @@ from contextvars import ContextVar
 from typing import Optional
 
 
-_exit_on_error_override = ContextVar("nyx_exit_on_error", default=None)
-_emit_output_override = ContextVar("nyx_emit_diagnostic_output", default=None)
+_exit_on_error_override = ContextVar("rove_exit_on_error", default=None)
+_emit_output_override = ContextVar("rove_emit_diagnostic_output", default=None)
 
 class DiagnosticError(Exception):
     def __init__(

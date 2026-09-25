@@ -1,0 +1,110 @@
+struct Box {
+    values: Array<int>
+}
+
+enum Packet {
+    Data(Box),
+    More(Box),
+    Empty()
+}
+
+fn unpack(packet: Packet) -> Box {
+    match packet {
+        Data(box) => return box,
+        More(box) => return box,
+        Empty() => return Box([0])
+    }
+    return Box([0])
+}
+
+fn enum_payload_probe() -> int {
+    var original = Data(Box([1, 2]))
+    var copied = original
+    var extracted = unpack(copied)
+    set extracted.values[0] = 9
+    var again = unpack(original)
+    return again.values[0] * 10 + extracted.values[0]
+}
+
+fn enum_second_variant_probe() -> int {
+    var packet = More(Box([4]))
+    var copy = packet
+    var extracted = unpack(copy)
+    set extracted.values[0] = 8
+    return unpack(packet).values[0] * 10 + extracted.values[0]
+}
+
+fn enum_empty_probe() -> int {
+    var packet = Empty()
+    var copy = packet
+    return unpack(copy).values[0]
+}
+
+fn make_packet() -> Packet {
+    return Data(Box([1]))
+}
+
+fn make_more_packet() -> Packet {
+    return More(Box([4]))
+}
+
+fn copy_packet(packet: Packet) -> Packet {
+    let copy = packet
+    return copy
+}
+
+fn unwrap_ok(result: Result<Box, string>) -> Box {
+    match result {
+        Ok(box) => return box,
+        Err(message) => return Box([len(message)])
+    }
+    return Box([0])
+}
+
+fn result_ok_probe() -> int {
+    let original: Result<Box, string> = Ok(Box([2]))
+    var copied = original
+    var extracted = unwrap_ok(copied)
+    set extracted.values[0] = 9
+    return unwrap_ok(original).values[0] * 10 + extracted.values[0]
+}
+
+fn make_result() -> Result<Box, string> {
+    return Ok(Box([2]))
+}
+
+fn copy_result(value: Result<Box, string>) -> Result<Box, string> {
+    let copy = value
+    return copy
+}
+
+fn result_string_probe() -> int {
+    let original: Result<Box, string> = Err("rove")
+    var copied = original
+    return unwrap_ok(copied).values[0]
+}
+
+fn unwrap_err(result: Result<string, Box>) -> Box {
+    match result {
+        Ok(message) => return Box([len(message)]),
+        Err(box) => return box
+    }
+    return Box([0])
+}
+
+fn result_err_probe() -> int {
+    let original: Result<string, Box> = Err(Box([3]))
+    var copied = original
+    var extracted = unwrap_err(copied)
+    set extracted.values[0] = 8
+    return unwrap_err(original).values[0] * 10 + extracted.values[0]
+}
+
+fn make_err_result() -> Result<string, Box> {
+    return Err(Box([3]))
+}
+
+fn copy_err_result(value: Result<string, Box>) -> Result<string, Box> {
+    let copy = value
+    return copy
+}

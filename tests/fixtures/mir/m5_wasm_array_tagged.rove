@@ -1,0 +1,123 @@
+struct Box {
+    values: Array<int>
+}
+
+enum Payload {
+    Numbers(Array<int>),
+    Boxes(Array<Box>),
+    Nested(Array<Array<int>>),
+    Empty()
+}
+
+fn get_numbers(payload: Payload) -> Array<int> {
+    match payload {
+        Numbers(values) => return values,
+        Boxes(boxes) => return boxes[0].values,
+        Nested(rows) => return rows[0],
+        Empty() => return [0]
+    }
+    return [0]
+}
+
+fn enum_numbers_probe() -> int {
+    var original = Numbers([1, 2])
+    var copied = original
+    var detached = get_numbers(copied)
+    set detached[0] = 9
+    return get_numbers(original)[0] * 10 + detached[0]
+}
+
+fn enum_boxes_probe() -> int {
+    var original = Boxes([Box([2])])
+    var copied = original
+    var detached = get_numbers(copied)
+    set detached[0] = 8
+    return get_numbers(original)[0] * 10 + detached[0]
+}
+
+fn enum_nested_probe() -> int {
+    var original = Nested([[5]])
+    var copied = original
+    var detached = get_numbers(copied)
+    set detached[0] = 9
+    return get_numbers(original)[0] * 10 + detached[0]
+}
+
+fn enum_empty_probe() -> int {
+    let original = Empty()
+    let copy = original
+    return get_numbers(copy)[0]
+}
+
+fn make_payload() -> Payload {
+    return Numbers([3])
+}
+
+fn make_boxes_payload() -> Payload {
+    return Boxes([Box([2])])
+}
+
+fn make_nested_payload() -> Payload {
+    return Nested([[5]])
+}
+
+fn copy_payload(payload: Payload) -> Payload {
+    let copy = payload
+    return copy
+}
+
+fn get_ok(value: Result<Array<int>, string>) -> Array<int> {
+    match value {
+        Ok(numbers) => return numbers,
+        Err(message) => return [len(message)]
+    }
+    return [0]
+}
+
+fn result_ok_probe() -> int {
+    let original: Result<Array<int>, string> = Ok([4])
+    var copied = original
+    var detached = get_ok(copied)
+    set detached[0] = 9
+    return get_ok(original)[0] * 10 + detached[0]
+}
+
+fn result_string_probe() -> int {
+    let original: Result<Array<int>, string> = Err("rove")
+    let copy = original
+    return get_ok(copy)[0]
+}
+
+fn make_result() -> Result<Array<int>, string> {
+    return Ok([5])
+}
+
+fn copy_result(value: Result<Array<int>, string>) -> Result<Array<int>, string> {
+    let copy = value
+    return copy
+}
+
+fn get_err(value: Result<string, Array<int>>) -> Array<int> {
+    match value {
+        Ok(message) => return [len(message)],
+        Err(numbers) => return numbers
+    }
+    return [0]
+}
+
+fn result_err_probe() -> int {
+    let original: Result<string, Array<int>> = Err([6])
+    var copied = original
+    var detached = get_err(copied)
+    set detached[0] = 8
+    return get_err(original)[0] * 10 + detached[0]
+}
+
+fn make_err_result() -> Result<string, Array<int>> {
+    return Err([7])
+}
+
+fn copy_err_result(value: Result<string, Array<int>>) -> Result<string, Array<int>> {
+    let copy = value
+    return copy
+}

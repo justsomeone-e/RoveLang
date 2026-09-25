@@ -228,7 +228,7 @@ fn main() {
 
 def run_hir_cpp_suite() -> bool:
     print("=" * 70)
-    print("NYX HIR-AUTHORITATIVE C++20 NATIVE BACKEND")
+    print("ROVE HIR-AUTHORITATIVE C++20 NATIVE BACKEND")
     print("=" * 70)
     compiler = CppToolchain.find_compiler()
     assert compiler is not None, "A working C++20 compiler is required for the HIR C++ suite"

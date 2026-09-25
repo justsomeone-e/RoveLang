@@ -1,4 +1,4 @@
-"""Immutable structured typed high-level IR for Nyx."""
+"""Immutable structured typed high-level IR for Rove."""
 
 from __future__ import annotations
 

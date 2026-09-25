@@ -1,0 +1,37 @@
+struct Envelope { values: Array<int> }
+enum Batch { Bundle(Array<int>, Envelope, Array<Array<bool>>), Empty() }
+enum Mixed { Data(int, Array<int>, bool, Envelope), Missing() }
+
+fn mutate(value: Batch) -> void {
+  match value {
+    Bundle(numbers, envelope, flags) => {
+      var changed_numbers = numbers
+      set changed_numbers[0] = 9
+      var changed_flags = flags
+      set changed_flags[0][0] = false
+      print(changed_numbers, envelope, changed_flags)
+    },
+    Empty() => {}
+  }
+}
+
+fn mixed_probe() -> int {
+  let value = Data(5, [6, 7], true, Envelope([8]))
+  match value {
+    Data(id, numbers, valid, envelope) => {
+      if valid { return id * 1000 + numbers[0] * 100 + envelope.values[0] }
+      return 0
+    },
+    Missing() => return 0
+  }
+  return -1
+}
+
+fn main() {
+  var original = Bundle([1, 2], Envelope([3, 4]), [[true, false]])
+  var copied = original
+  mutate(copied)
+  print(original)
+  print(to_string(original))
+  print(mixed_probe())
+}

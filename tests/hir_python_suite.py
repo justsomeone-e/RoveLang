@@ -154,7 +154,7 @@ fn main() {
 
 def run_hir_python_suite() -> bool:
     print("=" * 70)
-    print("NYX HIR-AUTHORITATIVE PYTHON BACKEND")
+    print("ROVE HIR-AUTHORITATIVE PYTHON BACKEND")
     print("=" * 70)
     corpus_count = _run_corpus_compile()
     runtime_count = _run_battery_runtime()
