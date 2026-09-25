@@ -413,6 +413,17 @@ main()`
   }
 
   // --- Build Sidebar Tree ---
+  function setDrawerOpen(open) {
+    if (!open && el.curriculumDrawer.contains(document.activeElement)) {
+      el.btnToggleDrawer.focus();
+    }
+    el.curriculumDrawer.inert = !open;
+    el.curriculumDrawer.setAttribute('aria-hidden', String(!open));
+    el.curriculumDrawer.classList.toggle('open', open);
+    el.btnToggleDrawer.setAttribute('aria-expanded', String(open));
+    if (open) requestAnimationFrame(() => el.searchExercises.focus());
+  }
+
   function buildExerciseTree(filterQuery = '') {
     el.exerciseTree.innerHTML = '';
     const query = filterQuery.toLowerCase().trim();
@@ -437,10 +448,14 @@ main()`
       groupDiv.appendChild(header);
 
       groups[groupName].forEach(({ ex, index }) => {
-        const item = document.createElement('div');
+        const item = document.createElement('button');
+        item.type = 'button';
         item.className = 'exercise-item';
+        item.dataset.exerciseIndex = String(index);
+        item.setAttribute('aria-label', `${ex.name}: ${ex.title}${state.completed[ex.id] ? ', solved' : ''}`);
         if (index === state.currentExerciseIndex && state.mode === 'tour') {
           item.classList.add('active');
+          item.setAttribute('aria-current', 'step');
         }
         if (state.completed[ex.id]) {
           item.classList.add('completed');
@@ -452,13 +467,14 @@ main()`
         const checkSpan = document.createElement('span');
         checkSpan.className = 'exercise-check';
         checkSpan.innerText = '✓';
+        checkSpan.setAttribute('aria-hidden', 'true');
 
         item.appendChild(titleSpan);
         item.appendChild(checkSpan);
 
         item.addEventListener('click', () => {
           switchExercise(index);
-          el.curriculumDrawer.classList.remove('open');
+          setDrawerOpen(false);
         });
 
         groupDiv.appendChild(item);
@@ -525,8 +541,11 @@ main()`
     setEditorCode(initialCode);
 
     // Update active in sidebar
-    document.querySelectorAll('.exercise-item').forEach((it, idx) => {
-      it.classList.toggle('active', idx === index);
+    document.querySelectorAll('.exercise-item').forEach(it => {
+      const active = Number(it.dataset.exerciseIndex) === index;
+      it.classList.toggle('active', active);
+      if (active) it.setAttribute('aria-current', 'step');
+      else it.removeAttribute('aria-current');
     });
 
     logTerminal(`[Tour] Loaded exercise: ${ex.name} - ${ex.title}`, 'term-info');
@@ -753,6 +772,11 @@ main()`
 
     // Keyboard Shortcuts
     window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && el.curriculumDrawer.classList.contains('open')) {
+        e.preventDefault();
+        setDrawerOpen(false);
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         runCode();
@@ -765,10 +789,9 @@ main()`
         e.preventDefault();
         switchExercise(state.currentExerciseIndex - 1);
       }
-      if (e.key === '/' && document.activeElement !== el.searchExercises && (!state.editor || !state.editor.isFocused())) {
+      if (e.key === '/' && state.mode === 'tour' && document.activeElement !== el.searchExercises && (!state.editor || !state.editor.isFocused())) {
         e.preventDefault();
-        el.curriculumDrawer.classList.add('open');
-        setTimeout(() => el.searchExercises.focus(), 100);
+        setDrawerOpen(true);
       }
     });
 
@@ -816,11 +839,10 @@ main()`
 
     // Curriculum Drawer Open / Close
     el.btnToggleDrawer.addEventListener('click', () => {
-      el.curriculumDrawer.classList.add('open');
-      setTimeout(() => el.searchExercises.focus(), 100);
+      setDrawerOpen(true);
     });
     el.btnCloseDrawer.addEventListener('click', () => {
-      el.curriculumDrawer.classList.remove('open');
+      setDrawerOpen(false);
     });
 
     // Search Filter
@@ -869,6 +891,7 @@ main()`
     });
 
     el.btnModePlayground.addEventListener('click', () => {
+      setDrawerOpen(false);
       saveCurrentExerciseCode();
       state.mode = 'playground';
       el.btnModePlayground.classList.add('active');

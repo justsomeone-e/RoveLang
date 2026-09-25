@@ -340,6 +340,11 @@ body {
 }
 
 .exercise-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-sans);
+  text-align: left;
   padding: 6px 14px 6px 22px;
   display: flex;
   align-items: center;
