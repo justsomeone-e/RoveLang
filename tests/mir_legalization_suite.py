@@ -72,6 +72,7 @@ LLVM_STRUCT_ARRAY_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_llvm_struc
 LLVM_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_llvm_tagged.rove"
 LLVM_OWNED_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_llvm_owned_tagged.rove"
 WASM_RECURSIVE_ARRAY_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_recursive_arrays.rove"
+WASM_ARRAY_FIELD_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_array_fields.rove"
 C17_MULTI_OWNED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_c17_multi_owned_payload.rove"
 RUST_VALIDATION_MODE = "runtime"
 
@@ -976,6 +977,47 @@ def run_mir_legalization_suite() -> bool:
     assert {issue.code for issue in collect_legalization_issues(
         unsupported_recursive_array, "wasm", require_emitter=True
     )} == {"MIRG1002"}
+
+    wasm_array_fields = _lower(WASM_ARRAY_FIELD_FIXTURE)
+    assert not collect_legalization_issues(
+        wasm_array_fields, "wasm", require_emitter=True
+    )
+    array_field_wat = emit_legalized_wat(wasm_array_fields)
+    assert "call $__rove_mir_clone_owned_" in array_field_wat
+    array_field_wasm = emit_legalized_wasm(wasm_array_fields)
+    for function, expected in (
+        ("field_probe", 1924),
+        ("struct_array_probe", 578),
+        ("field_return_probe", 19),
+        ("field_replace_probe", 19),
+        ("nested_struct_array_probe", 19),
+        ("empty_field_probe", 0),
+        ("recursive_struct_probe", 29),
+    ):
+        assert MIRInterpreter(wasm_array_fields).run(function).value == expected
+        assert _run_wasm_export(array_field_wasm, function) == f"{expected}\n"
+    _run_wasm_export(array_field_wasm, "bad_index", -1, expect_trap=True)
+    _run_wasm_export(array_field_wasm, "bad_index", 1, expect_trap=True)
+
+    # Tagged copies still need payload-aware deep cloning before admitting
+    # structs that own arrays as enum/Result payloads.
+    owned_struct_enum = _lower_source(
+        "struct Box { values: Array<int> }\n"
+        "enum Packet { Data(Box), Empty() }\n"
+        "fn make() -> Packet { return Data(Box([1])) }\n",
+        "m5-wasm-array-struct-enum-rejection.rove",
+    )
+    assert {issue.code for issue in collect_legalization_issues(
+        owned_struct_enum, "wasm", require_emitter=True
+    )} == {"MIRG1002"}
+    owned_struct_result = _lower_source(
+        "struct Box { values: Array<int> }\n"
+        "fn make() -> Result<Box, string> { return Ok(Box([1])) }\n",
+        "m5-wasm-array-struct-result-rejection.rove",
+    )
+    assert "MIRG1002" in {issue.code for issue in collect_legalization_issues(
+        owned_struct_result, "wasm", require_emitter=True
+    )}
 
     wasm_struct = _lower_source(
         "struct Pair { x: int, y: int }\n"

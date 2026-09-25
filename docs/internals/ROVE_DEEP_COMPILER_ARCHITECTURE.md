@@ -2239,7 +2239,15 @@ Implementation status (through 2026-09-25):
   width-correct `i32.store8`/`i32.load8_u` bool access, descriptor-aware field
   construction/assignment, byte-level value copies, and checked field selection.
   Nested nominal structs are stored inline and chained field projections use
-  layout-derived offsets while preserving outer value-copy isolation. Nominal enums with int payloads or one
+  layout-derived offsets while preserving outer value-copy isolation. Structs
+  may also own supported arrays, including nested arrays and arrays of structs
+  with array fields. Type-specific clone helpers recursively detach these fields
+  through struct and array copies, calls, returns, and field assignments;
+  mixed field/index projection chains use checked element addresses. The
+  executable gate includes a finite `Array<Node>` recursive value, empty
+  fields, projected writes, detached array elements, and invalid-index traps.
+  Enum and Result payloads containing an array-owning struct remain rejected
+  until tagged copies receive the same deep-clone path. Nominal enums with int payloads or one
   bool/float/immutable string/nominal-struct payload keep their canonical named MIR tags while Wasm
   legalization maps them to deterministic `i32` discriminants and stores
   payloads at layout-defined offsets. Results with int, bool, float, string, or
@@ -2342,8 +2350,7 @@ Implementation status (through 2026-09-25):
 - remaining multi-use/control-flow compiler-temporary lifetime elaboration, general
   place-sensitive partial-move/drop analysis, drop unwind edges, per-allocation
   reclamation for arena-backed targets,
-  remaining Wasm aggregate combinations such as array-bearing struct fields
-  and tagged payloads,
+  remaining Wasm aggregate combinations such as array-bearing tagged payloads,
   Wasm nominal-struct printing, and broader
   target runtime surfaces remain
   open M5 work. Every migration-order target now has a bounded executable pilot;
