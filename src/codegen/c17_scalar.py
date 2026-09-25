@@ -555,7 +555,7 @@ class C17ScalarEmitter:
         if clean[0].isdigit():
             clean = "_" + clean
         if clean in _C17_RESERVED:
-            clean += "_nyx"
+            clean += "_rove"
         return clean
 
 
