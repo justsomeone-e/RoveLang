@@ -1144,29 +1144,10 @@ class _Legalizer:
                 )
             return
         if self.target == "wasm" and value.name == "Array" and len(value.arguments) == 1:
-            element_type = value.arguments[0]
-            if (
-                element_type not in (
-                    MIRType("int"), MIRType("bool"), MIRType("float"),
-                    MIRType("f64"), MIRType("string"),
-                )
-                and not isinstance(self.type_definitions.get(element_type.name), MIRStructDef)
-                and element_type not in (
-                    MIRType("Array", (MIRType("int"),)),
-                    MIRType("Array", (MIRType("bool"),)),
-                    MIRType("Array", (MIRType("float"),)),
-                    MIRType("Array", (MIRType("f64"),)),
-                    MIRType("Array", (MIRType("string"),)),
-                )
-                and not (
-                    element_type.name == "Array"
-                    and len(element_type.arguments) == 1
-                    and isinstance(self.type_definitions.get(element_type.arguments[0].name), MIRStructDef)
-                )
-            ):
+            if not self._wasm_array_compatible(value):
                 self._issue(
                     "MIRG1002",
-                    f"The Wasm MIR pilot supports int, bool, float, string, or struct arrays and one nested array level, got '{value}'",
+                    f"The Wasm MIR pilot supports recursively nested int, bool, float, string, or struct arrays, got '{value}'",
                     span,
                 )
             return
@@ -1691,6 +1672,24 @@ class _Legalizer:
                 payload.name != "any"
                 and self._llvm_printable_value_compatible(payload)
                 for payload in payloads
+            )
+        )
+
+    def _wasm_array_compatible(self, value_type: MIRType | None) -> bool:
+        if value_type is None or value_type.name != "Array":
+            return False
+        leaf = value_type
+        while leaf.name == "Array" and len(leaf.arguments) == 1:
+            if leaf.optional or leaf.pointer:
+                return False
+            leaf = leaf.arguments[0]
+        return bool(
+            not leaf.optional
+            and not leaf.pointer
+            and not leaf.arguments
+            and (
+                leaf.name in {"int", "bool", "float", "f64", "string"}
+                or isinstance(self.type_definitions.get(leaf.name), MIRStructDef)
             )
         )
 

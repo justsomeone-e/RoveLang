@@ -512,6 +512,65 @@ class _WasmEmitter:
             ],
             export=False,
         )
+        clone_recursive = FunctionIR(
+            "__rove_mir_array_clone_recursive",
+            [("desc", I32), ("depth", I32), ("element_size", I32)], I32,
+            locals=[
+                ("new_desc", I32), ("new_data", I32), ("len", I32),
+                ("bytes", I32), ("i", I32), ("source_element", I32),
+                ("cloned_element", I32),
+            ],
+            body=[
+                Instruction("local.get", "depth"), Instruction("i32.eqz"), Instruction("if"),
+                Instruction("local.get", "desc"), Instruction("local.get", "element_size"),
+                Instruction("call", "__rove_mir_array_clone_blob"), Instruction("return"),
+                Instruction("end"),
+                Instruction("local.get", "desc"), Instruction("i32.eqz"), Instruction("if"),
+                Instruction("i32.const", 0), Instruction("return"), Instruction("end"),
+                Instruction("local.get", "desc"), Instruction("i32.const", 4), Instruction("i32.add"),
+                Instruction("i32.load"), Instruction("local.tee", "len"),
+                Instruction("i32.const", 0), Instruction("i32.lt_s"),
+                Instruction("local.get", "len"), Instruction("i32.const", 178956970),
+                Instruction("i32.gt_s"), Instruction("i32.or"),
+                Instruction("if"), Instruction("unreachable"), Instruction("end"),
+                Instruction("local.get", "len"), Instruction("i32.const", 12),
+                Instruction("i32.mul"), Instruction("local.set", "bytes"),
+                Instruction("i32.const", 12), Instruction("call", "__rove_mir_alloc"),
+                Instruction("local.set", "new_desc"),
+                Instruction("local.get", "bytes"), Instruction("call", "__rove_mir_alloc"),
+                Instruction("local.set", "new_data"),
+                Instruction("local.get", "new_desc"), Instruction("local.get", "new_data"),
+                Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("i32.const", 4),
+                Instruction("i32.add"), Instruction("local.get", "len"), Instruction("i32.store"),
+                Instruction("local.get", "new_desc"), Instruction("i32.const", 8),
+                Instruction("i32.add"), Instruction("local.get", "len"), Instruction("i32.store"),
+                Instruction("i32.const", 0), Instruction("local.set", "i"),
+                Instruction("block", "recursive_clone_break"),
+                Instruction("loop", "recursive_clone_loop"),
+                Instruction("local.get", "i"), Instruction("local.get", "len"),
+                Instruction("i32.ge_s"), Instruction("br_if", "recursive_clone_break"),
+                Instruction("local.get", "desc"), Instruction("i32.load"),
+                Instruction("local.get", "i"), Instruction("i32.const", 12),
+                Instruction("i32.mul"), Instruction("i32.add"),
+                Instruction("local.set", "source_element"),
+                Instruction("local.get", "source_element"),
+                Instruction("local.get", "depth"), Instruction("i32.const", 1),
+                Instruction("i32.sub"), Instruction("local.get", "element_size"),
+                Instruction("call", "__rove_mir_array_clone_recursive"),
+                Instruction("local.set", "cloned_element"),
+                Instruction("local.get", "new_data"), Instruction("local.get", "i"),
+                Instruction("i32.const", 12), Instruction("i32.mul"), Instruction("i32.add"),
+                Instruction("local.get", "cloned_element"), Instruction("i32.const", 12),
+                Instruction("memory.copy"),
+                Instruction("local.get", "i"), Instruction("i32.const", 1),
+                Instruction("i32.add"), Instruction("local.set", "i"),
+                Instruction("br", "recursive_clone_loop"),
+                Instruction("end"), Instruction("end"),
+                Instruction("local.get", "new_desc"), Instruction("return"),
+            ],
+            export=False,
+        )
         get = FunctionIR(
             "__rove_mir_array_get_i64", [("desc", I32), ("index", I64)], I64,
             body=[
@@ -642,7 +701,8 @@ class _WasmEmitter:
         )
         return [
             alloc, clone, clone_i32, clone_string, clone_blob, clone_nested_i64,
-            clone_nested_i32, clone_nested_string, clone_nested_blob, get, set_value,
+            clone_nested_i32, clone_nested_string, clone_nested_blob,
+            clone_recursive, get, set_value,
             get_i32, set_i32, get_string, set_string, get_blob, set_blob, clone_bytes,
         ]
 
@@ -1111,23 +1171,11 @@ class _WasmEmitter:
                 element_size = 4
             elif element_type == MIRType("string") or element_type.name in self.structs:
                 element_size = self.layouts.layout_of(element_type).size
-            elif element_type in (
-                MIRType("Array", (MIRType("int"),)),
-                MIRType("Array", (MIRType("bool"),)),
-                MIRType("Array", (MIRType("float"),)),
-                MIRType("Array", (MIRType("f64"),)),
-                MIRType("Array", (MIRType("string"),)),
-            ):
-                element_size = 12
-            elif (
-                element_type.name == "Array"
-                and len(element_type.arguments) == 1
-                and element_type.arguments[0].name in self.structs
-            ):
+            elif element_type.name == "Array" and len(element_type.arguments) == 1:
                 element_size = 12
             else:
                 raise MIRCodegenError(
-                    "Wasm MIR aggregate pilot supports primitive, struct, and Array<Array<int>> values"
+                    "Wasm MIR aggregate pilot supports primitive, struct, and recursively nested array values"
                 )
             output = [
                 Instruction("i32.const", 12), Instruction("call", "__rove_mir_alloc"),
@@ -1302,6 +1350,9 @@ class _WasmEmitter:
                         ))
                         if isinstance(value, CopyOperand):
                             inner_type = element_type.arguments[0]
+                            if inner_type.name == "Array":
+                                output.extend(self._deep_array_clone(element_type))
+                                return output
                             if inner_type == MIRType("string"):
                                 helper = "__rove_mir_array_clone_string"
                             elif inner_type == MIRType("bool"):
@@ -1348,6 +1399,9 @@ class _WasmEmitter:
                     helper = "__rove_mir_array_clone_blob"
                 elif element_type.name == "Array":
                     inner_type = element_type.arguments[0]
+                    if inner_type.name == "Array":
+                        output.extend(self._deep_array_clone(local_type))
+                        return output
                     if inner_type == MIRType("string"):
                         helper = "__rove_mir_array_clone_nested_string"
                     elif inner_type == MIRType("bool"):
@@ -1388,6 +1442,21 @@ class _WasmEmitter:
                     ))
             return output
         raise MIRCodegenError(f"illegal operand reached WebAssembly emitter: {type(value).__name__}")
+
+    def _deep_array_clone(self, value_type: MIRType) -> list[Instruction]:
+        depth = 0
+        leaf = value_type
+        while leaf.name == "Array" and len(leaf.arguments) == 1:
+            depth += 1
+            leaf = leaf.arguments[0]
+        if depth < 2:
+            raise MIRCodegenError(f"Wasm recursive array clone requires a nested Array, got '{value_type}'")
+        element_size = 4 if leaf == MIRType("bool") else self.layouts.layout_of(leaf).size
+        return [
+            Instruction("i32.const", depth - 1),
+            Instruction("i32.const", element_size),
+            Instruction("call", "__rove_mir_array_clone_recursive"),
+        ]
 
     def _operand_type(self, value: Operand) -> MIRType:
         if isinstance(value, ConstOperand):
@@ -1432,24 +1501,14 @@ class _WasmEmitter:
             return F64
         if value.name == "Array" and len(value.arguments) == 1:
             element_type = value.arguments[0]
+            while element_type.name == "Array" and len(element_type.arguments) == 1:
+                element_type = element_type.arguments[0]
             if (
                 element_type in (
                     MIRType("int"), MIRType("bool"), MIRType("float"),
                     MIRType("f64"), MIRType("string"),
                 )
                 or element_type.name in self.structs
-                or element_type in (
-                    MIRType("Array", (MIRType("int"),)),
-                    MIRType("Array", (MIRType("bool"),)),
-                    MIRType("Array", (MIRType("float"),)),
-                    MIRType("Array", (MIRType("f64"),)),
-                    MIRType("Array", (MIRType("string"),)),
-                )
-                or (
-                    element_type.name == "Array"
-                    and len(element_type.arguments) == 1
-                    and element_type.arguments[0].name in self.structs
-                )
             ):
                 return I32
         if value.name in self.structs:

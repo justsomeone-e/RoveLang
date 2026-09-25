@@ -71,6 +71,7 @@ LLVM_NESTED_ARRAY_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_llvm_neste
 LLVM_STRUCT_ARRAY_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_llvm_struct_arrays.rove"
 LLVM_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_llvm_tagged.rove"
 LLVM_OWNED_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_llvm_owned_tagged.rove"
+WASM_RECURSIVE_ARRAY_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_recursive_arrays.rove"
 RUST_VALIDATION_MODE = "runtime"
 
 
@@ -944,6 +945,36 @@ def run_mir_legalization_suite() -> bool:
     assert _run_wasm_export(
         emit_legalized_wasm(wasm_nested_struct_array), "nested_struct_array_probe"
     ) == "19528\n"
+
+    wasm_recursive_arrays = _lower(WASM_RECURSIVE_ARRAY_FIXTURE)
+    assert not collect_legalization_issues(
+        wasm_recursive_arrays, "wasm", require_emitter=True
+    )
+    recursive_wat = emit_legalized_wat(wasm_recursive_arrays)
+    assert recursive_wat.count("call $__rove_mir_array_clone_recursive") >= 2
+    recursive_wasm = emit_legalized_wasm(wasm_recursive_arrays)
+    for function, expected in (
+        ("recursive_int_probe", 19),
+        ("recursive_bool_probe", 1001),
+        ("recursive_float_probe", 11),
+        ("recursive_string_probe", 15),
+        ("recursive_struct_probe", 19227),
+        ("recursive_empty_probe", 0),
+        ("recursive_five_probe", 427),
+        ("recursive_call_probe", 19),
+    ):
+        assert MIRInterpreter(wasm_recursive_arrays).run(function).value == expected
+        assert _run_wasm_export(recursive_wasm, function) == f"{expected}\n"
+    unsupported_recursive_array = _lower_source(
+        "fn probe() -> int {\n"
+        "  let values: Array<Array<Array<Result<int, string>>>> = []\n"
+        "  return len(values)\n"
+        "}\n",
+        "m5-wasm-recursive-array-rejection.rove",
+    )
+    assert {issue.code for issue in collect_legalization_issues(
+        unsupported_recursive_array, "wasm", require_emitter=True
+    )} == {"MIRG1002"}
 
     wasm_struct = _lower_source(
         "struct Pair { x: int, y: int }\n"
