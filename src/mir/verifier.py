@@ -747,6 +747,10 @@ class MIRVerifier:
                 failed = list(state)
                 if terminator.error_destination is not None and not terminator.error_destination.projections:
                     failed[terminator.error_destination.local] = "init"
+                elif terminator.error_destination is not None:
+                    self._ownership_require(
+                        terminator.error_destination, failed, span, report, "suspend unwind destination",
+                    )
                 edges.append((terminator.unwind, tuple(failed)))
             return edges
         return []
@@ -797,9 +801,15 @@ class MIRVerifier:
     ) -> bool:
         if place.local < 0 or place.local >= len(state):
             return False
+        indices_ready = True
+        for projection in place.projections:
+            if isinstance(projection, IndexProjection) and not self._ownership_require(
+                Place(projection.local), state, span, report, "index with"
+            ):
+                indices_ready = False
         value_state = state[place.local]
         if value_state == "init":
-            return True
+            return indices_ready
         if not report:
             return False
         if value_state == "moved":
@@ -827,6 +837,8 @@ class MIRVerifier:
     ) -> None:
         if place.local < 0 or place.local >= len(state):
             return
+        if place.projections and state[place.local] == "init":
+            self._ownership_require(place, state, span, report, operation)
         if place.projections and operation == "move":
             if report:
                 self._ownership_issue(

@@ -16,6 +16,7 @@ from src.mir import (
     ConstOperand,
     CopyOperand,
     DiscriminantRValue,
+    DropTerminator,
     GotoTerminator,
     MIRBasicBlock,
     MIRFunctionBuilder,
@@ -30,8 +31,10 @@ from src.mir import (
     PayloadRValue,
     Place,
     ReturnTerminator,
+    SuspendTerminator,
     UseRValue,
     collect_mir_issues,
+    elaborate_coroutine,
     fingerprint,
     from_json,
     lower_hir_skeleton,
@@ -40,7 +43,14 @@ from src.mir import (
     to_json,
     verify_mir,
 )
-from src.mir.model import MIREnumDef, MIREnumVariant, MIRField, MIRStructDef
+from src.mir.model import (
+    IndexProjection,
+    MIREnumDef,
+    MIREnumVariant,
+    MIRField,
+    MIRStructDef,
+    MoveOperand,
+)
 
 
 def _valid_module() -> MIRModule:
@@ -383,6 +393,75 @@ def run_mir_suite() -> bool:
         ),),
     )
     assert "MIR0100" in {issue.code for issue in collect_mir_issues(duplicate_local)}
+
+    # A dynamic place index is a read of its local, including on projected
+    # writes and drops. The base array being initialized is not sufficient.
+    for initialize_index, move_index, operation, expected_codes in (
+        (False, False, "read", {"MIR0800"}),
+        (False, False, "write", {"MIR0800"}),
+        (False, False, "drop", {"MIR0800"}),
+        (True, True, "read", {"MIR0801"}),
+        (True, False, "read", set()),
+    ):
+        indexed = MIRFunctionBuilder("indexed", "module::fn::indexed", MIRType("void"), function.span)
+        values = indexed.new_local("values", MIRType("Array", (int_type,)), "parameter")
+        index = indexed.new_local("index", int_type)
+        destination = indexed.new_local("destination", int_type)
+        entry = indexed.new_block()
+        if initialize_index:
+            indexed.push_statement(entry, AssignStatement(
+                Place(index), UseRValue(ConstOperand(int_type, 0)), function.span,
+            ))
+        if move_index:
+            indexed.push_statement(entry, AssignStatement(
+                Place(destination), UseRValue(MoveOperand(Place(index))), function.span,
+            ))
+        element = Place(values, (IndexProjection(index),))
+        if operation == "read":
+            indexed.push_statement(entry, AssignStatement(
+                Place(destination), UseRValue(CopyOperand(element)), function.span,
+            ))
+            indexed.set_terminator(entry, ReturnTerminator(function.span))
+        elif operation == "write":
+            indexed.push_statement(entry, AssignStatement(
+                element, UseRValue(ConstOperand(int_type, 9)), function.span,
+            ))
+            indexed.set_terminator(entry, ReturnTerminator(function.span))
+        else:
+            exit_block = indexed.new_block()
+            indexed.set_terminator(entry, DropTerminator(element, exit_block, None, function.span))
+            indexed.set_terminator(exit_block, ReturnTerminator(function.span))
+        indexed_module = MIRModule("indexed.rove", "cpp", (indexed.finish(),))
+        assert {issue.code for issue in collect_mir_issues(indexed_module)} == expected_codes, (
+            initialize_index, move_index, operation,
+        )
+
+    for initialize_index, expected_codes in ((False, {"MIR0800"}), (True, set())):
+        suspended = MIRFunctionBuilder(
+            "suspended", "module::fn::suspended", MIRType("void"), function.span, is_async=True,
+        )
+        task = suspended.new_local("task", MIRType("Task", (int_type,)), "parameter")
+        errors = suspended.new_local("errors", MIRType("Array", (string_type,)), "parameter")
+        index = suspended.new_local("index", int_type)
+        destination = suspended.new_local("destination", int_type)
+        entry = suspended.new_block()
+        resumed = suspended.new_block()
+        unwound = suspended.new_block()
+        if initialize_index:
+            suspended.push_statement(entry, AssignStatement(
+                Place(index), UseRValue(ConstOperand(int_type, 0)), function.span,
+            ))
+        suspended.set_terminator(entry, SuspendTerminator(
+            CopyOperand(Place(task)), Place(destination), resumed, 0, function.span,
+            unwind=unwound,
+            error_destination=Place(errors, (IndexProjection(index),)),
+        ))
+        suspended.set_terminator(resumed, ReturnTerminator(function.span))
+        suspended.set_terminator(unwound, ReturnTerminator(function.span))
+        suspended_module = MIRModule(
+            "suspended.rove", "cpp", (elaborate_coroutine(suspended.finish()),),
+        )
+        assert {issue.code for issue in collect_mir_issues(suspended_module)} == expected_codes
 
     effect_source = RoveCompiler(str(ROOT)).check_source(
         "fn pure_value() -> int { return 1 }\n"
