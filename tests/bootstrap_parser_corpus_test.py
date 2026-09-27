@@ -22,7 +22,7 @@ from tests.bootstrap_parser_test import py_ast_to_canonical
 
 def run_parser_validation_corpus() -> bool:
     print("=" * 70)
-    print("⚡ NYX PHASE 4.0.5.x PARSER VALIDATION & STRESS CORPUS HARNESS")
+    print("⚡ ROVE PHASE 4.0.5.x PARSER VALIDATION & STRESS CORPUS HARNESS")
     print("=" * 70)
 
     # 1. Prepare native parser binary
@@ -33,7 +33,7 @@ def run_parser_validation_corpus() -> bool:
 
     with open(os.path.join(_root_dir, "compiler", "lexer.rove"), "r", encoding="utf-8") as f:
         lexer_content = f.read()
-    lexer_support_start = lexer_content.index("// NYX_LEXER_SUPPORT_BEGIN:")
+    lexer_support_start = lexer_content.index("// ROVE_LEXER_SUPPORT_BEGIN:")
     lexer_impl_end = lexer_content.index("fn main()") if "fn main()" in lexer_content else len(lexer_content)
     lexer_code = lexer_content[lexer_support_start:lexer_impl_end].strip()
 
@@ -83,9 +83,9 @@ main()
         ast = PyParser(tokens_ast, runner_code, f"{name}_driver.rove").parse()
         cpp_code = UniversalCodeGen(ast).gen_cpp()
 
-        temp_dir = tempfile.mkdtemp(prefix="nyx_corpus_")
-        exe_file = os.path.join(temp_dir, "nyx_parser.exe")
-        cpp_file = os.path.join(temp_dir, "nyx_parser.cpp")
+        temp_dir = tempfile.mkdtemp(prefix="rove_corpus_")
+        exe_file = os.path.join(temp_dir, "rove_parser.exe")
+        cpp_file = os.path.join(temp_dir, "rove_parser.cpp")
 
         try:
             with open(cpp_file, "w", encoding="utf-8") as f:
@@ -98,19 +98,19 @@ main()
                 continue
 
             code, output = CppToolchain.run_executable(exe_file)
-            nyx_canon = output.strip()
+            rove_canon = output.strip()
 
-            if py_canon == nyx_canon:
+            if py_canon == rove_canon:
                 print("PASS (Matched)")
             else:
                 print("FAILED (Mismatch)")
                 print(f"  Py:  {py_canon}")
-                print(f"  Nyx: {nyx_canon}")
+                print(f"  Rove: {rove_canon}")
                 all_passed = False
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)
 
-    print("\n--- 2. Invalid / Rejection Corpus (Dual Python & Native Nyx Parser Rejection) ---")
+    print("\n--- 2. Invalid / Rejection Corpus (Dual Python & Native Rove Parser Rejection) ---")
     invalid_corpus = [
         ("unclosed_parenthesis", "var x = (10 + 20;"),
         ("missing_colon_in_decl", "var x int = 10;"),
@@ -132,7 +132,7 @@ main()
         except:
             py_rejected = True
 
-        # 2. Native Nyx Parser Rejection
+        # 2. Native Rove Parser Rejection
         escaped_src = src.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
         runner_code = f"""{combined_base}
 
@@ -155,11 +155,11 @@ main()
         ast = PyParser(tokens_ast, runner_code, f"{name}_reject_driver.rove").parse()
         cpp_code = UniversalCodeGen(ast).gen_cpp()
 
-        temp_dir = tempfile.mkdtemp(prefix="nyx_reject_")
-        exe_file = os.path.join(temp_dir, "nyx_parser.exe")
-        cpp_file = os.path.join(temp_dir, "nyx_parser.cpp")
+        temp_dir = tempfile.mkdtemp(prefix="rove_reject_")
+        exe_file = os.path.join(temp_dir, "rove_parser.exe")
+        cpp_file = os.path.join(temp_dir, "rove_parser.cpp")
 
-        nyx_rejected = False
+        rove_rejected = False
         try:
             with open(cpp_file, "w", encoding="utf-8") as f:
                 f.write(cpp_code)
@@ -168,14 +168,14 @@ main()
             if ok:
                 code, output = CppToolchain.run_executable(exe_file)
                 if "REJECTED:" in output:
-                    nyx_rejected = True
+                    rove_rejected = True
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)
 
-        if py_rejected and nyx_rejected:
-            print("PASS (Dual Rejection Parity - Both Python & Nyx Parsers Rejected)")
+        if py_rejected and rove_rejected:
+            print("PASS (Dual Rejection Parity - Both Python & Rove Parsers Rejected)")
         else:
-            print(f"FAILED (Py={py_rejected}, Nyx={nyx_rejected})")
+            print(f"FAILED (Py={py_rejected}, Rove={rove_rejected})")
             all_passed = False
 
     print("=" * 70)
