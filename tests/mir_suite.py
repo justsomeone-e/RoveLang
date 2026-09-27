@@ -40,7 +40,7 @@ from src.mir import (
     to_json,
     verify_mir,
 )
-from src.mir.model import MIREnumDef, MIREnumVariant
+from src.mir.model import MIREnumDef, MIREnumVariant, MIRField, MIRStructDef
 
 
 def _valid_module() -> MIRModule:
@@ -235,6 +235,66 @@ def run_mir_suite() -> bool:
         ))
         tagged.set_terminator(tagged_entry, ReturnTerminator(function.span))
         verify_mir(MIRModule("valid-aggregate.rove", "cpp", (tagged.finish(),)))
+
+    cell_type = MIRType("Cell")
+    cell_definition = MIRStructDef("Cell", "type::Cell", (MIRField("value", int_type),))
+    for aggregate_type, operands, fields, expected_code in (
+        (MIRType("Other"), (ConstOperand(int_type, 7),), ("value",), "MIR0526"),
+        (MIRType("Cell", optional=True), (ConstOperand(int_type, 7),), ("value",), "MIR0526"),
+        (cell_type, (ConstOperand(int_type, 7),), ("other",), "MIR0527"),
+        (cell_type, (ConstOperand(int_type, 7),), (), "MIR0527"),
+        (cell_type, (ConstOperand(string_type, "wrong"),), ("value",), "MIR0528"),
+        (cell_type, (ConstOperand(MIRType("null", optional=True), None),), ("value",), "MIR0528"),
+    ):
+        struct = MIRFunctionBuilder("struct", "module::fn::struct", MIRType("void"), function.span)
+        destination = struct.new_local("cell", aggregate_type)
+        entry = struct.new_block()
+        struct.push_statement(entry, AssignStatement(
+            Place(destination),
+            AggregateRValue("struct", "Cell", operands, aggregate_type, fields),
+            function.span,
+        ))
+        struct.set_terminator(entry, ReturnTerminator(function.span))
+        malformed = MIRModule("invalid-struct.rove", "cpp", (struct.finish(),), (cell_definition,))
+        assert {issue.code for issue in collect_mir_issues(malformed)} == {expected_code}, (
+            aggregate_type, operands, fields
+        )
+
+    result_field = MIRType("Result", (int_type, string_type))
+    result_holder = MIRStructDef("ResultHolder", "type::ResultHolder", (MIRField("value", result_field),))
+    result_builder = MIRFunctionBuilder("result_field", "module::fn::result_field", MIRType("void"), function.span)
+    result_local = result_builder.new_local("holder", MIRType("ResultHolder"))
+    result_entry = result_builder.new_block()
+    result_builder.push_statement(result_entry, AssignStatement(
+        Place(result_local),
+        AggregateRValue("struct", "ResultHolder", (ConstOperand(MIRType("null", optional=True), None),),
+                        MIRType("ResultHolder"), ("value",)),
+        function.span,
+    ))
+    result_builder.set_terminator(result_entry, ReturnTerminator(function.span))
+    assert {issue.code for issue in collect_mir_issues(MIRModule(
+        "invalid-result-field.rove", "cpp", (result_builder.finish(),), (result_holder,)
+    ))} == {"MIR0528"}
+
+    dynamic_definition = MIRStructDef("Dynamic", "type::Dynamic", (MIRField("value", MIRType("any")),))
+    optional_definition = MIRStructDef("Optional", "type::Optional", (MIRField("value", MIRType("int", optional=True)),))
+    for aggregate_type, definition, operand in (
+        (cell_type, cell_definition, ConstOperand(int_type, 7)),
+        (MIRType("Dynamic"), dynamic_definition, ConstOperand(int_type, 7)),
+        (MIRType("Optional"), optional_definition, ConstOperand(int_type, 7)),
+        (MIRType("Optional"), optional_definition, ConstOperand(MIRType("null", optional=True), None)),
+    ):
+        struct = MIRFunctionBuilder("struct", "module::fn::struct", MIRType("void"), function.span)
+        destination = struct.new_local("value", aggregate_type)
+        entry = struct.new_block()
+        struct.push_statement(entry, AssignStatement(
+            Place(destination),
+            AggregateRValue("struct", definition.name, (operand,),
+                            aggregate_type, ("value",)),
+            function.span,
+        ))
+        struct.set_terminator(entry, ReturnTerminator(function.span))
+        verify_mir(MIRModule("valid-struct.rove", "cpp", (struct.finish(),), (definition,)))
 
     for subject_type, index, payload_type, definitions, expected_code in (
         (int_type, 0, int_type, (), "MIR0521"),
