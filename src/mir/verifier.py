@@ -337,8 +337,10 @@ class MIRVerifier:
                 self._issue("MIR0504", "Borrow rvalue must produce a pointer type", span)
             return value.type
         if isinstance(value, AggregateRValue):
-            for operand in value.operands:
+            operand_types = tuple(
                 self._operand_type(operand, locals_by_id, span)
+                for operand in value.operands
+            )
             if value.fields and len(value.fields) != len(value.operands):
                 self._issue("MIR0505", "Aggregate field and operand counts differ", span)
             if value.kind == "struct":
@@ -353,7 +355,13 @@ class MIRVerifier:
                     )
             elif value.kind == "enum":
                 definition = self.type_definitions.get(value.type.name)
-                if not isinstance(definition, MIREnumDef):
+                if value.type.optional or value.type.pointer or value.type.is_function:
+                    self._issue(
+                        "MIR0520",
+                        f"Enum aggregate requires a nominal value type, got '{value.type}'",
+                        span,
+                    )
+                elif not isinstance(definition, MIREnumDef):
                     self._issue("MIR0508", f"Unknown MIR enum aggregate type '{value.type}'", span)
                 else:
                     variant = next(
@@ -372,8 +380,20 @@ class MIRVerifier:
                             f"{len(variant.payload_types)} payloads, got {len(value.operands)}",
                             span,
                         )
+                    else:
+                        for index, (expected, actual) in enumerate(zip(variant.payload_types, operand_types)):
+                            if not self._aggregate_payload_matches(expected, actual):
+                                self._issue(
+                                    "MIR0514",
+                                    f"Enum '{definition.name}.{value.name}' payload {index} "
+                                    f"expects {expected}, got {actual}",
+                                    span,
+                                )
             elif value.kind == "result":
-                if value.type.name != "Result" or len(value.type.arguments) != 2:
+                if (
+                    value.type.name != "Result" or len(value.type.arguments) != 2
+                    or value.type.optional or value.type.pointer or value.type.is_function
+                ):
                     self._issue("MIR0511", f"Invalid MIR Result aggregate type '{value.type}'", span)
                 elif value.name not in {"Ok", "Err"}:
                     self._issue("MIR0512", f"Unknown MIR Result variant '{value.name}'", span)
@@ -381,6 +401,36 @@ class MIRVerifier:
                     self._issue(
                         "MIR0513",
                         f"Result '{value.name}' expects one payload, got {len(value.operands)}",
+                        span,
+                    )
+                else:
+                    expected = value.type.arguments[0 if value.name == "Ok" else 1]
+                    if not self._aggregate_payload_matches(expected, operand_types[0]):
+                        self._issue(
+                            "MIR0515",
+                            f"Result '{value.name}' payload expects {expected}, got {operand_types[0]}",
+                            span,
+                        )
+            elif value.kind == "option":
+                if (
+                    value.type.name != "Option" or len(value.type.arguments) != 1
+                    or value.type.optional or value.type.pointer or value.type.is_function
+                ):
+                    self._issue("MIR0516", f"Invalid MIR Option aggregate type '{value.type}'", span)
+                elif value.name not in {"Some", "None"}:
+                    self._issue("MIR0517", f"Unknown MIR Option variant '{value.name}'", span)
+                elif len(value.operands) != (1 if value.name == "Some" else 0):
+                    self._issue(
+                        "MIR0518",
+                        f"Option '{value.name}' has an incorrect payload count: {len(value.operands)}",
+                        span,
+                    )
+                elif value.name == "Some" and not self._aggregate_payload_matches(
+                    value.type.arguments[0], operand_types[0]
+                ):
+                    self._issue(
+                        "MIR0519",
+                        f"Option 'Some' payload expects {value.type.arguments[0]}, got {operand_types[0]}",
                         span,
                     )
             return value.type
@@ -394,6 +444,12 @@ class MIRVerifier:
             return value.type
         self._issue("MIR0500", f"Unknown rvalue {type(value).__name__}", span)
         return None
+
+    @staticmethod
+    def _aggregate_payload_matches(expected: MIRType, actual: MIRType | None) -> bool:
+        # A dynamic payload may box a concrete value. Target legalization owns
+        # the representation and may reject that combination.
+        return actual is None or expected == actual or expected == MIRType("any")
 
     def _operand_type(self, operand: Operand, locals_by_id: dict, span: MIRSpan) -> MIRType | None:
         if isinstance(operand, ConstOperand):

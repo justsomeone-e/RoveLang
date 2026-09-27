@@ -1844,8 +1844,8 @@ Implementation status (2026-09-09): complete for the M1 boundary. The
 experimental implementation lives in `src/mir/`; `tests/mir_suite.py` covers
 construction, malformed CFG rejection, canonical round-tripping, printing,
 fingerprints, pass validation, and CLI subprocess behavior. The verifier also
-rejects unknown enum/Result variants and incorrect tagged-payload counts
-before target legalization. The original
+rejects unknown enum/Result/Option variants, incorrect tagged-payload counts,
+and concrete payload-type mismatches before target legalization. The original
 semantics-free skeleton remains available as `lower_hir_skeleton`; `rove emit
 mir` now uses the subsequently completed executable lowering path. The default
 HIR-to-backend route remains unchanged.
