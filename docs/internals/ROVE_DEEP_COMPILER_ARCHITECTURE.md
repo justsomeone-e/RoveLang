@@ -2019,7 +2019,7 @@ Every migrated backend passes positive, negative, runtime, and parity corpora.
 Fallback to approximate target semantics is impossible.
 ```
 
-Implementation status (through 2026-09-25):
+Implementation status (through 2026-09-27):
 
 - `src/mir/legalization.py` publishes versioned operation, type, runtime,
   ownership, effect, and ABI profiles in the required migration order;
@@ -2252,12 +2252,15 @@ Implementation status (through 2026-09-25):
   two enum payload variants, empty variants, typed-Result re-homing, and direct
   linear-memory mutation of copied array elements. Supported `Array<T>`
   payloads use the same variant-aware clone path, including nested arrays and
-  arrays of structs with array fields. Unsupported array element types and
-  multi-payload non-int enum variants remain gated. Nominal enums with int
-  payloads or one bool/float/immutable string/nominal-struct payload keep their
+  arrays of structs with array fields. Enum variants may also combine supported
+  bool, int, float, string, array, and nominal-struct payloads. Layout-derived
+  offsets replace fixed-width slot assumptions, and the clone path detaches
+  every owned payload in the active variant. Executable tests cover mixed
+  bool/int/array/array-owning-struct and float/string variants plus copy
+  isolation. Unsupported array element types remain gated. Nominal enums keep
   canonical named MIR tags while Wasm legalization maps them to deterministic
-  `i32` discriminants and stores
-  payloads at layout-defined offsets. Results with int, bool, float, string, or
+  `i32` discriminants and stores payloads at layout-defined offsets. Results
+  with int, bool, float, string, or
   nominal-struct payloads share the same tagged representation and are verified on both `Ok` and `Err`
   control-flow paths.
   When typed-HIR inference temporarily introduces `any` on the unused Result
@@ -2357,8 +2360,7 @@ Implementation status (through 2026-09-25):
 - remaining multi-use/control-flow compiler-temporary lifetime elaboration, general
   place-sensitive partial-move/drop analysis, drop unwind edges, per-allocation
   reclamation for arena-backed targets,
-  remaining Wasm aggregate combinations such as multi-payload non-int enum variants,
-  Wasm nominal-struct printing, and broader
+  remaining Wasm aggregate combinations, Wasm nominal-struct printing, and broader
   target runtime surfaces remain
   open M5 work. Every migration-order target now has a bounded executable pilot;
   none of those pilots imply full backend parity. C++, Rust, JavaScript, and

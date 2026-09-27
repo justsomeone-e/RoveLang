@@ -1,0 +1,59 @@
+struct Box { items: Array<int> }
+
+enum Packet {
+    Data(bool, int, Array<int>, Box),
+    Meta(float, string),
+    Empty()
+}
+
+fn make_packet() -> Packet {
+    return Data(true, 5, [1, 2], Box([3]))
+}
+
+fn copy_packet(packet: Packet) -> Packet {
+    let copy = packet
+    return copy
+}
+
+fn read_packet(packet: Packet) -> int {
+    match packet {
+        Data(active, id, numbers, box) => {
+            if active { return id * 1000 + numbers[0] * 100 + box.items[0] }
+            return 0
+        },
+        Meta(weight, label) => {
+            if weight > 1.0 { return len(label) }
+            return 0
+        },
+        Empty() => return 0
+    }
+    return -1
+}
+
+fn multi_payload_probe() -> int {
+    var original = make_packet()
+    var copied = original
+    match copied {
+        Data(active, id, numbers, box) => {
+            var changed_numbers = numbers
+            set changed_numbers[0] = 9
+            var changed_box = box
+            set changed_box.items[0] = 8
+            if active {
+                return read_packet(original) * 10 + changed_numbers[0] + changed_box.items[0]
+            }
+            return id
+        },
+        Meta(weight, label) => return len(label),
+        Empty() => return 0
+    }
+    return -1
+}
+
+fn meta_payload_probe() -> int {
+    return read_packet(Meta(2.5, "rove"))
+}
+
+fn empty_payload_probe() -> int {
+    return read_packet(Empty())
+}

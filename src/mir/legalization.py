@@ -529,15 +529,6 @@ class _Legalizer:
                                 f"'{definition.name}.{variant.name}' contains '{payload_type}'",
                                 span,
                             )
-                    if len(variant.payload_types) > 1 and any(
-                        payload_type != MIRType("int") for payload_type in variant.payload_types
-                    ):
-                        self._issue(
-                            "MIRG1002",
-                            f"The Wasm MIR enum pilot permits non-int payloads only as a single payload; "
-                            f"'{definition.name}.{variant.name}' has {len(variant.payload_types)} payloads",
-                            span,
-                        )
                 continue
             if self.target == "llvm" and isinstance(definition, MIRStructDef):
                 for field in definition.fields:
@@ -782,6 +773,22 @@ class _Legalizer:
         elif isinstance(value, PayloadRValue):
             self._operand(value.operand, span)
             self._type(value.type, span)
+            if self.target == "wasm":
+                subject_type = self._operand_mir_type(value.operand)
+                definition = self.type_definitions.get(
+                    subject_type.name if subject_type is not None else ""
+                )
+                if isinstance(definition, MIREnumDef) and not any(
+                    value.index < len(variant.payload_types)
+                    and variant.payload_types[value.index] == value.type
+                    for variant in definition.variants
+                ):
+                    self._issue(
+                        "MIRG1004",
+                        f"Wasm enum '{definition.name}' has no payload {value.index} "
+                        f"of type '{value.type}'",
+                        span,
+                    )
         elif isinstance(value, BorrowRValue):
             self._place(value.place, span)
             self._type(value.type, span)

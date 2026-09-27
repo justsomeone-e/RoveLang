@@ -233,14 +233,27 @@ class LayoutEngine:
         )
 
     def _tuple_payload_layout(self, payload_types: tuple[MIRType, ...]) -> tuple[int, int]:
+        offsets = self.tuple_payload_offsets(payload_types)
+        alignment = max(
+            (self.layout_of(payload_type).alignment for payload_type in payload_types),
+            default=1,
+        )
+        size = (
+            offsets[-1] + self.layout_of(payload_types[-1]).size
+            if offsets else 0
+        )
+        return _align_up(size, alignment), alignment
+
+    def tuple_payload_offsets(self, payload_types: tuple[MIRType, ...]) -> tuple[int, ...]:
+        """Return each field's offset within an enum variant's payload."""
+        offsets = []
         offset = 0
-        alignment = 1
         for payload_type in payload_types:
             layout = self.layout_of(payload_type)
             offset = _align_up(offset, layout.alignment)
+            offsets.append(offset)
             offset += layout.size
-            alignment = max(alignment, layout.alignment)
-        return _align_up(offset, alignment), alignment
+        return tuple(offsets)
 
 
 def _align_up(value: int, alignment: int) -> int:

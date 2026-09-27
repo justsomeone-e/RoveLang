@@ -38,6 +38,7 @@ from src.mir import (
     MIRSpan,
     MIRType,
     MoveOperand,
+    PayloadRValue,
     Place,
     ReleaseStatement,
     RetainStatement,
@@ -76,6 +77,7 @@ WASM_RECURSIVE_ARRAY_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_re
 WASM_ARRAY_FIELD_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_array_fields.rove"
 WASM_OWNED_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_owned_tagged.rove"
 WASM_ARRAY_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_array_tagged.rove"
+WASM_MULTI_PAYLOAD_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_multi_payload.rove"
 C17_MULTI_OWNED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_c17_multi_owned_payload.rove"
 RUST_VALIDATION_MODE = "runtime"
 
@@ -1122,6 +1124,68 @@ def run_mir_legalization_suite() -> bool:
     assert "MIRG1002" in {issue.code for issue in collect_legalization_issues(
         unsupported_tagged_array, "wasm", require_emitter=True
     )}
+
+    wasm_multi_payload = _lower(WASM_MULTI_PAYLOAD_FIXTURE)
+    assert not collect_legalization_issues(
+        wasm_multi_payload, "wasm", require_emitter=True
+    )
+    multi_layouts = LayoutEngine(wasm_multi_payload, "wasm")
+    offsets = multi_layouts.tuple_payload_offsets((
+        MIRType("bool"), MIRType("int"),
+        MIRType("Array", (MIRType("int"),)), MIRType("Box"),
+    ))
+    assert offsets == (0, 8, 16, 28), offsets
+    multi_wasm = emit_legalized_wasm(wasm_multi_payload)
+    for function, expected in (
+        ("multi_payload_probe", 51047),
+        ("meta_payload_probe", 4),
+        ("empty_payload_probe", 0),
+    ):
+        assert MIRInterpreter(wasm_multi_payload).run(function).value == expected
+        assert _run_wasm_export(multi_wasm, function) == f"{expected}\n"
+    payload_base = multi_layouts.layout_of(MIRType("Packet")).payload_offset
+    _assert_wasm_tagged_copy_is_owned(
+        multi_wasm, "make_packet", "copy_packet", payload_base + offsets[2], 1,
+    )
+    _assert_wasm_tagged_copy_is_owned(
+        multi_wasm, "make_packet", "copy_packet", payload_base + offsets[3], 3,
+    )
+    read_index = next(
+        index for index, function in enumerate(wasm_multi_payload.functions)
+        if function.name == "read_packet"
+    )
+    read_function = wasm_multi_payload.functions[read_index]
+    block_index, statement_index = next(
+        (block_index, statement_index)
+        for block_index, block in enumerate(read_function.blocks)
+        for statement_index, statement in enumerate(block.statements)
+        if isinstance(statement, AssignStatement)
+        and isinstance(statement.value, PayloadRValue)
+    )
+    block = read_function.blocks[block_index]
+    statement = block.statements[statement_index]
+    invalid_statement = replace(statement, value=replace(statement.value, index=99))
+    invalid_block = replace(
+        block,
+        statements=block.statements[:statement_index]
+        + (invalid_statement,)
+        + block.statements[statement_index + 1:],
+    )
+    invalid_function = replace(
+        read_function,
+        blocks=read_function.blocks[:block_index]
+        + (invalid_block,)
+        + read_function.blocks[block_index + 1:],
+    )
+    invalid_module = replace(
+        wasm_multi_payload,
+        functions=wasm_multi_payload.functions[:read_index]
+        + (invalid_function,)
+        + wasm_multi_payload.functions[read_index + 1:],
+    )
+    assert {issue.code for issue in collect_legalization_issues(
+        invalid_module, "wasm", require_emitter=True
+    )} == {"MIRG1004"}
 
     wasm_struct = _lower_source(
         "struct Pair { x: int, y: int }\n"
@@ -3059,7 +3123,7 @@ def run_mir_legalization_suite() -> bool:
         "[PASS] 7 target profiles, stable negative diagnostics, no-fallback gate, "
         "scalar/aggregate/payload/ownership MIR interpreter parity, C++/LLVM pilots with nested LLVM value structs, recursively deep-copied Array<int|bool|float|string|acyclic-struct> including nested arrays and tagged struct-array ownership, primitive/string tagged Result+enum payloads with canonical display, boxed multi-array/struct tagged payload clone/drop parity plus direct/tagged primitive/nested-array display, captured LLVM to_string, and consuming-builtin cleanup, explicit LLVM deinit/drop destruction, and LLVM emitter-contract negatives, "
         f"executable Wasm/JavaScript/Python/C17 CFG pilots, {rust_evidence} validation, C17 acyclic deep-cloned value structs/recursive Array<int|bool|float|f64|string|struct>/nested collection fields/tagged multi-primitive|array|struct and binary64 display/to_string parity, Rust/JS/Python "
-        "aggregate parity, Wasm Array<int|bool|float|string|struct>+nested int|bool|float|string|struct arrays/nested int+bool+float+string-struct/int+bool+float+string+struct-enum/Result<int|float|struct,int|bool|float|string> parity, "
+        "aggregate parity, Wasm Array<int|bool|float|string|struct>+nested int|bool|float|string|struct arrays/nested int+bool+float+string-struct/int+bool+float+string+struct-enum/Result<int|float|struct,int|bool|float|string> and mixed multi-payload enum parity, "
         "C++/Rust/JS/Python local and interprocedural throw/catch parity, C++/LLVM/Rust/JS/Python nested struct-enum/Result<Array<int>,string> parity, C++/Rust/JS/Python lazy memoized async/await with suspend-unwind parity, Rust/JS/Python payload-enum parity, "
         "all-target non-unwinding deinit/drop consumption and Rust value ownership/borrow/drop, "
         "and legacy C++ oracle"
