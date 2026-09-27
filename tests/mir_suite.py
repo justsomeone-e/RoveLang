@@ -153,8 +153,10 @@ def run_mir_suite() -> bool:
     assert "MIR0300" in {issue.code for issue in collect_mir_issues(bad_assignment)}
 
     int_type = MIRType("int")
+    string_type = MIRType("string")
     choice_type = MIRType("Choice")
-    result_type = MIRType("Result", (int_type, MIRType("string")))
+    result_type = MIRType("Result", (int_type, string_type))
+    option_type = MIRType("Option", (int_type,))
     choice_definition = MIREnumDef(
         "Choice", "type::Choice", (MIREnumVariant("Value", (int_type,)),)
     )
@@ -166,16 +168,38 @@ def run_mir_suite() -> bool:
         ),
         ("enum", "Value", choice_type, (), (choice_definition,), "MIR0510"),
         (
+            "enum", "Value", MIRType("Choice", optional=True),
+            (ConstOperand(int_type, 7),), (choice_definition,), "MIR0520",
+        ),
+        (
+            "enum", "Value", choice_type, (ConstOperand(string_type, "wrong"),),
+            (choice_definition,), "MIR0514",
+        ),
+        (
             "result", "Ok", MIRType("Result", (int_type,)),
+            (ConstOperand(int_type, 7),), (), "MIR0511",
+        ),
+        (
+            "result", "Ok", MIRType("Result", (int_type, string_type), optional=True),
             (ConstOperand(int_type, 7),), (), "MIR0511",
         ),
         ("result", "Other", result_type, (ConstOperand(int_type, 7),), (), "MIR0512"),
         ("result", "Ok", result_type, (), (), "MIR0513"),
+        ("result", "Ok", result_type, (ConstOperand(string_type, "wrong"),), (), "MIR0515"),
         (
             "result", "Err", result_type,
             (ConstOperand(MIRType("string"), "bad"), ConstOperand(int_type, 7)),
             (), "MIR0513",
         ),
+        ("option", "Some", MIRType("Option"), (ConstOperand(int_type, 7),), (), "MIR0516"),
+        (
+            "option", "Some", MIRType("Option", (int_type,), pointer=True),
+            (ConstOperand(int_type, 7),), (), "MIR0516",
+        ),
+        ("option", "Other", option_type, (), (), "MIR0517"),
+        ("option", "Some", option_type, (), (), "MIR0518"),
+        ("option", "None", option_type, (ConstOperand(int_type, 7),), (), "MIR0518"),
+        ("option", "Some", option_type, (ConstOperand(string_type, "wrong"),), (), "MIR0519"),
     ):
         tagged = MIRFunctionBuilder("tagged", "module::fn::tagged", MIRType("void"), function.span)
         result = tagged.new_local("value", aggregate_type)
@@ -193,6 +217,21 @@ def run_mir_suite() -> bool:
             raise AssertionError("Malformed tagged aggregate passed MIR verification")
         except MIRVerificationError as error:
             assert {issue.code for issue in error.issues} == {expected_code}
+
+    for kind, name, aggregate_type, operands in (
+        ("option", "None", option_type, ()),
+        ("option", "Some", option_type, (ConstOperand(int_type, 7),)),
+        ("result", "Ok", MIRType("Result", (MIRType("any"), string_type)),
+         (ConstOperand(int_type, 7),)),
+    ):
+        tagged = MIRFunctionBuilder("tagged", "module::fn::tagged", MIRType("void"), function.span)
+        result = tagged.new_local("value", aggregate_type)
+        tagged_entry = tagged.new_block()
+        tagged.push_statement(tagged_entry, AssignStatement(
+            Place(result), AggregateRValue(kind, name, operands, aggregate_type), function.span
+        ))
+        tagged.set_terminator(tagged_entry, ReturnTerminator(function.span))
+        verify_mir(MIRModule("valid-aggregate.rove", "cpp", (tagged.finish(),)))
 
     duplicate_local = replace(
         module,
