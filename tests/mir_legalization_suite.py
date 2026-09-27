@@ -38,6 +38,7 @@ from src.mir import (
     MIRSpan,
     MIRType,
     MoveOperand,
+    PayloadRValue,
     Place,
     ReleaseStatement,
     RetainStatement,
@@ -76,6 +77,8 @@ WASM_RECURSIVE_ARRAY_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_re
 WASM_ARRAY_FIELD_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_array_fields.rove"
 WASM_OWNED_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_owned_tagged.rove"
 WASM_ARRAY_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_array_tagged.rove"
+WASM_MULTI_PAYLOAD_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_multi_payload.rove"
+WASM_NARROW_RESULT_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_narrow_result.rove"
 C17_MULTI_OWNED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_c17_multi_owned_payload.rove"
 RUST_VALIDATION_MODE = "runtime"
 
@@ -1123,6 +1126,68 @@ def run_mir_legalization_suite() -> bool:
         unsupported_tagged_array, "wasm", require_emitter=True
     )}
 
+    wasm_multi_payload = _lower(WASM_MULTI_PAYLOAD_FIXTURE)
+    assert not collect_legalization_issues(
+        wasm_multi_payload, "wasm", require_emitter=True
+    )
+    multi_layouts = LayoutEngine(wasm_multi_payload, "wasm")
+    offsets = multi_layouts.tuple_payload_offsets((
+        MIRType("bool"), MIRType("int"),
+        MIRType("Array", (MIRType("int"),)), MIRType("Box"),
+    ))
+    assert offsets == (0, 8, 16, 28), offsets
+    multi_wasm = emit_legalized_wasm(wasm_multi_payload)
+    for function, expected in (
+        ("multi_payload_probe", 51047),
+        ("meta_payload_probe", 4),
+        ("empty_payload_probe", 0),
+    ):
+        assert MIRInterpreter(wasm_multi_payload).run(function).value == expected
+        assert _run_wasm_export(multi_wasm, function) == f"{expected}\n"
+    payload_base = multi_layouts.layout_of(MIRType("Packet")).payload_offset
+    _assert_wasm_tagged_copy_is_owned(
+        multi_wasm, "make_packet", "copy_packet", payload_base + offsets[2], 1,
+    )
+    _assert_wasm_tagged_copy_is_owned(
+        multi_wasm, "make_packet", "copy_packet", payload_base + offsets[3], 3,
+    )
+    read_index = next(
+        index for index, function in enumerate(wasm_multi_payload.functions)
+        if function.name == "read_packet"
+    )
+    read_function = wasm_multi_payload.functions[read_index]
+    block_index, statement_index = next(
+        (block_index, statement_index)
+        for block_index, block in enumerate(read_function.blocks)
+        for statement_index, statement in enumerate(block.statements)
+        if isinstance(statement, AssignStatement)
+        and isinstance(statement.value, PayloadRValue)
+    )
+    block = read_function.blocks[block_index]
+    statement = block.statements[statement_index]
+    invalid_statement = replace(statement, value=replace(statement.value, index=99))
+    invalid_block = replace(
+        block,
+        statements=block.statements[:statement_index]
+        + (invalid_statement,)
+        + block.statements[statement_index + 1:],
+    )
+    invalid_function = replace(
+        read_function,
+        blocks=read_function.blocks[:block_index]
+        + (invalid_block,)
+        + read_function.blocks[block_index + 1:],
+    )
+    invalid_module = replace(
+        wasm_multi_payload,
+        functions=wasm_multi_payload.functions[:read_index]
+        + (invalid_function,)
+        + wasm_multi_payload.functions[read_index + 1:],
+    )
+    assert {issue.code for issue in collect_legalization_issues(
+        invalid_module, "wasm", require_emitter=True
+    )} == {"MIRG1004"}
+
     wasm_struct = _lower_source(
         "struct Pair { x: int, y: int }\n"
         "fn struct_probe() -> int {\n"
@@ -1197,6 +1262,100 @@ def run_mir_legalization_suite() -> bool:
     assert "i32.store" in wasm_bool_result_wat and "i32.load" in wasm_bool_result_wat
     wasm_bool_result_output = _run_wasm_export(emit_legalized_wasm(wasm_bool_result), "bool_result_probe")
     assert wasm_bool_result_output == "7\n", wasm_bool_result_output
+
+    wasm_narrow_result = _lower(WASM_NARROW_RESULT_FIXTURE)
+    assert not collect_legalization_issues(
+        wasm_narrow_result, "wasm", require_emitter=True
+    )
+    narrow_layout = LayoutEngine(wasm_narrow_result, "wasm").layout_of(
+        MIRType("Result", (MIRType("bool"), MIRType("bool")))
+    )
+    assert (narrow_layout.tag_size, narrow_layout.payload_offset, narrow_layout.size) == (1, 1, 2)
+    narrow_wasm = emit_legalized_wasm(wasm_narrow_result)
+    for function, expected in (
+        ("ok_true_probe", 11),
+        ("ok_false_probe", 12),
+        ("err_true_probe", 21),
+        ("err_false_probe", 22),
+    ):
+        assert MIRInterpreter(wasm_narrow_result).run(function).value == expected
+        assert _run_wasm_export(narrow_wasm, function) == f"{expected}\n"
+
+    result_cast_span = MIRSpan("m5-wasm-result-cast-rejection.rove", 1, 1)
+    for source_type, destination_type in (
+        (
+            MIRType("Result", (MIRType("int"), MIRType("string"))),
+            MIRType("Result", (MIRType("float"), MIRType("string"))),
+        ),
+        (
+            MIRType("Result", (MIRType("int"), MIRType("any"))),
+            MIRType("Result", (MIRType("any"), MIRType("string"))),
+        ),
+        (
+            MIRType("Result", (MIRType("int"), MIRType("string"))),
+            MIRType("Result", (MIRType("int"), MIRType("any"))),
+        ),
+    ):
+        builder = MIRFunctionBuilder(
+            "probe", "function::probe", MIRType("void"), result_cast_span
+        )
+        source_local = builder.new_local("source", source_type, "variable", result_cast_span)
+        destination_local = builder.new_local(
+            "destination", destination_type, "variable", result_cast_span
+        )
+        entry = builder.new_block()
+        builder.push_statement(entry, AssignStatement(
+            Place(source_local),
+            AggregateRValue(
+                "result", "Ok", (ConstOperand(MIRType("int"), 7),), source_type
+            ),
+            result_cast_span,
+        ))
+        builder.push_statement(entry, AssignStatement(
+            Place(destination_local),
+            CastRValue("implicit", CopyOperand(Place(source_local)), destination_type),
+            result_cast_span,
+        ))
+        builder.set_terminator(entry, ReturnTerminator(result_cast_span))
+        invalid_cast = MIRModule(
+            result_cast_span.source, "cpp", (builder.finish(),)
+        )
+        assert {issue.code for issue in collect_legalization_issues(
+            invalid_cast, "wasm", require_emitter=True
+        )} == {"MIRG1004"}, (source_type, destination_type)
+
+    for result_type, variant, operand in (
+        (
+            MIRType("Result", (MIRType("any"), MIRType("string"))),
+            "Ok", ConstOperand(MIRType("int"), 7),
+        ),
+        (
+            MIRType("Result", (MIRType("int"), MIRType("any"))),
+            "Err", ConstOperand(MIRType("string"), "error"),
+        ),
+    ):
+        builder = MIRFunctionBuilder(
+            "probe", "function::probe", MIRType("void"), result_cast_span
+        )
+        result_local = builder.new_local("result", result_type, "variable", result_cast_span)
+        entry = builder.new_block()
+        builder.push_statement(entry, AssignStatement(
+            Place(result_local),
+            AggregateRValue("result", variant, (operand,), result_type),
+            result_cast_span,
+        ))
+        builder.set_terminator(entry, ReturnTerminator(result_cast_span))
+        active_any_result = MIRModule(
+            result_cast_span.source, "cpp", (builder.finish(),)
+        )
+        assert {issue.code for issue in collect_legalization_issues(
+            active_any_result, "wasm", require_emitter=True
+        )} == {"MIRG1004"}, (result_type, variant)
+        try:
+            emit_legalized_wasm(active_any_result)
+            raise AssertionError("Active 'any' Result payload reached the Wasm emitter")
+        except MIRLegalizationError as error:
+            assert {issue.code for issue in error.issues} == {"MIRG1004"}
 
     wasm_bool_aggregates = _lower_source(
         "struct Flags { enabled: bool, count: int, done: bool }\n"
@@ -3059,7 +3218,7 @@ def run_mir_legalization_suite() -> bool:
         "[PASS] 7 target profiles, stable negative diagnostics, no-fallback gate, "
         "scalar/aggregate/payload/ownership MIR interpreter parity, C++/LLVM pilots with nested LLVM value structs, recursively deep-copied Array<int|bool|float|string|acyclic-struct> including nested arrays and tagged struct-array ownership, primitive/string tagged Result+enum payloads with canonical display, boxed multi-array/struct tagged payload clone/drop parity plus direct/tagged primitive/nested-array display, captured LLVM to_string, and consuming-builtin cleanup, explicit LLVM deinit/drop destruction, and LLVM emitter-contract negatives, "
         f"executable Wasm/JavaScript/Python/C17 CFG pilots, {rust_evidence} validation, C17 acyclic deep-cloned value structs/recursive Array<int|bool|float|f64|string|struct>/nested collection fields/tagged multi-primitive|array|struct and binary64 display/to_string parity, Rust/JS/Python "
-        "aggregate parity, Wasm Array<int|bool|float|string|struct>+nested int|bool|float|string|struct arrays/nested int+bool+float+string-struct/int+bool+float+string+struct-enum/Result<int|float|struct,int|bool|float|string> parity, "
+        "aggregate parity, Wasm Array<int|bool|float|string|struct>+nested int|bool|float|string|struct arrays/nested int+bool+float+string-struct/int+bool+float+string+struct-enum/Result<int|float|struct,int|bool|float|string> and mixed multi-payload enum parity, "
         "C++/Rust/JS/Python local and interprocedural throw/catch parity, C++/LLVM/Rust/JS/Python nested struct-enum/Result<Array<int>,string> parity, C++/Rust/JS/Python lazy memoized async/await with suspend-unwind parity, Rust/JS/Python payload-enum parity, "
         "all-target non-unwinding deinit/drop consumption and Rust value ownership/borrow/drop, "
         "and legacy C++ oracle"

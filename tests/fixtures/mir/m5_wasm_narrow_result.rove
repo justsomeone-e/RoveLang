@@ -1,0 +1,35 @@
+fn read_result(value: Result<bool, bool>) -> int {
+    match value {
+        Ok(flag) => {
+            if flag { return 11 }
+            return 12
+        },
+        Err(flag) => {
+            if flag { return 21 }
+            return 22
+        }
+    }
+    return -1
+}
+
+fn ok_true_probe() -> int {
+    let value: Result<bool, bool> = Ok(true)
+    let copy = value
+    return read_result(copy)
+}
+
+fn ok_false_probe() -> int {
+    let value: Result<bool, bool> = Ok(false)
+    return read_result(value)
+}
+
+fn err_true_probe() -> int {
+    let value: Result<bool, bool> = Err(true)
+    let copy = value
+    return read_result(copy)
+}
+
+fn err_false_probe() -> int {
+    let value: Result<bool, bool> = Err(false)
+    return read_result(value)
+}

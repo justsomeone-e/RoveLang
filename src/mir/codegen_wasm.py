@@ -1045,8 +1045,9 @@ class _WasmEmitter:
                     Instruction("i32.const", target_layout.size), Instruction("call", "__rove_mir_alloc"),
                     Instruction("local.set", "__rove_struct_ptr"),
                     Instruction("local.get", "__rove_struct_ptr"),
-                    Instruction("local.get", "__rove_cast_source"), Instruction("i32.load"),
-                    Instruction("i32.store"),
+                    Instruction("local.get", "__rove_cast_source"),
+                    self._tag_instruction(source_type, load=True),
+                    self._tag_instruction(value.type, load=False),
                     Instruction("local.get", "__rove_struct_ptr"),
                     Instruction("i32.const", target_layout.payload_offset), Instruction("i32.add"),
                     Instruction("local.get", "__rove_cast_source"),
@@ -1082,8 +1083,10 @@ class _WasmEmitter:
                     Instruction("i32.const", layout.size), Instruction("call", "__rove_mir_alloc"),
                     Instruction("local.set", "__rove_struct_ptr"),
                     Instruction("local.get", "__rove_struct_ptr"),
-                    Instruction("i32.const", variant_index), Instruction("i32.store"),
+                    Instruction("i32.const", variant_index),
+                    self._tag_instruction(value.type, load=False),
                 ]
+                payload_offsets = self.layouts.tuple_payload_offsets(payload_types)
                 for index, (payload_type, operand) in enumerate(zip(payload_types, value.operands)):
                     if (
                         value.kind == "enum"
@@ -1097,12 +1100,6 @@ class _WasmEmitter:
                         raise MIRCodegenError(
                             f"Wasm MIR enum payload '{value.type.name}.{value.name}[{index}]' is not int, bool, float, string, array, or struct"
                         )
-                    if (
-                        value.kind == "enum"
-                        and payload_type != MIRType("int")
-                        and len(payload_types) != 1
-                    ):
-                        raise MIRCodegenError("Wasm MIR non-int enum payload must be the variant's only payload")
                     if value.kind == "result" and payload_type not in (
                         MIRType("int"), MIRType("bool"), MIRType("float"),
                         MIRType("f64"), MIRType("string"),
@@ -1110,7 +1107,7 @@ class _WasmEmitter:
                         raise MIRCodegenError(
                             f"Wasm MIR Result payload '{value.name}' is not int, bool, float, string, array, or struct"
                         )
-                    payload_offset = layout.payload_offset + (index * 8 if value.kind == "enum" else 0)
+                    payload_offset = layout.payload_offset + payload_offsets[index]
                     output.extend((
                         Instruction("local.get", "__rove_struct_ptr"),
                         Instruction("i32.const", payload_offset),
@@ -1213,7 +1210,9 @@ class _WasmEmitter:
             output.append(Instruction("local.get", "__rove_array_desc"))
             return output
         if isinstance(value, DiscriminantRValue):
-            return self._aggregate_subject(value.operand) + [Instruction("i32.load")]
+            return self._aggregate_subject(value.operand) + [
+                self._tag_instruction(self._operand_type(value.operand), load=True)
+            ]
         if isinstance(value, PayloadRValue):
             subject_type = self._operand_type(value.operand)
             if not self._is_tagged_aggregate(subject_type):
@@ -1237,17 +1236,38 @@ class _WasmEmitter:
                 and value.type.name != "Array"
             ):
                 raise MIRCodegenError("Wasm MIR enum payload pilot requires an int, bool, float, string, array, or struct payload")
-            if (
-                subject_type.name in self.enums
-                and value.type != MIRType("int")
-                and value.index != 0
-            ):
-                raise MIRCodegenError("Wasm MIR non-int enum payload must be the first and only payload")
             layout = self.layouts.layout_of(subject_type)
-            address = self._aggregate_subject(value.operand) + [
-                Instruction("i32.const", layout.payload_offset + value.index * 8),
-                Instruction("i32.add"),
-            ]
+            if subject_type.name in self.enums:
+                definition = self.enums[subject_type.name]
+                candidates = tuple(
+                    (tag, layout.payload_offset + self.layouts.tuple_payload_offsets(
+                        variant.payload_types
+                    )[value.index])
+                    for tag, variant in enumerate(definition.variants)
+                    if value.index < len(variant.payload_types)
+                    and variant.payload_types[value.index] == value.type
+                )
+                if not candidates:
+                    raise MIRCodegenError("Wasm MIR enum payload index/type is not legalized")
+                address = self._aggregate_subject(value.operand) + [
+                    Instruction("local.tee", "__rove_struct_ptr"),
+                ]
+                offset_code: list[Instruction] = [Instruction("unreachable")]
+                for tag, offset in reversed(candidates):
+                    offset_code = [
+                        Instruction("local.get", "__rove_struct_ptr"),
+                        self._tag_instruction(subject_type, load=True),
+                        Instruction("i32.const", tag), Instruction("i32.eq"),
+                        Instruction("if_result", I32),
+                        Instruction("i32.const", offset),
+                        Instruction("else"), *offset_code, Instruction("end"),
+                    ]
+                address.extend(offset_code)
+            else:
+                address = self._aggregate_subject(value.operand) + [
+                    Instruction("i32.const", layout.payload_offset),
+                ]
+            address.append(Instruction("i32.add"))
             if value.type == MIRType("string"):
                 return address
             if value.type.name in self.structs or value.type.name == "Array":
@@ -1416,7 +1436,7 @@ class _WasmEmitter:
             leaf = leaf.arguments[0]
         return self._struct_has_array(leaf)
 
-    def _tagged_owned_payloads(self, value_type: MIRType) -> tuple[tuple[int, MIRType], ...]:
+    def _tagged_owned_payloads(self, value_type: MIRType) -> tuple[tuple[int, int, MIRType], ...]:
         if value_type.name in self.enums:
             variants = (
                 variant.payload_types for variant in self.enums[value_type.name].variants
@@ -1426,11 +1446,12 @@ class _WasmEmitter:
         else:
             return ()
         return tuple(
-            (index, payloads[0])
-            for index, payloads in enumerate(variants)
-            if len(payloads) == 1 and (
-                payloads[0].name == "Array" or self._struct_has_array(payloads[0])
+            (tag, offset, payload_type)
+            for tag, payloads in enumerate(variants)
+            for offset, payload_type in zip(
+                self.layouts.tuple_payload_offsets(payloads), payloads
             )
+            if payload_type.name == "Array" or self._struct_has_array(payload_type)
         )
 
     def _clone_value(self, value_type: MIRType) -> list[Instruction]:
@@ -1530,15 +1551,16 @@ class _WasmEmitter:
                 Instruction("call", "__rove_mir_clone_bytes"),
                 Instruction("local.set", "copy"),
             ]
-            for tag, payload_type in self._tagged_owned_payloads(value_type):
+            for tag, offset, payload_type in self._tagged_owned_payloads(value_type):
                 body.extend((
-                    Instruction("local.get", "source"), Instruction("i32.load"),
+                    Instruction("local.get", "source"),
+                    self._tag_instruction(value_type, load=True),
                     Instruction("i32.const", tag), Instruction("i32.eq"),
                     Instruction("if"),
                     Instruction("local.get", "copy"),
-                    Instruction("i32.const", layout.payload_offset), Instruction("i32.add"),
+                    Instruction("i32.const", layout.payload_offset + offset), Instruction("i32.add"),
                     Instruction("local.get", "source"),
-                    Instruction("i32.const", layout.payload_offset), Instruction("i32.add"),
+                    Instruction("i32.const", layout.payload_offset + offset), Instruction("i32.add"),
                 ))
                 body.extend(self._clone_value(payload_type))
                 body.extend((
@@ -1659,6 +1681,14 @@ class _WasmEmitter:
         if value_type == MIRType("bool"):
             return "i32.load8_u"
         return f"{self._type(value_type)}.load"
+
+    def _tag_instruction(self, value_type: MIRType, *, load: bool) -> Instruction:
+        tag_size = self.layouts.layout_of(value_type).tag_size
+        if tag_size == 1:
+            return Instruction("i32.load8_u" if load else "i32.store8")
+        if tag_size == 4:
+            return Instruction("i32.load" if load else "i32.store")
+        raise MIRCodegenError(f"Wasm MIR tag width {tag_size} is not legalized for '{value_type}'")
 
     def _array_place(self, place: Place) -> list[Instruction]:
         if not place.projections or not isinstance(

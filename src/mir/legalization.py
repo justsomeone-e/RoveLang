@@ -529,15 +529,6 @@ class _Legalizer:
                                 f"'{definition.name}.{variant.name}' contains '{payload_type}'",
                                 span,
                             )
-                    if len(variant.payload_types) > 1 and any(
-                        payload_type != MIRType("int") for payload_type in variant.payload_types
-                    ):
-                        self._issue(
-                            "MIRG1002",
-                            f"The Wasm MIR enum pilot permits non-int payloads only as a single payload; "
-                            f"'{definition.name}.{variant.name}' has {len(variant.payload_types)} payloads",
-                            span,
-                        )
                 continue
             if self.target == "llvm" and isinstance(definition, MIRStructDef):
                 for field in definition.fields:
@@ -746,10 +737,7 @@ class _Legalizer:
                         and not source_type.pointer
                         and not value.type.pointer
                     )
-                    or (
-                        self._wasm_result_compatible(source_type)
-                        and self._wasm_result_compatible(value.type)
-                    )
+                    or self._wasm_result_cast_compatible(source_type, value.type)
                 ):
                     self._issue(
                         "MIRG1004",
@@ -775,6 +763,19 @@ class _Legalizer:
             for operand in value.operands:
                 self._operand(operand, span)
             self._type(value.type, span)
+            if (
+                self.target == "wasm"
+                and value.kind == "result"
+                and value.type.name == "Result"
+                and len(value.type.arguments) == 2
+                and value.name in {"Ok", "Err"}
+                and value.type.arguments[0 if value.name == "Ok" else 1] == MIRType("any")
+            ):
+                self._issue(
+                    "MIRG1004",
+                    f"Wasm MIR Result '{value.name}' cannot construct an active 'any' payload",
+                    span,
+                )
         elif isinstance(value, DiscriminantRValue):
             self._operand(value.operand, span)
             if self.target != "wasm":
@@ -782,6 +783,22 @@ class _Legalizer:
         elif isinstance(value, PayloadRValue):
             self._operand(value.operand, span)
             self._type(value.type, span)
+            if self.target == "wasm":
+                subject_type = self._operand_mir_type(value.operand)
+                definition = self.type_definitions.get(
+                    subject_type.name if subject_type is not None else ""
+                )
+                if isinstance(definition, MIREnumDef) and not any(
+                    value.index < len(variant.payload_types)
+                    and variant.payload_types[value.index] == value.type
+                    for variant in definition.variants
+                ):
+                    self._issue(
+                        "MIRG1004",
+                        f"Wasm enum '{definition.name}' has no payload {value.index} "
+                        f"of type '{value.type}'",
+                        span,
+                    )
         elif isinstance(value, BorrowRValue):
             self._place(value.place, span)
             self._type(value.type, span)
@@ -1710,6 +1727,21 @@ class _Legalizer:
             and len(value_type.arguments) == 2
             and all(compatible(argument) for argument in value_type.arguments)
             and any(argument.name != "any" for argument in value_type.arguments)
+        )
+
+    def _wasm_result_cast_compatible(
+        self, source: MIRType | None, destination: MIRType
+    ) -> bool:
+        if not (
+            self._wasm_result_compatible(source)
+            and self._wasm_result_compatible(destination)
+        ):
+            return False
+        assert source is not None
+        return all(
+            original == target
+            or (original == MIRType("any") and target != MIRType("any"))
+            for original, target in zip(source.arguments, destination.arguments)
         )
 
     def _c_array_compatible(self, value_type: MIRType | None) -> bool:
