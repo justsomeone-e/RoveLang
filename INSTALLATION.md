@@ -49,7 +49,7 @@ prevents the core compiler from being installed.
 
 1. Clone the repository:
    ```bash
-   git clone --branch rove/compiler-architecture-and-migration https://github.com/justsomeone-e/RoveLang.git
+   git clone https://github.com/justsomeone-e/RoveLang.git
    cd RoveLang
    ```
 
