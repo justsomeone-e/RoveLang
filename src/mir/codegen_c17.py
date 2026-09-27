@@ -409,6 +409,16 @@ class _C17Emitter:
         self.current: MIRFunction | None = None
         self.local_types: dict[int, MIRType] = {}
         self.display_names: dict[MIRType, str] = {}
+        tagged_types = sorted({
+            local.type
+            for function in module.functions
+            for local in function.locals
+            if self._is_tagged_type(local.type)
+        }, key=str)
+        self.tagged_clone_names = {
+            value: f"rove_tagged_clone_{index}"
+            for index, value in enumerate(tagged_types)
+        }
 
     def emit(self) -> str:
         ordered_structs = self._ordered_structs()
@@ -448,6 +458,12 @@ class _C17Emitter:
         if remaining_nested_arrays:
             parts.extend(("", "/* Rove nested-array declarations. */"))
             parts.extend(self._nested_array_declaration(value) for value in remaining_nested_arrays)
+        if self.tagged_clone_names:
+            parts.extend(("", "/* Rove type-specific tagged value copies. */"))
+            parts.extend(
+                self._tagged_clone_declaration(value, name)
+                for value, name in self.tagged_clone_names.items()
+            )
         self._collect_display_types()
         if self.display_names:
             parts.extend(("", "/* Rove canonical value display. */"))
@@ -477,6 +493,34 @@ class _C17Emitter:
     const char *tag;
     RoveTaggedPayload payload[{payload_slots}];
 }} RoveTaggedValue;'''
+
+    def _tagged_clone_declaration(self, value: MIRType, name: str) -> str:
+        lines = [
+            f"static RoveTaggedValue {name}(RoveTaggedValue value) {{",
+            "    RoveTaggedValue result = value;",
+        ]
+        for index, (tag, payloads) in enumerate(self._display_variants(value)):
+            prefix = "if" if index == 0 else "else if"
+            lines.append(f"    {prefix} (value.tag != NULL && strcmp(value.tag, {json.dumps(tag)}) == 0) {{")
+            for slot, payload in enumerate(payloads):
+                if self._tag_payload_field(payload) != "object":
+                    continue
+                field = f"value.payload[{slot}].object"
+                lines.extend((
+                    f"        if ({field} == NULL) {{",
+                    '            fputs("invalid Rove C17 tagged payload\\n", stderr);',
+                    "            exit(1);",
+                    "        }",
+                    f"        result.payload[{slot}].object = {self._box_helper(payload)}("
+                    f"*({self._type(payload)} *){field});",
+                ))
+            lines.extend(("        return result;", "    }"))
+        lines.extend((
+            '    fputs("invalid Rove C17 tagged value\\n", stderr);',
+            "    exit(1);",
+            "}",
+        ))
+        return "\n".join(lines)
 
     @staticmethod
     def _floating_array_declaration(kind: str) -> str:
@@ -982,9 +1026,10 @@ static void *rove_box_array_{outer_suffix}({outer} value) {{
             if self._is_tagged_type(value.type):
                 return operand
             if value.kind == "optional-unwrap":
-                rendered = f"({operand}).payload[0].{self._tag_payload_field(value.type)}"
+                rendered = f"({self._read_operand(value.operand)}).payload[0].{self._tag_payload_field(value.type)}"
                 if value.type.name in self.structs or value.type.name == "Array":
-                    return f"(*({self._type(value.type)} *){rendered})"
+                    rendered = f"(*({self._type(value.type)} *){rendered})"
+                    return self._clone_value(value.type, rendered)
                 return rendered
             raise MIRCodegenError(
                 f"unsupported C17 cast '{value.kind}' from '{source_type}' to '{value.type}'"
@@ -1022,11 +1067,12 @@ static void *rove_box_array_{outer_suffix}({outer} value) {{
             )
             return f"({self._type(value.type)}){{ {initializers} }}"
         if isinstance(value, DiscriminantRValue):
-            return f"({self._operand(value.operand)}).tag"
+            return f"({self._read_operand(value.operand)}).tag"
         if isinstance(value, PayloadRValue):
-            rendered = f"({self._operand(value.operand)}).payload[{value.index}].{self._tag_payload_field(value.type)}"
+            rendered = f"({self._read_operand(value.operand)}).payload[{value.index}].{self._tag_payload_field(value.type)}"
             if value.type.name in self.structs or value.type.name == "Array":
-                return f"(*({self._type(value.type)} *){rendered})"
+                rendered = f"(*({self._type(value.type)} *){rendered})"
+                return self._clone_value(value.type, rendered)
             return rendered
         if isinstance(value, BinaryRValue):
             return self._binary(value)
@@ -1079,12 +1125,24 @@ static void *rove_box_array_{outer_suffix}({outer} value) {{
         if isinstance(value, (CopyOperand, MoveOperand)):
             rendered = self._place(value.place)
             place_type = self._place_type(value.place)
-            if isinstance(value, CopyOperand) and place_type.name == "Array":
-                return f"rove_array_{self._array_suffix(place_type.arguments[0])}_clone({rendered})"
-            if isinstance(value, CopyOperand) and place_type.name in self.structs:
-                return f"rove_struct_{_identifier(place_type.name)}_clone({rendered})"
+            if isinstance(value, CopyOperand):
+                return self._clone_value(place_type, rendered)
             return rendered
         raise MIRCodegenError(f"illegal operand reached C17 emitter: {type(value).__name__}")
+
+    def _clone_value(self, value_type: MIRType, rendered: str) -> str:
+        if value_type.name == "Array":
+            return f"rove_array_{self._array_suffix(value_type.arguments[0])}_clone({rendered})"
+        if value_type.name in self.structs:
+            return f"rove_struct_{_identifier(value_type.name)}_clone({rendered})"
+        if self._is_tagged_type(value_type):
+            return f"{self.tagged_clone_names[value_type]}({rendered})"
+        return rendered
+
+    def _read_operand(self, value: Operand) -> str:
+        if isinstance(value, (CopyOperand, MoveOperand)):
+            return self._place(value.place)
+        return self._operand(value)
 
     def _operand_type(self, value: Operand) -> MIRType:
         if isinstance(value, ConstOperand):
