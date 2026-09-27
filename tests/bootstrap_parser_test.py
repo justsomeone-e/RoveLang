@@ -219,7 +219,7 @@ def py_ast_to_canonical(node) -> str:
 
 def run_bootstrap_parser_test() -> bool:
     print("=" * 70)
-    print("⚡ NYX PHASE 4.0.4 - 4.0.5 EXHAUSTIVE BOOTSTRAP PARSER PARITY HARNESS")
+    print("⚡ ROVE PHASE 4.0.4 - 4.0.5 EXHAUSTIVE BOOTSTRAP PARSER PARITY HARNESS")
     print("=" * 70)
 
     with open(os.path.join(_root_dir, "compiler", "parser.rove"), "r", encoding="utf-8") as f:
@@ -233,7 +233,7 @@ def run_bootstrap_parser_test() -> bool:
         lexer_content = f.read()
 
     # Reuse lexer support while keeping parser.rove's canonical Token struct.
-    lexer_support_start = lexer_content.index("// NYX_LEXER_SUPPORT_BEGIN:")
+    lexer_support_start = lexer_content.index("// ROVE_LEXER_SUPPORT_BEGIN:")
     lexer_impl_end = lexer_content.index("fn main()") if "fn main()" in lexer_content else len(lexer_content)
     lexer_code = lexer_content[lexer_support_start:lexer_impl_end].strip()
 
@@ -336,9 +336,9 @@ def run_bootstrap_parser_test() -> bool:
     cpp_code = UniversalCodeGen(ast).gen_cpp()
 
     all_passed = True
-    temp_dir = tempfile.mkdtemp(prefix="nyx_test_parser_")
-    exe_file = os.path.join(temp_dir, "nyx_parser.exe")
-    cpp_file = os.path.join(temp_dir, "nyx_parser.cpp")
+    temp_dir = tempfile.mkdtemp(prefix="rove_test_parser_")
+    exe_file = os.path.join(temp_dir, "rove_parser.exe")
+    cpp_file = os.path.join(temp_dir, "rove_parser.cpp")
     native_results = {}
     native_errors = {}
     try:
@@ -380,7 +380,7 @@ def run_bootstrap_parser_test() -> bool:
         else:
             print("FAILED (AST mismatch)")
             print(f"  Py:  {expected[index]}")
-            print(f"  Nyx: {native_results.get(index, '<missing>')}")
+            print(f"  Rove: {native_results.get(index, '<missing>')}")
             all_passed = False
 
     print("=" * 70)
