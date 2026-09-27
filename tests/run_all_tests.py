@@ -97,8 +97,8 @@ struct ASTNode { params: Array<FunctionParam> }
     python_code = UniversalCodeGen(coalesce_ast).gen_python()
     with warnings.catch_warnings():
         warnings.simplefilter("error", SyntaxWarning)
-        namespace = {"__name__": "nyx_codegen_test"}
-        exec(compile(python_code, "<nyx_codegen_test>", "exec"), namespace)
+        namespace = {"__name__": "rove_codegen_test"}
+        exec(compile(python_code, "<rove_codegen_test>", "exec"), namespace)
     assert namespace["present"] == 100 and namespace["missing"] == 42
     print("  [PASS] C++ declarations and lazy Python null-coalescing")
 
@@ -175,7 +175,7 @@ from tests.module_graph_checker_suite import run_module_graph_checker_suite
 
 def main():
     print("=" * 70)
-    print("⚡ NYX SYSTEMS UNIFIED TEST FRAMEWORK")
+    print("⚡ ROVE UNIFIED TEST FRAMEWORK")
     print("=" * 70)
     
     run_lexer_tests()
