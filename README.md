@@ -583,15 +583,9 @@ rove/
 
 We welcome contributions from systems engineers, compiler authors, and language enthusiasts.
 
-Before opening a pull request, verify that:
-1. **Determinism is Maintained**: Compiler output must be bit-for-bit identical across runs.
-2. **HIR Contracts are Respected**: Never emit target code directly from the AST; all transformations must pass through Typed HIR v1.
-3. **Verification Battery Passes**: All 138+ regression tests, 194 HIR parity tests, and 530 fuzz passes must succeed:
-   ```bash
-   python -m unittest discover tests
-   rove self-host verify
-   ```
-4. **Diagnostics are Actionable**: Error messages must carry precise spans and clear explanations.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for the checkout, naming, testing, and
+pull-request workflow. Report vulnerabilities through the process in
+[SECURITY.md](SECURITY.md), without publishing exploit details in an issue.
 
 ---
 
