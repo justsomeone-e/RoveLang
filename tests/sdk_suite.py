@@ -29,7 +29,7 @@ def run_sdk_suite() -> bool:
         print("[!] Compiler or AR toolchain not found. Skipping SDK compilation suite.")
         return True
 
-    temp_dir = tempfile.mkdtemp(prefix="nyx_sdk_test_")
+    temp_dir = tempfile.mkdtemp(prefix="rove_sdk_test_")
     passed = 0
     total = 3
 
@@ -38,16 +38,16 @@ def run_sdk_suite() -> bool:
         lib_name = "math_sdk_test"
         lib_dir = os.path.join(temp_dir, lib_name)
 
-        # 1. Test nyx new <name> --lib
+        # 1. Test rove new <name> --lib
         print(f"[*] Testing sdk_01_create_library_project...")
         res = subprocess.run([sys.executable, cli_py, "new", lib_name, "--lib"], cwd=temp_dir, capture_output=True, text=True, encoding="utf-8")
-        if res.returncode == 0 and os.path.exists(os.path.join(lib_dir, "nyx.toml")) and os.path.exists(os.path.join(lib_dir, "src", "lib.rove")) and os.path.exists(os.path.join(lib_dir, "examples", "basic.rove")):
+        if res.returncode == 0 and os.path.exists(os.path.join(lib_dir, "rove.toml")) and os.path.exists(os.path.join(lib_dir, "src", "lib.rove")) and os.path.exists(os.path.join(lib_dir, "examples", "basic.rove")):
             print("  [PASS] sdk_01_create_library_project -> Scaffolding matched")
             passed += 1
         else:
             print(f"  [FAIL] sdk_01_create_library_project -> Failed: {res.stderr or res.stdout}")
 
-        # 2. Test nyx build (library mode)
+        # 2. Test rove build (library mode)
         print(f"[*] Testing sdk_02_build_library_project...")
         res = subprocess.run([sys.executable, cli_py, "build"], cwd=lib_dir, capture_output=True, text=True, encoding="utf-8")
         lib_file = os.path.join(lib_dir, "build", "cpp", "liblib.a")
@@ -57,7 +57,7 @@ def run_sdk_suite() -> bool:
         else:
             print(f"  [FAIL] sdk_02_build_library_project -> Failed: {res.stderr or res.stdout}")
 
-        # 3. Test nyx run examples/basic.rove
+        # 3. Test rove run examples/basic.rove
         print(f"[*] Testing sdk_03_run_example_project...")
         res = subprocess.run([sys.executable, cli_py, "run", "examples/basic.rove"], cwd=lib_dir, capture_output=True, text=True, encoding="utf-8")
         if res.returncode == 0 and "Add result: 12" in res.stdout:
