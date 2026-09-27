@@ -59,29 +59,39 @@ the behavior it actually exercised.
   as semantic parity. A backend's claimed maturity requires positive,
   negative, runtime, and differential evidence for its declared surface.
 
-## Ownership review: treat every value like a borrow-checker case
+## Review every change with borrow-checker-level rigor
 
-For an ownership-affecting change, trace each value through construction,
-assignment, copy, move, borrow, projection, call, return, and destruction.
-Check every CFG edge: fallthrough, branch, loop, early return, `?`, throw,
-catch, call unwind, suspend, and suspend unwind. Answer these questions before
-declaring the change correct:
+"Borrow checker" describes the thoroughness of the engineering review, not a
+request to implement Rust ownership rules in Rove. Apply this loop to compiler
+code, tooling, docs, editor behavior, and UI alike:
 
-- Is a value initialized before every read? Can a moved value be read again?
-- Does each owned value have one valid owner at each point? Can a mutable alias
-  observe a copy or projected write that should be isolated?
-- Does copy detach every nested owned field and tagged payload required by
-  Rove value semantics? Does move transfer without an accidental second copy?
-- Does each initialized value receive its required cleanup exactly once on
-  every exit? Can overwrite, partial move, drop, or a throwing deferred action
-  cause a leak, double drop, or use-after-move?
-- Does layout use target-defined size, alignment, and offsets rather than an
-  assumed slot width? Are bounds, tag, and type checks applied before access?
+1. Before editing, record the observed behavior and a small baseline check.
+   List the invariant to preserve and the callers, generated artifacts, and
+   supported targets that could be affected. If a bug is reproducible, capture
+   a case that fails before the fix.
+2. After each meaningful edit, inspect the changed code and its neighboring
+   paths. Check success, failure, boundary, and compatibility cases. Trace
+   control flow and state rather than assuming that a passing happy path is
+   enough. If an assumption is unproven, inspect source or run a probe.
+3. Verify through at least two relevant forms of evidence for behavioral work:
+   a focused test plus an actual compiler/runtime execution, an independent
+   oracle, a related integration suite, or rendered UI inspection. Choose
+   checks that can catch different defects; repeating the identical command
+   without a change or new hypothesis adds little confidence.
+4. After the **last** code edit, rerun the affected checks. Then inspect the
+   complete diff, staged files, names, generated output, and unrelated dirty
+   state. If a check fails, determine whether the change caused it, fix the
+   cause, and rerun the relevant check. Never report stale green results.
+5. Before claiming completion, compare the outcome with every explicit user
+   requirement and the applicable milestone exit gate. State what was executed,
+   what was only reviewed, and what remains unverified. Do not silently reduce
+   the requested scope to the portion that passed.
 
-If the current model cannot prove a case, keep it behind a capability or
-verifier gate and state the limitation. Do not pretend Rove has Rust's borrow
-checker; this is the standard of review for its current explicit ownership
-model.
+For ownership-affecting compiler changes, additionally trace construction,
+copy, move, borrow, projection, overwrite, return, and destruction across every
+relevant normal, throw, and suspend edge. Check initialization before use,
+alias isolation, and exactly-once cleanup. If the model cannot prove a case,
+keep it behind a verifier or capability gate instead of assuming it is safe.
 
 ## Verification proportional to the change
 
