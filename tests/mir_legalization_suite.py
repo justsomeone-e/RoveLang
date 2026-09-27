@@ -78,6 +78,7 @@ WASM_ARRAY_FIELD_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_array_
 WASM_OWNED_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_owned_tagged.rove"
 WASM_ARRAY_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_array_tagged.rove"
 WASM_MULTI_PAYLOAD_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_multi_payload.rove"
+WASM_NARROW_RESULT_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_narrow_result.rove"
 C17_MULTI_OWNED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_c17_multi_owned_payload.rove"
 RUST_VALIDATION_MODE = "runtime"
 
@@ -1261,6 +1262,24 @@ def run_mir_legalization_suite() -> bool:
     assert "i32.store" in wasm_bool_result_wat and "i32.load" in wasm_bool_result_wat
     wasm_bool_result_output = _run_wasm_export(emit_legalized_wasm(wasm_bool_result), "bool_result_probe")
     assert wasm_bool_result_output == "7\n", wasm_bool_result_output
+
+    wasm_narrow_result = _lower(WASM_NARROW_RESULT_FIXTURE)
+    assert not collect_legalization_issues(
+        wasm_narrow_result, "wasm", require_emitter=True
+    )
+    narrow_layout = LayoutEngine(wasm_narrow_result, "wasm").layout_of(
+        MIRType("Result", (MIRType("bool"), MIRType("bool")))
+    )
+    assert (narrow_layout.tag_size, narrow_layout.payload_offset, narrow_layout.size) == (1, 1, 2)
+    narrow_wasm = emit_legalized_wasm(wasm_narrow_result)
+    for function, expected in (
+        ("ok_true_probe", 11),
+        ("ok_false_probe", 12),
+        ("err_true_probe", 21),
+        ("err_false_probe", 22),
+    ):
+        assert MIRInterpreter(wasm_narrow_result).run(function).value == expected
+        assert _run_wasm_export(narrow_wasm, function) == f"{expected}\n"
 
     wasm_bool_aggregates = _lower_source(
         "struct Flags { enabled: bool, count: int, done: bool }\n"

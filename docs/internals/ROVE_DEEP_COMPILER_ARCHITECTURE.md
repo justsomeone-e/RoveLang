@@ -2260,9 +2260,11 @@ Implementation status (through 2026-09-27):
   isolation. Unsupported array element types remain gated. Nominal enums keep
   canonical named MIR tags while Wasm legalization maps them to deterministic
   `i32` discriminants and stores payloads at layout-defined offsets. Results
-  with int, bool, float, string, or
-  nominal-struct payloads share the same tagged representation and are verified on both `Ok` and `Err`
-  control-flow paths.
+  with int, bool, float, string, or nominal-struct payloads share the same
+  tagged representation and are verified on both `Ok` and `Err` control-flow
+  paths. Wasm tag reads and writes now respect the layout's one-byte Result tag,
+  including `Result<bool, bool>` where the payload begins in the next byte;
+  executable tests cover both tags and Boolean values through re-homing and copy.
   When typed-HIR inference temporarily introduces `any` on the unused Result
   branch, Wasm cast legalization re-homes the tag and payload into the target
   layout rather than treating unequal layouts as the same pointer.

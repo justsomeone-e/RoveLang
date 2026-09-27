@@ -1045,8 +1045,9 @@ class _WasmEmitter:
                     Instruction("i32.const", target_layout.size), Instruction("call", "__rove_mir_alloc"),
                     Instruction("local.set", "__rove_struct_ptr"),
                     Instruction("local.get", "__rove_struct_ptr"),
-                    Instruction("local.get", "__rove_cast_source"), Instruction("i32.load"),
-                    Instruction("i32.store"),
+                    Instruction("local.get", "__rove_cast_source"),
+                    self._tag_instruction(source_type, load=True),
+                    self._tag_instruction(value.type, load=False),
                     Instruction("local.get", "__rove_struct_ptr"),
                     Instruction("i32.const", target_layout.payload_offset), Instruction("i32.add"),
                     Instruction("local.get", "__rove_cast_source"),
@@ -1082,7 +1083,8 @@ class _WasmEmitter:
                     Instruction("i32.const", layout.size), Instruction("call", "__rove_mir_alloc"),
                     Instruction("local.set", "__rove_struct_ptr"),
                     Instruction("local.get", "__rove_struct_ptr"),
-                    Instruction("i32.const", variant_index), Instruction("i32.store"),
+                    Instruction("i32.const", variant_index),
+                    self._tag_instruction(value.type, load=False),
                 ]
                 payload_offsets = self.layouts.tuple_payload_offsets(payload_types)
                 for index, (payload_type, operand) in enumerate(zip(payload_types, value.operands)):
@@ -1208,7 +1210,9 @@ class _WasmEmitter:
             output.append(Instruction("local.get", "__rove_array_desc"))
             return output
         if isinstance(value, DiscriminantRValue):
-            return self._aggregate_subject(value.operand) + [Instruction("i32.load")]
+            return self._aggregate_subject(value.operand) + [
+                self._tag_instruction(self._operand_type(value.operand), load=True)
+            ]
         if isinstance(value, PayloadRValue):
             subject_type = self._operand_type(value.operand)
             if not self._is_tagged_aggregate(subject_type):
@@ -1252,7 +1256,7 @@ class _WasmEmitter:
                 for tag, offset in reversed(candidates):
                     offset_code = [
                         Instruction("local.get", "__rove_struct_ptr"),
-                        Instruction("i32.load"),
+                        self._tag_instruction(subject_type, load=True),
                         Instruction("i32.const", tag), Instruction("i32.eq"),
                         Instruction("if_result", I32),
                         Instruction("i32.const", offset),
@@ -1549,7 +1553,8 @@ class _WasmEmitter:
             ]
             for tag, offset, payload_type in self._tagged_owned_payloads(value_type):
                 body.extend((
-                    Instruction("local.get", "source"), Instruction("i32.load"),
+                    Instruction("local.get", "source"),
+                    self._tag_instruction(value_type, load=True),
                     Instruction("i32.const", tag), Instruction("i32.eq"),
                     Instruction("if"),
                     Instruction("local.get", "copy"),
@@ -1676,6 +1681,14 @@ class _WasmEmitter:
         if value_type == MIRType("bool"):
             return "i32.load8_u"
         return f"{self._type(value_type)}.load"
+
+    def _tag_instruction(self, value_type: MIRType, *, load: bool) -> Instruction:
+        tag_size = self.layouts.layout_of(value_type).tag_size
+        if tag_size == 1:
+            return Instruction("i32.load8_u" if load else "i32.store8")
+        if tag_size == 4:
+            return Instruction("i32.load" if load else "i32.store")
+        raise MIRCodegenError(f"Wasm MIR tag width {tag_size} is not legalized for '{value_type}'")
 
     def _array_place(self, place: Place) -> list[Instruction]:
         if not place.projections or not isinstance(
