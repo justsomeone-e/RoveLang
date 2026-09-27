@@ -6,7 +6,10 @@ import re
 import hashlib
 import struct as binary_struct
 
-from src.codegen.wasm_ir import DataSegment, F64, I32, I64, VOID, FunctionIR, Instruction, ModuleIR
+from src.codegen.wasm_ir import (
+    DataSegment, F64, I32, I64, VOID, FunctionIR, ImportFunctionIR,
+    Instruction, ModuleIR,
+)
 
 from .codegen_cpp import MIRCodegenError
 from .layout import LayoutEngine
@@ -85,16 +88,104 @@ class _WasmEmitter:
         self.local_names: dict[int, str] = {}
         self.tag_locals: dict[int, dict[str, int]] = {}
         self.owned_clone_helpers: dict[MIRType, FunctionIR | None] = {}
+        self.wasi_print_used = False
+        self.print_struct_helpers: dict[str, FunctionIR | None] = {}
 
     def lower(self) -> ModuleIR:
         lowered = [self._function(function) for function in self.module.functions]
         assert all(helper is not None for helper in self.owned_clone_helpers.values())
         functions = (
             self._integer_runtime() + self._array_runtime() + self._string_runtime()
-            + list(self.owned_clone_helpers.values()) + lowered
+            + list(self.owned_clone_helpers.values())
+            + (self._wasi_print_runtime() if self.wasi_print_used else [])
+            + list(self.print_struct_helpers.values()) + lowered
         )
         heap_start = max(2048, (self.next_data_offset + 7) & ~7)
-        return ModuleIR(self.module.source_name, functions, self.data, heap_start)
+        imports = [ImportFunctionIR(
+            "wasi_snapshot_preview1", "fd_write", (I32, I32, I32, I32), I32,
+        )] if self.wasi_print_used else []
+        return ModuleIR(self.module.source_name, functions, self.data, heap_start, imports)
+
+    def _wasi_literal(self, value: str) -> list[Instruction]:
+        descriptor = self._intern_string(value)
+        return [
+            Instruction("i32.const", descriptor), Instruction("i32.load"),
+            Instruction("i32.const", descriptor + 4), Instruction("i32.load"),
+            Instruction("call", "__rove_mir_wasi_write"),
+        ]
+
+    def _wasi_print_runtime(self) -> list[FunctionIR]:
+        write = FunctionIR(
+            "__rove_mir_wasi_write", [("ptr", I32), ("length", I32)], VOID,
+            body=[
+                # The transient iovec and count occupy bytes 0..11; static data
+                # begins at 1024 and the allocator starts after all static data.
+                Instruction("i32.const", 0), Instruction("local.get", "ptr"),
+                Instruction("i32.store"),
+                Instruction("i32.const", 4), Instruction("local.get", "length"),
+                Instruction("i32.store"),
+                Instruction("i32.const", 1), Instruction("i32.const", 0),
+                Instruction("i32.const", 1), Instruction("i32.const", 8),
+                Instruction("call", "fd_write"), Instruction("i32.eqz"),
+                Instruction("if"), Instruction("else"),
+                Instruction("unreachable"), Instruction("end"),
+                Instruction("i32.const", 8), Instruction("i32.load"),
+                Instruction("local.get", "length"), Instruction("i32.eq"),
+                Instruction("if"), Instruction("else"),
+                Instruction("unreachable"), Instruction("end"),
+            ], export=False,
+        )
+        print_string = FunctionIR(
+            "__rove_mir_print_string", [("value", I32)], VOID,
+            body=[
+                Instruction("local.get", "value"), Instruction("i32.load"),
+                Instruction("local.get", "value"), Instruction("i32.const", 4),
+                Instruction("i32.add"), Instruction("i32.load"),
+                Instruction("call", "__rove_mir_wasi_write"),
+            ], export=False,
+        )
+        print_bool = FunctionIR(
+            "__rove_mir_print_bool", [("value", I32)], VOID,
+            body=[
+                Instruction("local.get", "value"), Instruction("if"),
+                *self._wasi_literal("true"), Instruction("else"),
+                *self._wasi_literal("false"), Instruction("end"),
+            ], export=False,
+        )
+        return [write, print_string, print_bool]
+
+    def _print_struct_helper(self, value_type: MIRType) -> str:
+        name = value_type.name
+        helper_name = f"__rove_mir_print_struct_{_identifier(name)}"
+        if name in self.print_struct_helpers:
+            return helper_name
+        self.print_struct_helpers[name] = None
+        body = self._wasi_literal(f"{name}(")
+        for index, field in enumerate(self.layouts.layout_of(value_type).fields):
+            if index:
+                body.extend(self._wasi_literal(", "))
+            body.extend((
+                Instruction("local.get", "value"),
+                Instruction("i32.const", field.offset), Instruction("i32.add"),
+            ))
+            if field.type == MIRType("string"):
+                body.append(Instruction("call", "__rove_mir_print_string"))
+            elif field.type == MIRType("bool"):
+                body.extend((
+                    Instruction("i32.load8_u"),
+                    Instruction("call", "__rove_mir_print_bool"),
+                ))
+            elif field.type.name in self.structs:
+                body.append(Instruction("call", self._print_struct_helper(field.type)))
+            else:
+                raise MIRCodegenError(
+                    f"Wasm struct display field '{name}.{field.name}' was not legalized"
+                )
+        body.extend(self._wasi_literal(")"))
+        self.print_struct_helpers[name] = FunctionIR(
+            helper_name, [("value", I32)], VOID, body=body, export=False,
+        )
+        return helper_name
 
     @staticmethod
     def _integer_runtime() -> list[FunctionIR]:
@@ -853,6 +944,27 @@ class _WasmEmitter:
         if isinstance(value, CallTerminator):
             if value.target is None:
                 raise MIRCodegenError(f"call '{value.function}' has no continuation")
+            if value.function == "builtin::print":
+                self.wasi_print_used = True
+                for index, argument in enumerate(value.arguments):
+                    if index:
+                        body.extend(self._wasi_literal(" "))
+                    argument_type = self._operand_type(argument)
+                    if argument_type == MIRType("bool"):
+                        helper = "__rove_mir_print_bool"
+                    elif argument_type == MIRType("string"):
+                        helper = "__rove_mir_print_string"
+                    elif argument_type.name in self.structs:
+                        helper = self._print_struct_helper(argument_type)
+                    else:
+                        raise MIRCodegenError(
+                            f"Wasm display type '{argument_type}' was not legalized"
+                        )
+                    body.extend(self._operand(argument))
+                    body.append(Instruction("call", helper))
+                body.extend(self._wasi_literal("\n"))
+                self._goto(value.target, body)
+                return
             if value.function == "builtin::len":
                 if len(value.arguments) != 1 or value.destination is None:
                     raise MIRCodegenError("builtin::len requires one argument and a destination")

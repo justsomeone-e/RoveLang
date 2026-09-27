@@ -59,6 +59,7 @@ from src.mir import (
     mir_backend_manifest,
 )
 from src.mir.model import MIRField, MIRStructDef, SuspendTerminator
+from tests.mir_wasm_struct_print_suite import main as run_mir_wasm_struct_print_suite
 
 
 SCALAR_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m2_scalar.rove"
@@ -3212,6 +3213,7 @@ def run_mir_legalization_suite() -> bool:
 
     if RUST_VALIDATION_MODE != "runtime":
         print(f"[INFO] Rust generated sources validated in {RUST_VALIDATION_MODE} mode")
+    run_mir_wasm_struct_print_suite()
     rust_evidence = (
         "executable Rust"
         if RUST_VALIDATION_MODE == "runtime"
