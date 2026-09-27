@@ -1,0 +1,26 @@
+enum Numbers { Data(Array<int>), Empty() }
+struct Box { values: Array<int> }
+enum Mixed { Pack(Array<int>, Box), Missing() }
+
+fn main() {
+  var original = Data([1, 2])
+  var copied = original
+  match copied {
+    Data(values) => {
+      set values[0] = 9
+      print(original, copied, values)
+    },
+    Empty() => {}
+  }
+
+  var mixed = Pack([3, 4], Box([5, 6]))
+  var mixed_copy = mixed
+  match mixed_copy {
+    Pack(values, box) => {
+      set values[0] = 8
+      set box.values[0] = 7
+      print(mixed, mixed_copy, values, box)
+    },
+    Missing() => {}
+  }
+}

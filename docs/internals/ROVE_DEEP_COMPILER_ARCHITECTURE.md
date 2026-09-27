@@ -2362,8 +2362,12 @@ Implementation status (through 2026-09-27):
   carry multiple indexed int, bool, float/f64, immutable string, supported
   array, and nominal-struct payloads. Each array or struct payload occupies its
   own boxed slot; the executable gate covers mixed scalar/object slots,
-  copied enum values, match extraction, and display. Unsupported aggregate
-  leaves remain rejected. C17 now renders
+  copied enum values, match extraction, and display. Type-specific tagged-copy
+  helpers detach every boxed array or struct payload in the active variant;
+  extracting a boxed payload also returns a detached value. An executable
+  enum copy-isolation fixture mutates both array and array-bearing struct
+  payloads and compares the original with the MIR interpreter. Unsupported
+  aggregate leaves remain rejected. C17 now renders
   admitted arrays, structs, and tagged payloads recursively through typed
   `rove_print_value_*` helpers for both stdout and captured `to_string` output;
   its generated internal types and helpers use

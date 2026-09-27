@@ -81,6 +81,7 @@ WASM_ARRAY_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_array
 WASM_MULTI_PAYLOAD_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_multi_payload.rove"
 WASM_NARROW_RESULT_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_narrow_result.rove"
 C17_MULTI_OWNED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_c17_multi_owned_payload.rove"
+C17_TAGGED_COPY_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_c17_tagged_copy.rove"
 RUST_VALIDATION_MODE = "runtime"
 
 
@@ -3065,6 +3066,24 @@ def run_mir_legalization_suite() -> bool:
     assert "rove_box_Envelope" in generated_c17_multi_owned
     assert _compile_and_run_c17(generated_c17_multi_owned) == (
         expected_c17_multi_owned
+    )
+
+    c17_tagged_copy = _lower(C17_TAGGED_COPY_FIXTURE)
+    assert not collect_legalization_issues(
+        c17_tagged_copy, "c", require_emitter=True
+    )
+    expected_c17_tagged_copy = (
+        "Data([1, 2]) Data([1, 2]) [9, 2]\n"
+        "Pack([3, 4], Box([5, 6])) Pack([3, 4], Box([5, 6])) "
+        "[8, 4] Box([7, 6])\n"
+    )
+    assert "\n".join(MIRInterpreter(c17_tagged_copy).run().output) + "\n" == (
+        expected_c17_tagged_copy
+    )
+    generated_c17_tagged_copy = emit_legalized_c17(c17_tagged_copy)
+    assert "rove_tagged_clone_" in generated_c17_tagged_copy
+    assert _compile_and_run_c17(generated_c17_tagged_copy) == (
+        expected_c17_tagged_copy
     )
 
     c17_unsupported_payload = _lower_source(
