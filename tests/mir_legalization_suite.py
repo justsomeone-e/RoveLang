@@ -1281,6 +1281,49 @@ def run_mir_legalization_suite() -> bool:
         assert MIRInterpreter(wasm_narrow_result).run(function).value == expected
         assert _run_wasm_export(narrow_wasm, function) == f"{expected}\n"
 
+    result_cast_span = MIRSpan("m5-wasm-result-cast-rejection.rove", 1, 1)
+    for source_type, destination_type in (
+        (
+            MIRType("Result", (MIRType("int"), MIRType("string"))),
+            MIRType("Result", (MIRType("float"), MIRType("string"))),
+        ),
+        (
+            MIRType("Result", (MIRType("int"), MIRType("any"))),
+            MIRType("Result", (MIRType("any"), MIRType("string"))),
+        ),
+        (
+            MIRType("Result", (MIRType("int"), MIRType("string"))),
+            MIRType("Result", (MIRType("int"), MIRType("any"))),
+        ),
+    ):
+        builder = MIRFunctionBuilder(
+            "probe", "function::probe", MIRType("void"), result_cast_span
+        )
+        source_local = builder.new_local("source", source_type, "variable", result_cast_span)
+        destination_local = builder.new_local(
+            "destination", destination_type, "variable", result_cast_span
+        )
+        entry = builder.new_block()
+        builder.push_statement(entry, AssignStatement(
+            Place(source_local),
+            AggregateRValue(
+                "result", "Ok", (ConstOperand(MIRType("int"), 7),), source_type
+            ),
+            result_cast_span,
+        ))
+        builder.push_statement(entry, AssignStatement(
+            Place(destination_local),
+            CastRValue("implicit", CopyOperand(Place(source_local)), destination_type),
+            result_cast_span,
+        ))
+        builder.set_terminator(entry, ReturnTerminator(result_cast_span))
+        invalid_cast = MIRModule(
+            result_cast_span.source, "cpp", (builder.finish(),)
+        )
+        assert {issue.code for issue in collect_legalization_issues(
+            invalid_cast, "wasm", require_emitter=True
+        )} == {"MIRG1004"}, (source_type, destination_type)
+
     wasm_bool_aggregates = _lower_source(
         "struct Flags { enabled: bool, count: int, done: bool }\n"
         "enum Toggle { State(bool), Missing() }\n"

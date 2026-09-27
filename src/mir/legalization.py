@@ -737,10 +737,7 @@ class _Legalizer:
                         and not source_type.pointer
                         and not value.type.pointer
                     )
-                    or (
-                        self._wasm_result_compatible(source_type)
-                        and self._wasm_result_compatible(value.type)
-                    )
+                    or self._wasm_result_cast_compatible(source_type, value.type)
                 ):
                     self._issue(
                         "MIRG1004",
@@ -1717,6 +1714,21 @@ class _Legalizer:
             and len(value_type.arguments) == 2
             and all(compatible(argument) for argument in value_type.arguments)
             and any(argument.name != "any" for argument in value_type.arguments)
+        )
+
+    def _wasm_result_cast_compatible(
+        self, source: MIRType | None, destination: MIRType
+    ) -> bool:
+        if not (
+            self._wasm_result_compatible(source)
+            and self._wasm_result_compatible(destination)
+        ):
+            return False
+        assert source is not None
+        return all(
+            original == target
+            or (original == MIRType("any") and target != MIRType("any"))
+            for original, target in zip(source.arguments, destination.arguments)
         )
 
     def _c_array_compatible(self, value_type: MIRType | None) -> bool:

@@ -2267,7 +2267,10 @@ Implementation status (through 2026-09-27):
   executable tests cover both tags and Boolean values through re-homing and copy.
   When typed-HIR inference temporarily introduces `any` on the unused Result
   branch, Wasm cast legalization re-homes the tag and payload into the target
-  layout rather than treating unequal layouts as the same pointer.
+  layout rather than treating unequal layouts as the same pointer. Only a
+  source-side `any` becoming a concrete payload type is admitted; mismatched
+  concrete payloads and casts that introduce a target-side `any` fail with
+  `MIRG1004` before emission.
   WebAssembly-native masked shifts now match the canonical signed-i64 rule.
   Checked division/remainder helpers preserve Rove's
   divide-by-zero trap and signed `MIN / -1` wrapping contract;
