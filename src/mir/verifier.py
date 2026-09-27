@@ -353,6 +353,28 @@ class MIRVerifier:
                         f"Struct '{value.name}' expects {len(definition.fields)} fields, got {len(value.operands)}",
                         span,
                     )
+                else:
+                    if value.type != MIRType(definition.name):
+                        self._issue(
+                            "MIR0526",
+                            f"Struct '{definition.name}' aggregate has incorrect type '{value.type}'",
+                            span,
+                        )
+                    expected_fields = tuple(field.name for field in definition.fields)
+                    if value.fields != expected_fields:
+                        self._issue(
+                            "MIR0527",
+                            f"Struct '{definition.name}' fields must be {expected_fields}, got {value.fields}",
+                            span,
+                        )
+                    for index, (field, actual) in enumerate(zip(definition.fields, operand_types)):
+                        if not self._struct_field_matches(field.type, actual):
+                            self._issue(
+                                "MIR0528",
+                                f"Struct '{definition.name}.{field.name}' field {index} "
+                                f"expects {field.type}, got {actual}",
+                                span,
+                            )
             elif value.kind == "enum":
                 definition = self.type_definitions.get(value.type.name)
                 if value.type.optional or value.type.pointer or value.type.is_function:
@@ -490,6 +512,16 @@ class MIRVerifier:
         if subject_type.name == "Option" and len(subject_type.arguments) == 1:
             return ((), (subject_type.arguments[0],))
         return None
+
+    @staticmethod
+    def _struct_field_matches(expected: MIRType, actual: MIRType | None) -> bool:
+        if MIRVerifier._aggregate_payload_matches(expected, actual):
+            return True
+        if actual is None:
+            return True
+        if actual == MIRType("null", optional=True):
+            return expected.optional
+        return expected.optional and not actual.optional and replace(expected, optional=False) == actual
 
     @staticmethod
     def _aggregate_payload_matches(expected: MIRType, actual: MIRType | None) -> bool:
