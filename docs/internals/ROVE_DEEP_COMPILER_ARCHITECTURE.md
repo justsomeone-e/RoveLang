@@ -2086,7 +2086,10 @@ Implementation status (through 2026-09-27):
   pass metadata/type checks on this host; executable Rust
   parity remains unverified here. C17 shares one typed display path between
   `print` and `to_string`, with an owned capture buffer tracked by its existing
-  allocation runtime. Wasm still rejects `print` of nominal structs. The MIR
+  allocation runtime. Wasm admits `print` of bool, string, and acyclic nominal
+  structs recursively containing only bool/string fields through a conditional
+  WASI preview1 `fd_write` import. The MIR Wasm pilot still rejects numeric,
+  array, tagged, optional, and `to_string` struct display before emission. The MIR
   interpreter, C++, LLVM, Python, C17, and Rust emitters now follow the existing
   source scalar-text contract: integral floats omit `.0`, either zero sign
   prints as `0`, and shortest round-tripping decimals
@@ -2271,6 +2274,10 @@ Implementation status (through 2026-09-27):
   paths. Wasm tag reads and writes now respect the layout's one-byte Result tag,
   including `Result<bool, bool>` where the payload begins in the next byte;
   executable tests cover both tags and Boolean values through re-homing and copy.
+  A separate executable gate compares direct, nested, and empty bool/string
+  nominal-struct stdout with the MIR interpreter, including UTF-8 and runtime
+  string concatenation. Modules without `print` retain their import-free ABI;
+  WASI write failures and short writes trap instead of silently truncating.
   When typed-HIR inference temporarily introduces `any` on the unused Result
   branch, Wasm cast legalization re-homes the tag and payload into the target
   layout rather than treating unequal layouts as the same pointer. Only a
@@ -2376,7 +2383,8 @@ Implementation status (through 2026-09-27):
 - remaining multi-use/control-flow compiler-temporary lifetime elaboration, general
   place-sensitive partial-move/drop analysis, drop unwind edges, per-allocation
   reclamation for arena-backed targets,
-  remaining Wasm aggregate combinations, Wasm nominal-struct printing, and broader
+  remaining Wasm aggregate combinations, numeric/array/tagged nominal-struct
+  display, and broader
   target runtime surfaces remain
   open M5 work. Every migration-order target now has a bounded executable pilot;
   none of those pilots imply full backend parity. C++, Rust, JavaScript, and

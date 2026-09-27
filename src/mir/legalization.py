@@ -277,7 +277,7 @@ MIR_BACKEND_PROFILES["wasm"] = replace(
         FieldProjection.__name__, IndexProjection.__name__, ConstantIndexProjection.__name__,
     }),
     legal_types=frozenset({"void", "bool", "int", "float", "f64", "string", "Array"}),
-    legal_runtime_calls=frozenset({"builtin::len"}),
+    legal_runtime_calls=frozenset({"builtin::len", "builtin::print"}),
     legal_effects=MIR_BACKEND_PROFILES["wasm"].legal_effects | frozenset({"may_allocate"}),
 )
 
@@ -839,6 +839,9 @@ class _Legalizer:
                         and self._llvm_print_compatible(argument_type)
                         or self.target == "c"
                         and self._c_display_compatible(argument_type)
+                        or self.target == "wasm"
+                        and value.function == "builtin::print"
+                        and self._wasm_print_compatible(argument_type)
                     )
                 )
                 if struct_arguments:
@@ -847,6 +850,33 @@ class _Legalizer:
                         f"Nominal struct display is not legalized for target '{self.target}'; "
                         "print its fields explicitly instead of displaying "
                         f"{', '.join(str(item) for item in struct_arguments)}",
+                        value.span,
+                    )
+            if self.target == "wasm" and value.function == "builtin::print":
+                if value.target is None or (
+                    value.destination is not None
+                    and (
+                        value.destination.projections
+                        or self._place_mir_type(value.destination) != MIRType("void")
+                    )
+                ):
+                    self._issue(
+                        "MIRG1007",
+                        "Wasm print requires a void destination and a continuation",
+                        value.span,
+                    )
+                unsupported = tuple(
+                    argument_type
+                    for argument in value.arguments
+                    for argument_type in (self._operand_mir_type(argument),)
+                    if not self._wasm_print_compatible(argument_type)
+                )
+                if unsupported:
+                    self._issue(
+                        "MIRG1007",
+                        "Wasm WASI display supports bool, string, and acyclic "
+                        "nominal structs containing only those fields; got "
+                        + ", ".join(str(item) for item in unsupported),
                         value.span,
                     )
             if (
@@ -1592,6 +1622,21 @@ class _Legalizer:
                 for payload in variant.payload_types
             )
         return False
+
+    def _wasm_print_compatible(
+        self, value_type: MIRType | None, stack: tuple[str, ...] = ()
+    ) -> bool:
+        if value_type is None or value_type.optional or value_type.pointer:
+            return False
+        if value_type in (MIRType("bool"), MIRType("string")):
+            return True
+        if value_type.arguments or value_type.name in stack:
+            return False
+        definition = self.type_definitions.get(value_type.name)
+        return isinstance(definition, MIRStructDef) and all(
+            self._wasm_print_compatible(field.type, stack + (value_type.name,))
+            for field in definition.fields
+        )
 
     def _cpp_display_compatible(
         self, value_type: MIRType | None, stack: tuple[str, ...] = ()
