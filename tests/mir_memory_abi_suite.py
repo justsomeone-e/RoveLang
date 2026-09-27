@@ -200,6 +200,18 @@ def run_mir_memory_abi_suite() -> bool:
     payload_module = _lower(ROOT / "tour" / "solutions" / "17_results" / "result01.rove")
     assert MIRInterpreter(payload_module).run().output == ("hello",)
     static_enum_module = _lower(ROOT / "tour" / "solutions" / "07_enums" / "enums03.rove")
+    static_enum_values = tuple(
+        statement.value
+        for function in static_enum_module.functions
+        for block in function.blocks
+        for statement in block.statements
+        if isinstance(statement, AssignStatement)
+        and isinstance(statement.value, AggregateRValue)
+        and statement.value.kind == "enum"
+    )
+    assert static_enum_values and all(
+        value.type == MIRType("Light") for value in static_enum_values
+    )
     assert MIRInterpreter(static_enum_module).run().output == (
         "Traffic light transitions verified!",
     )

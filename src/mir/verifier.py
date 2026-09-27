@@ -351,6 +351,38 @@ class MIRVerifier:
                         f"Struct '{value.name}' expects {len(definition.fields)} fields, got {len(value.operands)}",
                         span,
                     )
+            elif value.kind == "enum":
+                definition = self.type_definitions.get(value.type.name)
+                if not isinstance(definition, MIREnumDef):
+                    self._issue("MIR0508", f"Unknown MIR enum aggregate type '{value.type}'", span)
+                else:
+                    variant = next(
+                        (item for item in definition.variants if item.name == value.name), None
+                    )
+                    if variant is None:
+                        self._issue(
+                            "MIR0509",
+                            f"Enum '{definition.name}' has no variant '{value.name}'",
+                            span,
+                        )
+                    elif len(variant.payload_types) != len(value.operands):
+                        self._issue(
+                            "MIR0510",
+                            f"Enum '{definition.name}.{value.name}' expects "
+                            f"{len(variant.payload_types)} payloads, got {len(value.operands)}",
+                            span,
+                        )
+            elif value.kind == "result":
+                if value.type.name != "Result" or len(value.type.arguments) != 2:
+                    self._issue("MIR0511", f"Invalid MIR Result aggregate type '{value.type}'", span)
+                elif value.name not in {"Ok", "Err"}:
+                    self._issue("MIR0512", f"Unknown MIR Result variant '{value.name}'", span)
+                elif len(value.operands) != 1:
+                    self._issue(
+                        "MIR0513",
+                        f"Result '{value.name}' expects one payload, got {len(value.operands)}",
+                        span,
+                    )
             return value.type
         if isinstance(value, DiscriminantRValue):
             self._operand_type(value.operand, locals_by_id, span)

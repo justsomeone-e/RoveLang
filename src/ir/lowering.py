@@ -643,7 +643,13 @@ class HIRLowerer:
             return IRCall(span, result_type, node.callee, symbol.identity, args)
         if isinstance(node, ast.MemberAccessNode):
             obj = self._lower_expr(node.obj)
-            value_type = self.struct_fields.get(obj.type.name, {}).get(node.member, ANY)
+            if isinstance(obj, IRReference) and obj.symbol.startswith("type::enum::"):
+                inferred_type = from_inferred_name(
+                    getattr(node, "inferred_type", None), obj.type
+                )
+                value_type = inferred_type if inferred_type.name == obj.type.name else obj.type
+            else:
+                value_type = self.struct_fields.get(obj.type.name, {}).get(node.member, ANY)
             generic_params = self.struct_generic_params.get(obj.type.name, ())
             if generic_params and obj.type.arguments:
                 value_type = substitute_type(

@@ -163,6 +163,22 @@ def _run_compact_runtime_smoke() -> None:
     assert "_rove_i64_add" in full_runtime
 
 
+def _run_static_enum_smoke() -> None:
+    path = Path(ROOT_DIR, "tour", "solutions", "07_enums", "enums03.rove")
+    generated = _emit(path.read_text(encoding="utf-8"), str(path))
+    assert "Light::Red" in generated and "Light::Green" in generated
+    with tempfile.TemporaryDirectory(prefix="rove_hir_cpp_enum_") as directory:
+        cpp_path = os.path.join(directory, "enum.cpp")
+        executable = os.path.join(directory, "enum.exe")
+        with open(cpp_path, "w", encoding="utf-8") as handle:
+            handle.write(generated)
+        compiled, message = CppToolchain.compile_cpp(cpp_path, executable)
+        assert compiled, message
+        return_code, output = CppToolchain.run_executable(executable)
+        assert return_code == 0, output
+        assert output.strip() == "Traffic light transitions verified!", output
+
+
 def _run_recursive_struct_constructor_contract() -> None:
     source = (
         "struct FunctionParam { defaults: Array<ASTNode> } "
@@ -237,6 +253,7 @@ def run_hir_cpp_suite() -> bool:
     _run_stage1_smoke()
     _run_cli_args_smoke()
     _run_compact_runtime_smoke()
+    _run_static_enum_smoke()
     _run_recursive_struct_constructor_contract()
     _run_value_and_unicode_semantics()
     print(

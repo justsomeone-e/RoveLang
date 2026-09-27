@@ -2384,6 +2384,8 @@ class HIRCppEmitter:
             return call
         if isinstance(node, IRMemberAccess):
             member = self._identifier(node.member)
+            if isinstance(node.obj, IRReference) and node.obj.symbol.startswith("type::enum::"):
+                return f"{self._expr(node.obj)}::{member}"
             if isinstance(node.obj, IRReference) and node.obj.symbol.startswith("foreign::cpp::"):
                 return f"{self._expr(node.obj)}::{member}"
             if node.safe:
