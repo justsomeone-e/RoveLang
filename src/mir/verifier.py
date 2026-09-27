@@ -435,22 +435,22 @@ class MIRVerifier:
                     )
             return value.type
         if isinstance(value, DiscriminantRValue):
-            self._operand_type(value.operand, locals_by_id, span)
+            subject_type = self._operand_type(value.operand, locals_by_id, span)
+            if subject_type is not None and self._tagged_payload_variants(subject_type) is None:
+                self._issue(
+                    "MIR0524",
+                    f"Discriminant requires a tagged aggregate, got '{subject_type}'",
+                    span,
+                )
+            if value.type != MIRType("string"):
+                self._issue("MIR0525", f"Discriminant must produce string, got '{value.type}'", span)
             return value.type
         if isinstance(value, PayloadRValue):
             subject_type = self._operand_type(value.operand, locals_by_id, span)
             if value.index < 0:
                 self._issue("MIR0503", "Payload index must be non-negative", span)
             elif subject_type is not None:
-                variants: tuple[tuple[MIRType, ...], ...] | None = None
-                if not (subject_type.optional or subject_type.pointer or subject_type.is_function):
-                    definition = self.type_definitions.get(subject_type.name)
-                    if isinstance(definition, MIREnumDef):
-                        variants = tuple(variant.payload_types for variant in definition.variants)
-                    elif subject_type.name == "Result" and len(subject_type.arguments) == 2:
-                        variants = tuple((argument,) for argument in subject_type.arguments)
-                    elif subject_type.name == "Option" and len(subject_type.arguments) == 1:
-                        variants = ((), (subject_type.arguments[0],))
+                variants = self._tagged_payload_variants(subject_type)
                 if variants is None:
                     self._issue(
                         "MIR0521",
@@ -477,6 +477,18 @@ class MIRVerifier:
                         )
             return value.type
         self._issue("MIR0500", f"Unknown rvalue {type(value).__name__}", span)
+        return None
+
+    def _tagged_payload_variants(self, subject_type: MIRType) -> tuple[tuple[MIRType, ...], ...] | None:
+        if subject_type.optional or subject_type.pointer or subject_type.is_function:
+            return None
+        definition = self.type_definitions.get(subject_type.name)
+        if isinstance(definition, MIREnumDef):
+            return tuple(variant.payload_types for variant in definition.variants)
+        if subject_type.name == "Result" and len(subject_type.arguments) == 2:
+            return tuple((argument,) for argument in subject_type.arguments)
+        if subject_type.name == "Option" and len(subject_type.arguments) == 1:
+            return ((), (subject_type.arguments[0],))
         return None
 
     @staticmethod

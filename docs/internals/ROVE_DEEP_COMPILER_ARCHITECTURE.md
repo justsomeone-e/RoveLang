@@ -1845,8 +1845,9 @@ experimental implementation lives in `src/mir/`; `tests/mir_suite.py` covers
 construction, malformed CFG rejection, canonical round-tripping, printing,
 fingerprints, pass validation, and CLI subprocess behavior. The verifier also
 rejects unknown enum/Result/Option variants, incorrect tagged-payload counts,
-concrete payload-type mismatches, and invalid payload-extraction indices/types
-before target legalization. The original semantics-free skeleton remains
+concrete payload-type mismatches, invalid payload-extraction indices/types,
+and discriminants on untagged values or with a non-string result type before
+target legalization. The original semantics-free skeleton remains
 available as `lower_hir_skeleton`; `rove emit
 mir` now uses the subsequently completed executable lowering path. The default
 HIR-to-backend route remains unchanged.
