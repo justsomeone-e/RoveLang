@@ -763,6 +763,19 @@ class _Legalizer:
             for operand in value.operands:
                 self._operand(operand, span)
             self._type(value.type, span)
+            if (
+                self.target == "wasm"
+                and value.kind == "result"
+                and value.type.name == "Result"
+                and len(value.type.arguments) == 2
+                and value.name in {"Ok", "Err"}
+                and value.type.arguments[0 if value.name == "Ok" else 1] == MIRType("any")
+            ):
+                self._issue(
+                    "MIRG1004",
+                    f"Wasm MIR Result '{value.name}' cannot construct an active 'any' payload",
+                    span,
+                )
         elif isinstance(value, DiscriminantRValue):
             self._operand(value.operand, span)
             if self.target != "wasm":

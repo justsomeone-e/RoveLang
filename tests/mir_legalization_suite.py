@@ -1324,6 +1324,39 @@ def run_mir_legalization_suite() -> bool:
             invalid_cast, "wasm", require_emitter=True
         )} == {"MIRG1004"}, (source_type, destination_type)
 
+    for result_type, variant, operand in (
+        (
+            MIRType("Result", (MIRType("any"), MIRType("string"))),
+            "Ok", ConstOperand(MIRType("int"), 7),
+        ),
+        (
+            MIRType("Result", (MIRType("int"), MIRType("any"))),
+            "Err", ConstOperand(MIRType("string"), "error"),
+        ),
+    ):
+        builder = MIRFunctionBuilder(
+            "probe", "function::probe", MIRType("void"), result_cast_span
+        )
+        result_local = builder.new_local("result", result_type, "variable", result_cast_span)
+        entry = builder.new_block()
+        builder.push_statement(entry, AssignStatement(
+            Place(result_local),
+            AggregateRValue("result", variant, (operand,), result_type),
+            result_cast_span,
+        ))
+        builder.set_terminator(entry, ReturnTerminator(result_cast_span))
+        active_any_result = MIRModule(
+            result_cast_span.source, "cpp", (builder.finish(),)
+        )
+        assert {issue.code for issue in collect_legalization_issues(
+            active_any_result, "wasm", require_emitter=True
+        )} == {"MIRG1004"}, (result_type, variant)
+        try:
+            emit_legalized_wasm(active_any_result)
+            raise AssertionError("Active 'any' Result payload reached the Wasm emitter")
+        except MIRLegalizationError as error:
+            assert {issue.code for issue in error.issues} == {"MIRG1004"}
+
     wasm_bool_aggregates = _lower_source(
         "struct Flags { enabled: bool, count: int, done: bool }\n"
         "enum Toggle { State(bool), Missing() }\n"
