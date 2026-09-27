@@ -220,7 +220,7 @@ def _assert_rejections() -> None:
 
 def run_maya_surface_suite() -> bool:
     print("=" * 70)
-    print("NYX MAYA EXPRESSIVE SURFACE / VALUE EXPRESSION GATE")
+    print("ROVE MAYA EXPRESSIVE SURFACE / VALUE EXPRESSION GATE")
     print("=" * 70)
     _assert_ast_shape()
     _assert_rejections()

@@ -21,7 +21,7 @@ from src.codegen.cpp_toolchain import CppToolchain
 
 def run_interop_suite() -> bool:
     print("=" * 70)
-    print("⚡ NYX PHASE 3.8 ADVANCED NATIVE INTEROP & C++ BRIDGE HARNESS")
+    print("⚡ ROVE PHASE 3.8 ADVANCED NATIVE INTEROP & C++ BRIDGE HARNESS")
     print("=" * 70)
 
     compiler = CppToolchain.find_compiler()

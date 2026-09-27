@@ -1,0 +1,88 @@
+struct Box {
+    numbers: Array<int>,
+    flags: Array<Array<bool>>,
+    label: string
+}
+
+struct Shelf {
+    box: Box,
+    names: Array<string>
+}
+
+struct Node {
+    score: int,
+    children: Array<Node>
+}
+
+fn changed_shelf(value: Shelf) -> Shelf {
+    var copied = value
+    set copied.box.numbers[0] = 9
+    set copied.box.flags[0][0] = false
+    set copied.names[0] = "replacement"
+    return copied
+}
+
+fn field_probe() -> int {
+    var original = Shelf(Box([1, 2], [[true, false]], "A"), ["old", "keep"])
+    var copied = changed_shelf(original)
+    var score = original.box.numbers[0] * 1000 + copied.box.numbers[0] * 100
+    if original.box.flags[0][0] { set score = score + 10 }
+    if copied.box.flags[0][0] { set score = score + 1 }
+    return score + len(original.names[0]) + len(copied.names[0])
+}
+
+fn struct_array_probe() -> int {
+    var original = [Box([4, 5], [[true]], "x"), Box([6], [[false]], "y")]
+    var copied = original
+    set copied[0].numbers[1] = 7
+    set copied[0].flags[0][0] = false
+    var detached = copied[0]
+    set detached.numbers[0] = 8
+    return original[0].numbers[1] * 100 + copied[0].numbers[1] * 10 + detached.numbers[0]
+}
+
+fn extract_numbers(value: Box) -> Array<int> {
+    return value.numbers
+}
+
+fn field_return_probe() -> int {
+    var original = Box([1, 2], [[true]], "x")
+    var extracted = extract_numbers(original)
+    set extracted[0] = 9
+    return original.numbers[0] * 10 + extracted[0]
+}
+
+fn field_replace_probe() -> int {
+    var original = Shelf(Box([1], [[true]], "x"), ["old"])
+    var copied = original
+    set copied.box.numbers = [9]
+    return original.box.numbers[0] * 10 + copied.box.numbers[0]
+}
+
+fn nested_struct_array_probe() -> int {
+    var original: Array<Array<Box>> = [[Box([1, 2], [[true]], "x")]]
+    var copied = original
+    set copied[0][0].numbers[0] = 9
+    return original[0][0].numbers[0] * 10 + copied[0][0].numbers[0]
+}
+
+fn empty_field_probe() -> int {
+    let empty_numbers: Array<int> = []
+    let empty_flags: Array<Array<bool>> = []
+    var original = Box(empty_numbers, empty_flags, "")
+    var copied = original
+    return len(copied.numbers) + len(copied.flags) + len(original.numbers)
+}
+
+fn recursive_struct_probe() -> int {
+    let empty: Array<Node> = []
+    var original = Node(1, [Node(2, empty)])
+    var copied = original
+    set copied.children[0].score = 9
+    return original.children[0].score * 10 + copied.children[0].score
+}
+
+fn bad_index(index: int) -> int {
+    let value = Box([1], [[true]], "x")
+    return value.numbers[index]
+}

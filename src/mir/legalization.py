@@ -365,8 +365,8 @@ MIR_BACKEND_PROFILES["python"] = replace(
 )
 
 # C17 uses explicit bit conversions and a tiny tracked allocation runtime.
-# Supported acyclic value structs, recursive arrays, multi-primitive tagged
-# payloads, and one ownership-bearing tagged payload are legalized explicitly;
+# Supported acyclic value structs, recursive arrays, and multi-payload tagged
+# values, including multiple ownership-bearing slots, are legalized explicitly;
 # non-unwinding deinit/drop clears values while tracked allocations remain
 # process-owned; unwind cleanup edges remain gated.
 MIR_BACKEND_PROFILES["c"] = replace(
@@ -478,18 +478,11 @@ class _Legalizer:
                         not self._c_payload_compatible(payload_type)
                         for payload_type in variant.payload_types
                     )
-                    has_multi_object_payload = len(variant.payload_types) > 1 and any(
-                        payload_type.name not in ("int", "bool", "string", "float", "f64")
-                        or payload_type.arguments
-                        or payload_type.optional
-                        or payload_type.pointer
-                        for payload_type in variant.payload_types
-                    )
-                    if has_unsupported_payload or has_multi_object_payload:
+                    if has_unsupported_payload:
                         self._issue(
                             "MIRG1002",
-                            f"The C17 MIR enum pilot permits multiple primitive payloads or "
-                            f"one supported array/nominal-struct payload; "
+                            f"The C17 MIR enum pilot requires supported scalar, array, "
+                            f"or nominal-struct payloads; "
                             f"'{definition.name}.{variant.name}' has "
                             f"{', '.join(str(item) for item in variant.payload_types) or 'no payload'}",
                             span,
@@ -501,7 +494,7 @@ class _Legalizer:
                     if field.type not in (
                         MIRType("int"), MIRType("bool"), MIRType("float"),
                         MIRType("f64"), MIRType("string"),
-                    ) and not (
+                    ) and not self._wasm_array_compatible(field.type) and not (
                         isinstance(nested, MIRStructDef)
                         and not field.type.arguments
                         and not field.type.optional
@@ -509,7 +502,7 @@ class _Legalizer:
                     ):
                         self._issue(
                             "MIRG1002",
-                            f"The Wasm MIR struct pilot requires int, bool, float, string, or nominal struct fields; "
+                            f"The Wasm MIR struct pilot requires int, bool, float, string, supported arrays, or nominal struct fields; "
                             f"'{definition.name}.{field.name}' is '{field.type}'",
                             span,
                         )
@@ -522,11 +515,17 @@ class _Legalizer:
                                 MIRType("int"), MIRType("bool"), MIRType("float"),
                                 MIRType("f64"), MIRType("string"),
                             )
-                            and not isinstance(self.type_definitions.get(payload_type.name), MIRStructDef)
+                            and not self._wasm_array_compatible(payload_type)
+                            and not (
+                                isinstance(self.type_definitions.get(payload_type.name), MIRStructDef)
+                                and not payload_type.arguments
+                                and not payload_type.optional
+                                and not payload_type.pointer
+                            )
                         ):
                             self._issue(
                                 "MIRG1002",
-                                f"The Wasm MIR enum pilot requires int, bool, float, string, or nominal struct payloads; "
+                                f"The Wasm MIR enum pilot requires int, bool, float, string, supported Array, or nominal struct payloads; "
                                 f"'{definition.name}.{variant.name}' contains '{payload_type}'",
                                 span,
                             )
@@ -1029,9 +1028,9 @@ class _Legalizer:
                     )
                     break
         if self.target == "wasm" and place.projections:
-            if all(isinstance(projection, FieldProjection) for projection in place.projections):
-                value_type = self.local_types.get(place.local)
-                for projection in place.projections:
+            value_type = self.local_types.get(place.local)
+            for projection in place.projections:
+                if isinstance(projection, FieldProjection):
                     definition = self.type_definitions.get(value_type.name if value_type else "")
                     field = next(
                         (item for item in definition.fields if item.name == projection.name),
@@ -1046,18 +1045,7 @@ class _Legalizer:
                         )
                         break
                     value_type = field.type
-            elif not all(
-                isinstance(projection, (IndexProjection, ConstantIndexProjection))
-                for projection in place.projections
-            ):
-                self._issue(
-                    "MIRG1005",
-                    "The Wasm MIR aggregate pilot supports a field chain or an index projection chain",
-                    span,
-                )
-            else:
-                value_type = self.local_types.get(place.local)
-                for projection in place.projections:
+                elif isinstance(projection, (IndexProjection, ConstantIndexProjection)):
                     if value_type is None or value_type.name != "Array" or len(value_type.arguments) != 1:
                         self._issue(
                             "MIRG1005",
@@ -1066,6 +1054,13 @@ class _Legalizer:
                         )
                         break
                     value_type = value_type.arguments[0]
+                else:
+                    self._issue(
+                        "MIRG1005",
+                        f"Projection '{type(projection).__name__}' is not legal for Wasm MIR",
+                        span,
+                    )
+                    break
         if self.target == "c" and place.projections:
             base_type = self.local_types.get(place.local)
             projection = place.projections[0]
@@ -1155,7 +1150,7 @@ class _Legalizer:
             if not self._wasm_result_compatible(value):
                 self._issue(
                     "MIRG1002",
-                    f"The Wasm MIR Result pilot supports int, bool, float, string, and nominal struct payloads, got '{value}'",
+                    f"The Wasm MIR Result pilot supports int, bool, float, string, supported Array, and nominal struct payloads, got '{value}'",
                     span,
                 )
             return
@@ -1700,6 +1695,7 @@ class _Legalizer:
                     MIRType("int"), MIRType("bool"), MIRType("float"),
                     MIRType("f64"), MIRType("string"), MIRType("any"),
                 )
+                or self._wasm_array_compatible(argument)
                 or (
                     isinstance(self.type_definitions.get(argument.name), MIRStructDef)
                     and not argument.arguments

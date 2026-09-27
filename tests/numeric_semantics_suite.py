@@ -109,7 +109,7 @@ def _run(target: str, source: str, directory: str) -> str:
 
 def run_numeric_semantics_suite() -> bool:
     print("=" * 70)
-    print("NYX DETERMINISTIC NUMERIC SEMANTICS")
+    print("ROVE DETERMINISTIC NUMERIC SEMANTICS")
     print("=" * 70)
 
     compiler = NyxCompiler(ROOT_DIR)

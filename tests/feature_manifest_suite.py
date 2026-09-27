@@ -37,7 +37,7 @@ def _defined_classes(module: object, prefix: str, excluded: set[str]) -> set[str
 
 def run_feature_manifest_suite() -> bool:
     print("=" * 70)
-    print("NYX M0 CANONICAL FEATURE REGISTRY")
+    print("ROVE M0 CANONICAL FEATURE REGISTRY")
     print("=" * 70)
 
     manifest = load_feature_manifest()

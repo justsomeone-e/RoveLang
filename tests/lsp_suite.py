@@ -23,7 +23,7 @@ from src.core.language_surface import (
 
 def run_lsp_suite():
     print("=" * 70)
-    print("⚡ NYX LSP v2 IDE SERVICE HARNESS")
+    print("⚡ ROVE LSP v2 IDE SERVICE HARNESS")
     print("=" * 70)
 
     server = NyxuageServer()
@@ -192,7 +192,7 @@ print(calculate_distance(pt, pt))
     assert b'"id": 5' in output and b'"data"' in output
     assert b'"id": 6' in output and b'"code": -32601' in output
     assert b'"id": 7' in output and b'"result": null' in output
-    print("  [PASS] nyx lsp full wire JSON-RPC protocol verified")
+    print("  [PASS] rove lsp full wire JSON-RPC protocol verified")
 
     print("=" * 70)
     print("[OK] LSP v2 Conformance: 7/7 Passed")

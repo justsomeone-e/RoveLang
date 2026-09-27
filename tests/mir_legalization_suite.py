@@ -28,6 +28,7 @@ from src.mir import (
     DeinitStatement,
     DerefProjection,
     DropTerminator,
+    LayoutEngine,
     MIR_BACKEND_MIGRATION_ORDER,
     MIR_BACKEND_PROFILES,
     MIRFunctionBuilder,
@@ -72,6 +73,10 @@ LLVM_STRUCT_ARRAY_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_llvm_struc
 LLVM_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_llvm_tagged.rove"
 LLVM_OWNED_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_llvm_owned_tagged.rove"
 WASM_RECURSIVE_ARRAY_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_recursive_arrays.rove"
+WASM_ARRAY_FIELD_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_array_fields.rove"
+WASM_OWNED_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_owned_tagged.rove"
+WASM_ARRAY_TAGGED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_wasm_array_tagged.rove"
+C17_MULTI_OWNED_FIXTURE = ROOT / "tests" / "fixtures" / "mir" / "m5_c17_multi_owned_payload.rove"
 RUST_VALIDATION_MODE = "runtime"
 
 
@@ -277,6 +282,42 @@ def _run_wasm_export(
             return ""
         assert executed.returncode == 0, executed.stdout + executed.stderr
         return executed.stdout.replace("\r\n", "\n")
+
+
+def _assert_wasm_tagged_copy_is_owned(
+    wasm: bytes, make: str, copy: str, payload_offset: int, original: int,
+    indirections: int = 0,
+) -> None:
+    node = shutil.which("node")
+    assert node is not None, "Node.js is required for the WebAssembly runtime gate"
+    with tempfile.TemporaryDirectory(prefix="rove_mir_wasm_owned_tagged_") as temporary:
+        wasm_path = Path(temporary) / "program.wasm"
+        script_path = Path(temporary) / "run.mjs"
+        wasm_path.write_bytes(wasm)
+        script_path.write_text(
+            "import fs from 'node:fs';\n"
+            "const bytes = fs.readFileSync(new URL('./program.wasm', import.meta.url));\n"
+            "const { instance } = await WebAssembly.instantiate(bytes, {});\n"
+            f"const source = instance.exports[{json.dumps(make)}]();\n"
+            f"const cloned = instance.exports[{json.dumps(copy)}](source);\n"
+            "const view = new DataView(instance.exports.memory.buffer);\n"
+            f"let sourceData = view.getUint32(source + {payload_offset}, true);\n"
+            f"let clonedData = view.getUint32(cloned + {payload_offset}, true);\n"
+            f"for (let depth = 0; depth < {indirections}; depth++) {{\n"
+            "  sourceData = view.getUint32(sourceData, true);\n"
+            "  clonedData = view.getUint32(clonedData, true);\n"
+            "}\n"
+            "view.setBigInt64(clonedData, 9n, true);\n"
+            "console.log(String(view.getBigInt64(sourceData, true)) + ' ' + "
+            "String(view.getBigInt64(clonedData, true)));\n",
+            encoding="utf-8", newline="\n",
+        )
+        executed = subprocess.run(
+            [node, str(script_path)], capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=30,
+        )
+        assert executed.returncode == 0, executed.stdout + executed.stderr
+        assert executed.stdout.strip() == f"{original} 9", executed.stdout
 
 
 def _ownership_module() -> MIRModule:
@@ -975,6 +1016,112 @@ def run_mir_legalization_suite() -> bool:
     assert {issue.code for issue in collect_legalization_issues(
         unsupported_recursive_array, "wasm", require_emitter=True
     )} == {"MIRG1002"}
+
+    wasm_array_fields = _lower(WASM_ARRAY_FIELD_FIXTURE)
+    assert not collect_legalization_issues(
+        wasm_array_fields, "wasm", require_emitter=True
+    )
+    array_field_wat = emit_legalized_wat(wasm_array_fields)
+    assert "call $__rove_mir_clone_owned_" in array_field_wat
+    array_field_wasm = emit_legalized_wasm(wasm_array_fields)
+    for function, expected in (
+        ("field_probe", 1924),
+        ("struct_array_probe", 578),
+        ("field_return_probe", 19),
+        ("field_replace_probe", 19),
+        ("nested_struct_array_probe", 19),
+        ("empty_field_probe", 0),
+        ("recursive_struct_probe", 29),
+    ):
+        assert MIRInterpreter(wasm_array_fields).run(function).value == expected
+        assert _run_wasm_export(array_field_wasm, function) == f"{expected}\n"
+    _run_wasm_export(array_field_wasm, "bad_index", -1, expect_trap=True)
+    _run_wasm_export(array_field_wasm, "bad_index", 1, expect_trap=True)
+
+    wasm_owned_tagged = _lower(WASM_OWNED_TAGGED_FIXTURE)
+    assert not collect_legalization_issues(
+        wasm_owned_tagged, "wasm", require_emitter=True
+    )
+    owned_tagged_wasm = emit_legalized_wasm(wasm_owned_tagged)
+    for function, expected in (
+        ("enum_payload_probe", 19),
+        ("enum_second_variant_probe", 48),
+        ("enum_empty_probe", 0),
+        ("result_ok_probe", 29),
+        ("result_string_probe", 4),
+        ("result_err_probe", 38),
+    ):
+        assert MIRInterpreter(wasm_owned_tagged).run(function).value == expected
+        assert _run_wasm_export(owned_tagged_wasm, function) == f"{expected}\n"
+    layouts = LayoutEngine(wasm_owned_tagged, "wasm")
+    _assert_wasm_tagged_copy_is_owned(
+        owned_tagged_wasm, "make_packet", "copy_packet",
+        layouts.layout_of(MIRType("Packet")).payload_offset, 1,
+    )
+    _assert_wasm_tagged_copy_is_owned(
+        owned_tagged_wasm, "make_more_packet", "copy_packet",
+        layouts.layout_of(MIRType("Packet")).payload_offset, 4,
+    )
+    _assert_wasm_tagged_copy_is_owned(
+        owned_tagged_wasm, "make_result", "copy_result",
+        layouts.layout_of(MIRType("Result", (MIRType("Box"), MIRType("string")))).payload_offset,
+        2,
+    )
+    _assert_wasm_tagged_copy_is_owned(
+        owned_tagged_wasm, "make_err_result", "copy_err_result",
+        layouts.layout_of(MIRType("Result", (MIRType("string"), MIRType("Box")))).payload_offset,
+        3,
+    )
+    wasm_array_tagged = _lower(WASM_ARRAY_TAGGED_FIXTURE)
+    assert not collect_legalization_issues(
+        wasm_array_tagged, "wasm", require_emitter=True
+    )
+    array_tagged_wasm = emit_legalized_wasm(wasm_array_tagged)
+    for function, expected in (
+        ("enum_numbers_probe", 19),
+        ("enum_boxes_probe", 28),
+        ("enum_nested_probe", 59),
+        ("enum_empty_probe", 0),
+        ("result_ok_probe", 49),
+        ("result_string_probe", 4),
+        ("result_err_probe", 68),
+    ):
+        assert MIRInterpreter(wasm_array_tagged).run(function).value == expected
+        assert _run_wasm_export(array_tagged_wasm, function) == f"{expected}\n"
+    array_tag_layouts = LayoutEngine(wasm_array_tagged, "wasm")
+    packet_payload_offset = array_tag_layouts.layout_of(MIRType("Payload")).payload_offset
+    for make, original, indirections in (
+        ("make_payload", 3, 0),
+        ("make_boxes_payload", 2, 1),
+        ("make_nested_payload", 5, 1),
+    ):
+        _assert_wasm_tagged_copy_is_owned(
+            array_tagged_wasm, make, "copy_payload", packet_payload_offset,
+            original, indirections,
+        )
+    _assert_wasm_tagged_copy_is_owned(
+        array_tagged_wasm, "make_result", "copy_result",
+        array_tag_layouts.layout_of(MIRType(
+            "Result", (MIRType("Array", (MIRType("int"),)), MIRType("string"))
+        )).payload_offset, 5,
+    )
+    _assert_wasm_tagged_copy_is_owned(
+        array_tagged_wasm, "make_err_result", "copy_err_result",
+        array_tag_layouts.layout_of(MIRType(
+            "Result", (MIRType("string"), MIRType("Array", (MIRType("int"),)))
+        )).payload_offset, 7,
+    )
+    unsupported_tagged_array = _lower_source(
+        "enum Packet { Data(Array<Result<int, string>>), Empty() }\n"
+        "fn make() -> Packet {\n"
+        "  let values: Array<Result<int, string>> = []\n"
+        "  return Data(values)\n"
+        "}\n",
+        "m5-wasm-unsupported-array-enum-rejection.rove",
+    )
+    assert "MIRG1002" in {issue.code for issue in collect_legalization_issues(
+        unsupported_tagged_array, "wasm", require_emitter=True
+    )}
 
     wasm_struct = _lower_source(
         "struct Pair { x: int, y: int }\n"
@@ -2737,18 +2884,39 @@ def run_mir_legalization_suite() -> bool:
         generated_c17_multi_payload
     ) == expected_c17_multi_payload
 
-    c17_multi_object_payload = _lower_source(
-        "enum Unsupported { Pair(Array<int>, int) }\n"
-        "fn main() { print(0) }\n",
-        "m5-c17-multi-object-payload-rejected.rove",
+    c17_multi_owned = _lower(C17_MULTI_OWNED_FIXTURE)
+    assert not collect_legalization_issues(
+        c17_multi_owned, "c", require_emitter=True
     )
-    c17_multi_object_issues = collect_legalization_issues(
-        c17_multi_object_payload, "c", require_emitter=True
+    expected_c17_multi_owned = (
+        "[9, 2] Envelope([3, 4]) [[false, false]]\n"
+        "Bundle([1, 2], Envelope([3, 4]), [[true, false]])\n"
+        "Bundle([1, 2], Envelope([3, 4]), [[true, false]])\n"
+        "5608\n"
+    )
+    assert "\n".join(MIRInterpreter(c17_multi_owned).run().output) + "\n" == (
+        expected_c17_multi_owned
+    )
+    generated_c17_multi_owned = emit_legalized_c17(c17_multi_owned)
+    assert "RoveTaggedPayload payload[4];" in generated_c17_multi_owned
+    assert "rove_box_array_i64" in generated_c17_multi_owned
+    assert "rove_box_Envelope" in generated_c17_multi_owned
+    assert _compile_and_run_c17(generated_c17_multi_owned) == (
+        expected_c17_multi_owned
+    )
+
+    c17_unsupported_payload = _lower_source(
+        "enum Unsupported { Pair(Array<Result<int, string>>, int) }\n"
+        "fn main() { print(0) }\n",
+        "m5-c17-unsupported-payload.rove",
+    )
+    c17_unsupported_issues = collect_legalization_issues(
+        c17_unsupported_payload, "c", require_emitter=True
     )
     assert any(
-        issue.code == "MIRG1002" and "multiple primitive payloads" in issue.message
-        for issue in c17_multi_object_issues
-    ), c17_multi_object_issues
+        issue.code == "MIRG1002" and "supported scalar, array" in issue.message
+        for issue in c17_unsupported_issues
+    ), c17_unsupported_issues
 
     c17_array_tagged = _lower_source(
         "enum Batch { Data(Array<int>), Empty() }\n"

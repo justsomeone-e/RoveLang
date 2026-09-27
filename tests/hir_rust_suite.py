@@ -221,7 +221,7 @@ fn main() {
 
 def run_hir_rust_suite() -> bool:
     print("=" * 70)
-    print("NYX HIR-AUTHORITATIVE RUST 2021 BACKEND")
+    print("ROVE HIR-AUTHORITATIVE RUST 2021 BACKEND")
     print("=" * 70)
     assert RUSTC is not None, "rustc is required for the HIR Rust suite"
     compiler = RoveCompiler(ROOT_DIR)

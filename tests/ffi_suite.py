@@ -15,7 +15,7 @@ from src.codegen.cpp_toolchain import CppToolchain
 
 def run_ffi_suite() -> bool:
     print("=" * 70)
-    print("⚡ NYX PHASE 3.0 NATIVE FFI & C/C++ CORE HARNESS")
+    print("⚡ ROVE PHASE 3.0 NATIVE FFI & C/C++ CORE HARNESS")
     print("=" * 70)
 
     compiler = CppToolchain.find_compiler()

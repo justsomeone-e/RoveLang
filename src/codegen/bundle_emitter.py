@@ -324,7 +324,7 @@ class BundleEmitter:
             "let alloc = null;",
             "let dealloc = null;",
             "",
-            "export async function initNyxModule(source) {",
+            "export async function initRoveModule(source) {",
             f"  const cacheKey = typeof source === 'string' ? source : './{self.module_name}.wasm';",
             "  if (instanceCache.has(cacheKey)) {",
             "    const cached = await instanceCache.get(cacheKey);",
@@ -366,7 +366,7 @@ class BundleEmitter:
             "    } else if (source instanceof WebAssembly.Module) {",
             "      instance = await WebAssembly.instantiate(source, importObject);",
             "    } else {",
-            "      throw new TypeError('Invalid WASM source provided to initNyxModule');",
+            "      throw new TypeError('Invalid WASM source provided to initRoveModule');",
             "    }",
             "",
             "    const abiVer = instance.exports.__nyx_abi_version ? instance.exports.__nyx_abi_version() : 0;",
@@ -382,6 +382,8 @@ class BundleEmitter:
             "  setupInstance(readyInstance);",
             "  return createPublicApi();",
             "}",
+            "",
+            "export const initNyxModule = initRoveModule;",
             "",
             "function setupInstance(instance) {",
             "  wasmInstance = instance;",
@@ -435,7 +437,7 @@ class BundleEmitter:
             param_names = [p.name for p in fn.params]
             params_s = ", ".join(param_names)
             lines.append(f"export function {fn.name}({params_s}) {{")
-            lines.append("  if (!wasmInstance) throw new Error('Rove module not initialized. Call await initNyxModule(...) first.');")
+            lines.append("  if (!wasmInstance) throw new Error('Rove module not initialized. Call await initRoveModule(...) first.');")
             
             allocated_cleanups = []
             call_args = []

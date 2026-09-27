@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import hashlib
 import struct as binary_struct
 
 from src.codegen.wasm_ir import DataSegment, F64, I32, I64, VOID, FunctionIR, Instruction, ModuleIR
@@ -83,11 +84,15 @@ class _WasmEmitter:
         self.local_types: dict[int, MIRType] = {}
         self.local_names: dict[int, str] = {}
         self.tag_locals: dict[int, dict[str, int]] = {}
+        self.owned_clone_helpers: dict[MIRType, FunctionIR | None] = {}
 
     def lower(self) -> ModuleIR:
-        functions = self._integer_runtime() + self._array_runtime() + self._string_runtime() + [
-            self._function(function) for function in self.module.functions
-        ]
+        lowered = [self._function(function) for function in self.module.functions]
+        assert all(helper is not None for helper in self.owned_clone_helpers.values())
+        functions = (
+            self._integer_runtime() + self._array_runtime() + self._string_runtime()
+            + list(self.owned_clone_helpers.values()) + lowered
+        )
         heap_start = max(2048, (self.next_data_offset + 7) & ~7)
         return ModuleIR(self.module.source_name, functions, self.data, heap_start)
 
@@ -755,10 +760,9 @@ class _WasmEmitter:
     def _statement(self, statement: object, body: list[Instruction]) -> None:
         if isinstance(statement, AssignStatement):
             if statement.place.projections:
-                projected_type = self.local_types[statement.place.local]
-                if projected_type.name == "Array" and all(
-                    isinstance(projection, (IndexProjection, ConstantIndexProjection))
-                    for projection in statement.place.projections
+                if isinstance(
+                    statement.place.projections[-1],
+                    (IndexProjection, ConstantIndexProjection),
                 ):
                     body.extend(self._array_place(statement.place))
                     parent_type = self._place_type(Place(
@@ -792,7 +796,7 @@ class _WasmEmitter:
                 body.extend(self._field_address(statement.place))
                 body.extend(self._rvalue(statement.value))
                 field_type = self._place_type(statement.place)
-                if field_type == MIRType("string") or field_type.name in self.structs:
+                if field_type == MIRType("string") or field_type.name in self.structs or field_type.name == "Array":
                     body.extend((
                         Instruction("i32.const", self.layouts.layout_of(field_type).size),
                         Instruction("memory.copy"),
@@ -904,10 +908,7 @@ class _WasmEmitter:
     def _clear_place(self, place: Place, body: list[Instruction]) -> None:
         if place.projections:
             value_type = self._place_type(place)
-            if all(
-                isinstance(projection, (IndexProjection, ConstantIndexProjection))
-                for projection in place.projections
-            ):
+            if isinstance(place.projections[-1], (IndexProjection, ConstantIndexProjection)):
                 parent_type = self._place_type(Place(
                     place.local, place.projections[:-1]
                 ))
@@ -962,7 +963,7 @@ class _WasmEmitter:
                 raise MIRCodegenError(
                     f"Wasm MIR cannot clear array element type '{element_type}'"
                 )
-            if all(isinstance(projection, FieldProjection) for projection in place.projections):
+            if isinstance(place.projections[-1], FieldProjection):
                 body.extend(self._field_address(place))
                 if value_type == MIRType("string"):
                     size = 12
@@ -992,9 +993,7 @@ class _WasmEmitter:
                     Instruction("memory.fill"),
                 ))
                 return
-            raise MIRCodegenError(
-                "Wasm MIR deinit/drop requires a field chain or index chain"
-            )
+            raise MIRCodegenError("Wasm MIR deinit/drop requires a field or index projection")
         assert self.current is not None
         value_type = self.current.locals[place.local].type
         wasm_type = self._type(value_type, self.current)
@@ -1071,7 +1070,7 @@ class _WasmEmitter:
                     payload_types = definition.variants[variant_index].payload_types
                 else:
                     if not self._is_result_compatible(value.type):
-                        raise MIRCodegenError("Wasm MIR result pilot requires scalar, string, or struct payloads")
+                        raise MIRCodegenError("Wasm MIR result pilot requires scalar, string, array, or struct payloads")
                     if value.name not in ("Ok", "Err"):
                         raise MIRCodegenError(f"Unknown Wasm MIR Result variant '{value.name}'")
                     variant_index = 0 if value.name == "Ok" else 1
@@ -1093,9 +1092,10 @@ class _WasmEmitter:
                             MIRType("f64"), MIRType("string"),
                         )
                         and payload_type.name not in self.structs
+                        and payload_type.name != "Array"
                     ):
                         raise MIRCodegenError(
-                            f"Wasm MIR enum payload '{value.type.name}.{value.name}[{index}]' is not int, bool, float, string, or struct"
+                            f"Wasm MIR enum payload '{value.type.name}.{value.name}[{index}]' is not int, bool, float, string, array, or struct"
                         )
                     if (
                         value.kind == "enum"
@@ -1106,9 +1106,9 @@ class _WasmEmitter:
                     if value.kind == "result" and payload_type not in (
                         MIRType("int"), MIRType("bool"), MIRType("float"),
                         MIRType("f64"), MIRType("string"),
-                    ) and payload_type.name not in self.structs:
+                    ) and payload_type.name not in self.structs and payload_type.name != "Array":
                         raise MIRCodegenError(
-                            f"Wasm MIR Result payload '{value.name}' is not int, bool, float, string, or struct"
+                            f"Wasm MIR Result payload '{value.name}' is not int, bool, float, string, array, or struct"
                         )
                     payload_offset = layout.payload_offset + (index * 8 if value.kind == "enum" else 0)
                     output.extend((
@@ -1117,7 +1117,7 @@ class _WasmEmitter:
                         Instruction("i32.add"),
                     ))
                     output.extend(self._operand(operand))
-                    if payload_type == MIRType("string") or payload_type.name in self.structs:
+                    if payload_type == MIRType("string") or payload_type.name in self.structs or payload_type.name == "Array":
                         output.extend((
                             Instruction("i32.const", self.layouts.layout_of(payload_type).size),
                             Instruction("memory.copy"),
@@ -1144,16 +1144,17 @@ class _WasmEmitter:
                             MIRType("f64"), MIRType("string"),
                         )
                         and field.type.name not in self.structs
+                        and field.type.name != "Array"
                     ):
                         raise MIRCodegenError(
-                            f"Wasm MIR struct field '{value.type.name}.{name}' is not int, bool, float, string, or struct"
+                            f"Wasm MIR struct field '{value.type.name}.{name}' is not int, bool, float, string, array, or struct"
                         )
                     output.extend((
                         Instruction("local.get", "__rove_struct_ptr"),
                         Instruction("i32.const", field.offset), Instruction("i32.add"),
                     ))
                     output.extend(self._operand(operand))
-                    if field.type == MIRType("string") or field.type.name in self.structs:
+                    if field.type == MIRType("string") or field.type.name in self.structs or field.type.name == "Array":
                         output.extend((
                             Instruction("i32.const", self.layouts.layout_of(field.type).size),
                             Instruction("memory.copy"),
@@ -1223,8 +1224,9 @@ class _WasmEmitter:
                     MIRType("f64"), MIRType("string"),
                 )
                 and value.type.name not in self.structs
+                and value.type.name != "Array"
             ):
-                raise MIRCodegenError("Wasm MIR payload pilot requires an int, bool, float, string, or struct payload")
+                raise MIRCodegenError("Wasm MIR payload pilot requires an int, bool, float, string, array, or struct payload")
             if (
                 subject_type.name in self.enums
                 and value.type not in (
@@ -1232,8 +1234,9 @@ class _WasmEmitter:
                     MIRType("f64"), MIRType("string"),
                 )
                 and value.type.name not in self.structs
+                and value.type.name != "Array"
             ):
-                raise MIRCodegenError("Wasm MIR enum payload pilot requires an int, bool, float, string, or struct payload")
+                raise MIRCodegenError("Wasm MIR enum payload pilot requires an int, bool, float, string, array, or struct payload")
             if (
                 subject_type.name in self.enums
                 and value.type != MIRType("int")
@@ -1247,11 +1250,8 @@ class _WasmEmitter:
             ]
             if value.type == MIRType("string"):
                 return address
-            if value.type.name in self.structs:
-                return address + [
-                    Instruction("i32.const", self.layouts.layout_of(value.type).size),
-                    Instruction("call", "__rove_mir_clone_bytes"),
-                ]
+            if value.type.name in self.structs or value.type.name == "Array":
+                return address + self._clone_value(value.type)
             return address + [Instruction(self._load_instruction(value.type))]
         if isinstance(value, BinaryRValue):
             left_type = self._operand_type(value.left)
@@ -1322,10 +1322,9 @@ class _WasmEmitter:
             return [Instruction(f"{wasm_type}.const", constant)]
         if isinstance(value, (CopyOperand, MoveOperand)):
             if value.place.projections:
-                base_type = self.local_types[value.place.local]
-                if base_type.name == "Array" and all(
-                    isinstance(projection, (IndexProjection, ConstantIndexProjection))
-                    for projection in value.place.projections
+                if isinstance(
+                    value.place.projections[-1],
+                    (IndexProjection, ConstantIndexProjection),
                 ):
                     parent_type = self._place_type(Place(
                         value.place.local, value.place.projections[:-1]
@@ -1337,37 +1336,14 @@ class _WasmEmitter:
                             Instruction("i32.const", self.layouts.layout_of(element_type).size),
                             Instruction("call", "__rove_mir_array_get_blob"),
                         ))
-                        if isinstance(value, CopyOperand):
-                            output.extend((
-                                Instruction("i32.const", self.layouts.layout_of(element_type).size),
-                                Instruction("call", "__rove_mir_clone_bytes"),
-                            ))
+                        output.extend(self._clone_value(element_type))
                         return output
                     if element_type.name == "Array":
                         output.extend((
                             Instruction("i32.const", 12),
                             Instruction("call", "__rove_mir_array_get_blob"),
                         ))
-                        if isinstance(value, CopyOperand):
-                            inner_type = element_type.arguments[0]
-                            if inner_type.name == "Array":
-                                output.extend(self._deep_array_clone(element_type))
-                                return output
-                            if inner_type == MIRType("string"):
-                                helper = "__rove_mir_array_clone_string"
-                            elif inner_type == MIRType("bool"):
-                                helper = "__rove_mir_array_clone_i32"
-                            elif inner_type.name in self.structs:
-                                output.append(Instruction(
-                                    "i32.const", self.layouts.layout_of(inner_type).size
-                                ))
-                                helper = "__rove_mir_array_clone_blob"
-                            elif inner_type.name in ("float", "f64"):
-                                output.append(Instruction("i32.const", 8))
-                                helper = "__rove_mir_array_clone_blob"
-                            else:
-                                helper = "__rove_mir_array_clone_i64"
-                            output.append(Instruction("call", helper))
+                        output.extend(self._clone_value(element_type))
                         return output
                     if element_type == MIRType("string"):
                         helper = "__rove_mir_array_get_string"
@@ -1384,46 +1360,15 @@ class _WasmEmitter:
                     return output + [Instruction("call", helper)]
                 field_type = self._place_type(value.place)
                 address = self._field_address(value.place)
-                if field_type == MIRType("string") or field_type.name in self.structs:
+                if field_type.name in self.structs or field_type.name == "Array":
+                    return address + self._clone_value(field_type)
+                if field_type == MIRType("string"):
                     return address
                 return address + [Instruction(self._load_instruction(field_type))]
             local_type = self.local_types[value.place.local]
             output = [Instruction("local.get", self.local_names[value.place.local])]
             if local_type.name == "Array" and isinstance(value, CopyOperand):
-                element_type = local_type.arguments[0]
-                if element_type.name in self.structs:
-                    output.append(Instruction("i32.const", self.layouts.layout_of(element_type).size))
-                    helper = "__rove_mir_array_clone_blob"
-                elif element_type.name in ("float", "f64"):
-                    output.append(Instruction("i32.const", 8))
-                    helper = "__rove_mir_array_clone_blob"
-                elif element_type.name == "Array":
-                    inner_type = element_type.arguments[0]
-                    if inner_type.name == "Array":
-                        output.extend(self._deep_array_clone(local_type))
-                        return output
-                    if inner_type == MIRType("string"):
-                        helper = "__rove_mir_array_clone_nested_string"
-                    elif inner_type == MIRType("bool"):
-                        helper = "__rove_mir_array_clone_nested_i32"
-                    elif inner_type.name in self.structs:
-                        output.append(Instruction(
-                            "i32.const", self.layouts.layout_of(inner_type).size
-                        ))
-                        helper = "__rove_mir_array_clone_nested_blob"
-                    elif inner_type.name in ("float", "f64"):
-                        output.append(Instruction("i32.const", 8))
-                        helper = "__rove_mir_array_clone_nested_blob"
-                    else:
-                        helper = "__rove_mir_array_clone_nested_i64"
-                else:
-                    if element_type == MIRType("string"):
-                        helper = "__rove_mir_array_clone_string"
-                    elif element_type == MIRType("bool"):
-                        helper = "__rove_mir_array_clone_i32"
-                    else:
-                        helper = "__rove_mir_array_clone_i64"
-                output.append(Instruction("call", helper))
+                output.extend(self._clone_value(local_type))
             elif local_type.name == "Array" and isinstance(value, MoveOperand):
                 output.extend((
                     Instruction("i32.const", 0),
@@ -1431,10 +1376,7 @@ class _WasmEmitter:
                 ))
             elif self._is_memory_aggregate(local_type):
                 if isinstance(value, CopyOperand):
-                    output.extend((
-                        Instruction("i32.const", self.layouts.layout_of(local_type).size),
-                        Instruction("call", "__rove_mir_clone_bytes"),
-                    ))
+                    output.extend(self._clone_value(local_type))
                 else:
                     output.extend((
                         Instruction("i32.const", 0),
@@ -1457,6 +1399,195 @@ class _WasmEmitter:
             Instruction("i32.const", element_size),
             Instruction("call", "__rove_mir_array_clone_recursive"),
         ]
+
+    def _struct_has_array(self, value_type: MIRType, seen: frozenset[str] = frozenset()) -> bool:
+        if value_type.name not in self.structs or value_type.name in seen:
+            return False
+        definition = self.structs[value_type.name]
+        return any(
+            field.type.name == "Array"
+            or self._struct_has_array(field.type, seen | {value_type.name})
+            for field in definition.fields
+        )
+
+    def _array_needs_owned_clone(self, value_type: MIRType) -> bool:
+        leaf = value_type
+        while leaf.name == "Array" and len(leaf.arguments) == 1:
+            leaf = leaf.arguments[0]
+        return self._struct_has_array(leaf)
+
+    def _tagged_owned_payloads(self, value_type: MIRType) -> tuple[tuple[int, MIRType], ...]:
+        if value_type.name in self.enums:
+            variants = (
+                variant.payload_types for variant in self.enums[value_type.name].variants
+            )
+        elif self._is_result_compatible(value_type):
+            variants = ((argument,) for argument in value_type.arguments)
+        else:
+            return ()
+        return tuple(
+            (index, payloads[0])
+            for index, payloads in enumerate(variants)
+            if len(payloads) == 1 and (
+                payloads[0].name == "Array" or self._struct_has_array(payloads[0])
+            )
+        )
+
+    def _clone_value(self, value_type: MIRType) -> list[Instruction]:
+        if value_type.name in self.structs:
+            if self._struct_has_array(value_type):
+                return [Instruction("call", self._ensure_owned_clone(value_type))]
+            return [
+                Instruction("i32.const", self.layouts.layout_of(value_type).size),
+                Instruction("call", "__rove_mir_clone_bytes"),
+            ]
+        if self._is_tagged_aggregate(value_type):
+            if self._tagged_owned_payloads(value_type):
+                return [Instruction("call", self._ensure_owned_clone(value_type))]
+            return [
+                Instruction("i32.const", self.layouts.layout_of(value_type).size),
+                Instruction("call", "__rove_mir_clone_bytes"),
+            ]
+        if value_type.name != "Array" or len(value_type.arguments) != 1:
+            raise MIRCodegenError(f"Wasm MIR cannot clone aggregate '{value_type}'")
+        if self._array_needs_owned_clone(value_type):
+            return [Instruction("call", self._ensure_owned_clone(value_type))]
+        element_type = value_type.arguments[0]
+        if element_type.name == "Array":
+            inner_type = element_type.arguments[0]
+            if inner_type.name == "Array":
+                return self._deep_array_clone(value_type)
+            if inner_type == MIRType("string"):
+                helper = "__rove_mir_array_clone_nested_string"
+            elif inner_type == MIRType("bool"):
+                helper = "__rove_mir_array_clone_nested_i32"
+            elif inner_type.name in self.structs or inner_type.name in ("float", "f64"):
+                return [
+                    Instruction("i32.const", self.layouts.layout_of(inner_type).size),
+                    Instruction("call", "__rove_mir_array_clone_nested_blob"),
+                ]
+            else:
+                helper = "__rove_mir_array_clone_nested_i64"
+            return [Instruction("call", helper)]
+        if element_type == MIRType("string"):
+            helper = "__rove_mir_array_clone_string"
+        elif element_type == MIRType("bool"):
+            helper = "__rove_mir_array_clone_i32"
+        elif element_type.name in self.structs or element_type.name in ("float", "f64"):
+            return [
+                Instruction("i32.const", self.layouts.layout_of(element_type).size),
+                Instruction("call", "__rove_mir_array_clone_blob"),
+            ]
+        else:
+            helper = "__rove_mir_array_clone_i64"
+        return [Instruction("call", helper)]
+
+    def _ensure_owned_clone(self, value_type: MIRType) -> str:
+        name = "__rove_mir_clone_owned_" + hashlib.sha256(
+            str(value_type).encode("utf-8")
+        ).hexdigest()[:12]
+        if value_type in self.owned_clone_helpers:
+            return name
+        self.owned_clone_helpers[value_type] = None
+        if value_type.name in self.structs:
+            layout = self.layouts.layout_of(value_type)
+            body = [
+                Instruction("local.get", "source"), Instruction("i32.eqz"),
+                Instruction("if"), Instruction("i32.const", 0),
+                Instruction("return"), Instruction("end"),
+                Instruction("local.get", "source"),
+                Instruction("i32.const", layout.size),
+                Instruction("call", "__rove_mir_clone_bytes"),
+                Instruction("local.set", "copy"),
+            ]
+            for field in layout.fields:
+                if field.type.name != "Array" and not self._struct_has_array(field.type):
+                    continue
+                body.extend((
+                    Instruction("local.get", "copy"),
+                    Instruction("i32.const", field.offset), Instruction("i32.add"),
+                    Instruction("local.get", "source"),
+                    Instruction("i32.const", field.offset), Instruction("i32.add"),
+                ))
+                body.extend(self._clone_value(field.type))
+                body.extend((
+                    Instruction("i32.const", self.layouts.layout_of(field.type).size),
+                    Instruction("memory.copy"),
+                ))
+            body.extend((Instruction("local.get", "copy"), Instruction("return")))
+            helper = FunctionIR(
+                name, [("source", I32)], I32, locals=[("copy", I32)],
+                body=body, export=False,
+            )
+        elif self._is_tagged_aggregate(value_type):
+            layout = self.layouts.layout_of(value_type)
+            body = [
+                Instruction("local.get", "source"), Instruction("i32.eqz"),
+                Instruction("if"), Instruction("i32.const", 0),
+                Instruction("return"), Instruction("end"),
+                Instruction("local.get", "source"),
+                Instruction("i32.const", layout.size),
+                Instruction("call", "__rove_mir_clone_bytes"),
+                Instruction("local.set", "copy"),
+            ]
+            for tag, payload_type in self._tagged_owned_payloads(value_type):
+                body.extend((
+                    Instruction("local.get", "source"), Instruction("i32.load"),
+                    Instruction("i32.const", tag), Instruction("i32.eq"),
+                    Instruction("if"),
+                    Instruction("local.get", "copy"),
+                    Instruction("i32.const", layout.payload_offset), Instruction("i32.add"),
+                    Instruction("local.get", "source"),
+                    Instruction("i32.const", layout.payload_offset), Instruction("i32.add"),
+                ))
+                body.extend(self._clone_value(payload_type))
+                body.extend((
+                    Instruction("i32.const", self.layouts.layout_of(payload_type).size),
+                    Instruction("memory.copy"), Instruction("end"),
+                ))
+            body.extend((Instruction("local.get", "copy"), Instruction("return")))
+            helper = FunctionIR(
+                name, [("source", I32)], I32, locals=[("copy", I32)],
+                body=body, export=False,
+            )
+        else:
+            element_type = value_type.arguments[0]
+            element_size = 4 if element_type == MIRType("bool") else self.layouts.layout_of(element_type).size
+            body = [
+                Instruction("local.get", "source"), Instruction("i32.eqz"),
+                Instruction("if"), Instruction("i32.const", 0),
+                Instruction("return"), Instruction("end"),
+                Instruction("local.get", "source"), Instruction("i32.const", element_size),
+                Instruction("call", "__rove_mir_array_clone_blob"),
+                Instruction("local.set", "copy"),
+                Instruction("local.get", "source"), Instruction("i32.const", 4),
+                Instruction("i32.add"), Instruction("i32.load"),
+                Instruction("local.set", "length"),
+                Instruction("block", "clone_done"), Instruction("loop", "clone_next"),
+                Instruction("local.get", "index"), Instruction("local.get", "length"),
+                Instruction("i32.ge_s"), Instruction("br_if", "clone_done"),
+                Instruction("local.get", "copy"), Instruction("i32.load"),
+                Instruction("local.get", "index"), Instruction("i32.const", element_size),
+                Instruction("i32.mul"), Instruction("i32.add"),
+                Instruction("local.get", "source"), Instruction("i32.load"),
+                Instruction("local.get", "index"), Instruction("i32.const", element_size),
+                Instruction("i32.mul"), Instruction("i32.add"),
+            ]
+            body.extend(self._clone_value(element_type))
+            body.extend((
+                Instruction("i32.const", element_size), Instruction("memory.copy"),
+                Instruction("local.get", "index"), Instruction("i32.const", 1),
+                Instruction("i32.add"), Instruction("local.set", "index"),
+                Instruction("br", "clone_next"), Instruction("end"), Instruction("end"),
+                Instruction("local.get", "copy"), Instruction("return"),
+            ))
+            helper = FunctionIR(
+                name, [("source", I32)], I32,
+                locals=[("copy", I32), ("length", I32), ("index", I32)],
+                body=body, export=False,
+            )
+        self.owned_clone_helpers[value_type] = helper
+        return name
 
     def _operand_type(self, value: Operand) -> MIRType:
         if isinstance(value, ConstOperand):
@@ -1530,14 +1661,35 @@ class _WasmEmitter:
         return f"{self._type(value_type)}.load"
 
     def _array_place(self, place: Place) -> list[Instruction]:
-        if not place.projections or not all(
-            isinstance(projection, (IndexProjection, ConstantIndexProjection))
-            for projection in place.projections
+        if not place.projections or not isinstance(
+            place.projections[-1], (IndexProjection, ConstantIndexProjection)
         ):
-            raise MIRCodegenError("Wasm MIR array pilot requires an index projection chain")
-        output = [Instruction("local.get", self.local_names[place.local])]
+            raise MIRCodegenError("Wasm MIR array place must end in an index")
+        return self._projected_place(place)
+
+    def _field_address(self, place: Place) -> list[Instruction]:
+        if not place.projections or not isinstance(place.projections[-1], FieldProjection):
+            raise MIRCodegenError("Wasm MIR struct place must end in a field")
+        return self._projected_place(place)
+
+    def _projected_place(self, place: Place) -> list[Instruction]:
         value_type = self.local_types[place.local]
+        output = [Instruction("local.get", self.local_names[place.local])]
         for index, projection in enumerate(place.projections):
+            if isinstance(projection, FieldProjection):
+                layout = self.layouts.layout_of(value_type)
+                field = next((item for item in layout.fields if item.name == projection.name), None)
+                if field is None:
+                    raise MIRCodegenError(
+                        f"Wasm MIR struct field '{value_type}.{projection.name}' is unknown"
+                    )
+                output.extend((Instruction("i32.const", field.offset), Instruction("i32.add")))
+                value_type = field.type
+                continue
+            if not isinstance(projection, (IndexProjection, ConstantIndexProjection)):
+                raise MIRCodegenError(
+                    f"illegal projection reached WebAssembly emitter: {type(projection).__name__}"
+                )
             if value_type.name != "Array" or len(value_type.arguments) != 1:
                 raise MIRCodegenError(f"Wasm MIR index requires Array<T>, got '{value_type}'")
             if isinstance(projection, ConstantIndexProjection):
@@ -1546,27 +1698,11 @@ class _WasmEmitter:
                 output.append(Instruction("local.get", self.local_names[projection.local]))
             value_type = value_type.arguments[0]
             if index + 1 < len(place.projections):
-                if value_type.name != "Array":
-                    raise MIRCodegenError("Wasm MIR nested index requires an inner Array<T>")
-                output.extend((Instruction("i32.const", 12), Instruction("call", "__rove_mir_array_get_blob")))
-        return output
-
-    def _field_address(self, place: Place) -> list[Instruction]:
-        if not place.projections or not all(
-            isinstance(projection, FieldProjection) for projection in place.projections
-        ):
-            raise MIRCodegenError("Wasm MIR struct pilot requires a field projection chain")
-        value_type = self.local_types[place.local]
-        output = [Instruction("local.get", self.local_names[place.local])]
-        for projection in place.projections:
-            layout = self.layouts.layout_of(value_type)
-            field = next((item for item in layout.fields if item.name == projection.name), None)
-            if field is None:
-                raise MIRCodegenError(
-                    f"Wasm MIR struct field '{value_type}.{projection.name}' is unknown"
-                )
-            output.extend((Instruction("i32.const", field.offset), Instruction("i32.add")))
-            value_type = field.type
+                element_size = 4 if value_type == MIRType("bool") else self.layouts.layout_of(value_type).size
+                output.extend((
+                    Instruction("i32.const", element_size),
+                    Instruction("call", "__rove_mir_array_get_blob"),
+                ))
         return output
 
     def _place_type(self, place: Place) -> MIRType:
@@ -1657,6 +1793,11 @@ class _WasmEmitter:
             ) or (
                 argument.name in self.structs
                 and not argument.arguments
+                and not argument.optional
+                and not argument.pointer
+            ) or (
+                argument.name == "Array"
+                and len(argument.arguments) == 1
                 and not argument.optional
                 and not argument.pointer
             )

@@ -110,7 +110,7 @@ unsafe {
 
 def run_rust_e2e_tests():
     print("=" * 70)
-    print("⚡ NYX RUST (rust - 2021 Edition) END-TO-END CONFORMANCE")
+    print("⚡ ROVE RUST (rust - 2021 Edition) END-TO-END CONFORMANCE")
     print("=" * 70)
     
     rustc_path = shutil.which("rustc")

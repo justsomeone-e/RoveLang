@@ -61,7 +61,7 @@ output_name = "libmyproj.a"
 
 def run_manifest_suite() -> bool:
     print("=" * 70)
-    print("NYX PHASE 3.3 LIBRARY MANIFEST TEST HARNESS")
+    print("ROVE PHASE 3.3 LIBRARY MANIFEST TEST HARNESS")
     print("=" * 70)
     try:
         test_manifest_parsing()

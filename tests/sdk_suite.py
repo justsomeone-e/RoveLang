@@ -19,7 +19,7 @@ from src.codegen.cpp_toolchain import CppToolchain
 
 def run_sdk_suite() -> bool:
     print("=" * 70)
-    print("NYX PHASE 3.7 NATIVE SDK & CLI TEST HARNESS")
+    print("ROVE PHASE 3.7 NATIVE SDK & CLI TEST HARNESS")
     print("=" * 70)
     sys.stdout.flush()
 

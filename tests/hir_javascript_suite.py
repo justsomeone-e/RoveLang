@@ -203,7 +203,7 @@ def _run_esm_contract() -> None:
 
 def run_hir_javascript_suite() -> bool:
     print("=" * 70)
-    print("NYX HIR-AUTHORITATIVE JAVASCRIPT BACKEND")
+    print("ROVE HIR-AUTHORITATIVE JAVASCRIPT BACKEND")
     print("=" * 70)
     assert NODE is not None, "Node.js is required for the HIR JavaScript suite"
     corpus_count = _run_corpus_compile()
