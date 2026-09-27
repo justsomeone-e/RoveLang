@@ -14,6 +14,8 @@ from src.mir import (
     AggregateRValue,
     AssignStatement,
     ConstOperand,
+    CopyOperand,
+    DiscriminantRValue,
     GotoTerminator,
     MIRBasicBlock,
     MIRFunctionBuilder,
@@ -25,6 +27,7 @@ from src.mir import (
     MIRSpan,
     MIRType,
     MIRVerificationError,
+    PayloadRValue,
     Place,
     ReturnTerminator,
     UseRValue,
@@ -232,6 +235,85 @@ def run_mir_suite() -> bool:
         ))
         tagged.set_terminator(tagged_entry, ReturnTerminator(function.span))
         verify_mir(MIRModule("valid-aggregate.rove", "cpp", (tagged.finish(),)))
+
+    for subject_type, index, payload_type, definitions, expected_code in (
+        (int_type, 0, int_type, (), "MIR0521"),
+        (choice_type, 1, int_type, (choice_definition,), "MIR0522"),
+        (
+            MIRType("Empty"), 0, int_type,
+            (MIREnumDef("Empty", "type::Empty", ()),), "MIR0522",
+        ),
+        (choice_type, 0, string_type, (choice_definition,), "MIR0523"),
+        (result_type, 1, int_type, (), "MIR0522"),
+        (result_type, 0, MIRType("bool"), (), "MIR0523"),
+        (option_type, 0, string_type, (), "MIR0523"),
+    ):
+        extraction = MIRFunctionBuilder("extract", "module::fn::extract", MIRType("void"), function.span)
+        subject = extraction.new_local("subject", subject_type, "parameter")
+        destination = extraction.new_local("payload", payload_type)
+        extraction_entry = extraction.new_block()
+        extraction.push_statement(extraction_entry, AssignStatement(
+            Place(destination), PayloadRValue(CopyOperand(Place(subject)), index, payload_type),
+            function.span,
+        ))
+        extraction.set_terminator(extraction_entry, ReturnTerminator(function.span))
+        malformed = MIRModule("invalid-payload.rove", "cpp", (extraction.finish(),), definitions)
+        assert {issue.code for issue in collect_mir_issues(malformed)} == {expected_code}, (
+            subject_type, index, payload_type
+        )
+
+    for subject_type, payload_type, definitions in (
+        (choice_type, int_type, (choice_definition,)),
+        (result_type, string_type, ()),
+        (option_type, int_type, ()),
+    ):
+        extraction = MIRFunctionBuilder("extract", "module::fn::extract", MIRType("void"), function.span)
+        subject = extraction.new_local("subject", subject_type, "parameter")
+        destination = extraction.new_local("payload", payload_type)
+        extraction_entry = extraction.new_block()
+        extraction.push_statement(extraction_entry, AssignStatement(
+            Place(destination), PayloadRValue(CopyOperand(Place(subject)), 0, payload_type),
+            function.span,
+        ))
+        extraction.set_terminator(extraction_entry, ReturnTerminator(function.span))
+        verify_mir(MIRModule("valid-payload.rove", "cpp", (extraction.finish(),), definitions))
+
+    for subject_type, tag_type, definitions, expected_code in (
+        (int_type, string_type, (), "MIR0524"),
+        (MIRType("Choice", optional=True), string_type, (choice_definition,), "MIR0524"),
+        (MIRType("Result", (int_type,)), string_type, (), "MIR0524"),
+        (MIRType("Option"), string_type, (), "MIR0524"),
+        (choice_type, int_type, (choice_definition,), "MIR0525"),
+    ):
+        discriminant = MIRFunctionBuilder("tag", "module::fn::tag", MIRType("void"), function.span)
+        subject = discriminant.new_local("subject", subject_type, "parameter")
+        destination = discriminant.new_local("tag", tag_type)
+        entry = discriminant.new_block()
+        discriminant.push_statement(entry, AssignStatement(
+            Place(destination), DiscriminantRValue(CopyOperand(Place(subject)), tag_type),
+            function.span,
+        ))
+        discriminant.set_terminator(entry, ReturnTerminator(function.span))
+        malformed = MIRModule("invalid-discriminant.rove", "cpp", (discriminant.finish(),), definitions)
+        assert {issue.code for issue in collect_mir_issues(malformed)} == {expected_code}, (
+            subject_type, tag_type
+        )
+
+    for subject_type, definitions in (
+        (choice_type, (choice_definition,)),
+        (result_type, ()),
+        (option_type, ()),
+    ):
+        discriminant = MIRFunctionBuilder("tag", "module::fn::tag", MIRType("void"), function.span)
+        subject = discriminant.new_local("subject", subject_type, "parameter")
+        destination = discriminant.new_local("tag", string_type)
+        entry = discriminant.new_block()
+        discriminant.push_statement(entry, AssignStatement(
+            Place(destination), DiscriminantRValue(CopyOperand(Place(subject)), string_type),
+            function.span,
+        ))
+        discriminant.set_terminator(entry, ReturnTerminator(function.span))
+        verify_mir(MIRModule("valid-discriminant.rove", "cpp", (discriminant.finish(),), definitions))
 
     duplicate_local = replace(
         module,

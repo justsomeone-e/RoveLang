@@ -37,6 +37,7 @@ from src.mir import (
     MIRModule,
     MIRSpan,
     MIRType,
+    MIRVerificationError,
     MoveOperand,
     PayloadRValue,
     Place,
@@ -1184,9 +1185,11 @@ def run_mir_legalization_suite() -> bool:
         + (invalid_function,)
         + wasm_multi_payload.functions[read_index + 1:],
     )
-    assert {issue.code for issue in collect_legalization_issues(
-        invalid_module, "wasm", require_emitter=True
-    )} == {"MIRG1004"}
+    try:
+        emit_legalized_wasm(invalid_module)
+        raise AssertionError("Invalid enum payload index reached the Wasm emitter")
+    except MIRVerificationError as error:
+        assert {issue.code for issue in error.issues} == {"MIR0522"}
 
     wasm_struct = _lower_source(
         "struct Pair { x: int, y: int }\n"
