@@ -11,6 +11,7 @@ if str(ROOT) not in sys.path:
 
 from src.api import RoveCompiler
 from src.mir import (
+    AggregateRValue,
     AssignStatement,
     ConstOperand,
     GotoTerminator,
@@ -23,6 +24,7 @@ from src.mir import (
     MIRPassManager,
     MIRSpan,
     MIRType,
+    MIRVerificationError,
     Place,
     ReturnTerminator,
     UseRValue,
@@ -35,6 +37,7 @@ from src.mir import (
     to_json,
     verify_mir,
 )
+from src.mir.model import MIREnumDef, MIREnumVariant
 
 
 def _valid_module() -> MIRModule:
@@ -148,6 +151,48 @@ def run_mir_suite() -> bool:
         ),),
     )
     assert "MIR0300" in {issue.code for issue in collect_mir_issues(bad_assignment)}
+
+    int_type = MIRType("int")
+    choice_type = MIRType("Choice")
+    result_type = MIRType("Result", (int_type, MIRType("string")))
+    choice_definition = MIREnumDef(
+        "Choice", "type::Choice", (MIREnumVariant("Value", (int_type,)),)
+    )
+    for kind, name, aggregate_type, operands, definitions, expected_code in (
+        ("enum", "Value", MIRType("Missing"), (ConstOperand(int_type, 7),), (), "MIR0508"),
+        (
+            "enum", "Missing", choice_type, (ConstOperand(int_type, 7),),
+            (choice_definition,), "MIR0509",
+        ),
+        ("enum", "Value", choice_type, (), (choice_definition,), "MIR0510"),
+        (
+            "result", "Ok", MIRType("Result", (int_type,)),
+            (ConstOperand(int_type, 7),), (), "MIR0511",
+        ),
+        ("result", "Other", result_type, (ConstOperand(int_type, 7),), (), "MIR0512"),
+        ("result", "Ok", result_type, (), (), "MIR0513"),
+        (
+            "result", "Err", result_type,
+            (ConstOperand(MIRType("string"), "bad"), ConstOperand(int_type, 7)),
+            (), "MIR0513",
+        ),
+    ):
+        tagged = MIRFunctionBuilder("tagged", "module::fn::tagged", MIRType("void"), function.span)
+        result = tagged.new_local("value", aggregate_type)
+        tagged_entry = tagged.new_block()
+        tagged.push_statement(tagged_entry, AssignStatement(
+            Place(result), AggregateRValue(kind, name, operands, aggregate_type), function.span
+        ))
+        tagged.set_terminator(tagged_entry, ReturnTerminator(function.span))
+        malformed = MIRModule("invalid-aggregate.rove", "cpp", (tagged.finish(),), definitions)
+        assert {issue.code for issue in collect_mir_issues(malformed)} == {expected_code}, (
+            kind, name, aggregate_type
+        )
+        try:
+            verify_mir(malformed)
+            raise AssertionError("Malformed tagged aggregate passed MIR verification")
+        except MIRVerificationError as error:
+            assert {issue.code for issue in error.issues} == {expected_code}
 
     duplicate_local = replace(
         module,

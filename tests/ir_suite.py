@@ -116,6 +116,19 @@ def _run_canonical_and_scope_checks() -> None:
     parameter_symbols = [symbol for symbol in _symbols(shadowed) if "::param::" in symbol]
     assert parameter_symbols and set(local_symbols).isdisjoint(parameter_symbols)
 
+    enum_member = _frontend(
+        "enum Light { Red, Green }\n"
+        "fn pick() -> Light { let current = Light.Red; return current }\n",
+        "<ir-enum-member>",
+    )
+    verify_hir(enum_member)
+    pick = next(item for item in enum_member.functions if item.name == "pick")
+    declaration = pick.body[0]
+    assert isinstance(declaration, IRVarDecl)
+    assert declaration.type == IRType("Light")
+    assert isinstance(declaration.expr, IRMemberAccess)
+    assert declaration.expr.type == IRType("Light")
+
 
 def _run_type_relation_checks() -> None:
     nested_int = array_of(array_of(INT))

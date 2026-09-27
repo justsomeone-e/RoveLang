@@ -774,14 +774,15 @@ class _FunctionLowerer:
                         f"Unknown enum member '{enum_definition.name}.{node.member}'",
                         span,
                     )
-                local = self._new_temporary(node.type, span)
+                enum_type = node.obj.type
+                local = self._new_temporary(enum_type, span)
                 self._push(AssignStatement(
                     Place(local),
                     AggregateRValue(
                         "enum",
                         member.name,
                         (),
-                        from_hir_type(node.type),
+                        from_hir_type(enum_type),
                     ),
                     span,
                 ))
