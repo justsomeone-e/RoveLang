@@ -7,7 +7,7 @@ semantics for function bodies.
 
 from __future__ import annotations
 
-from dataclasses import fields, is_dataclass
+from dataclasses import fields, is_dataclass, replace
 
 from src.ir.model import (
     IRAssign,
@@ -27,6 +27,7 @@ from src.ir.model import (
     IRGuard,
     IRIf,
     IRIndexAccess,
+    IRLambda,
     IRLiteral,
     IRMatch,
     IRMatchExpression,
@@ -859,6 +860,8 @@ class _FunctionLowerer:
                 self._push(DeinitStatement(Place(task_drop), span))
             return CopyOperand(Place(destination))
         if isinstance(node, IRCall):
+            if node.callee_symbol == "builtin::fold":
+                return self._lower_fold(node)
             argument_nodes = (
                 ((node.receiver,) if node.receiver is not None else ()) + node.args
             )
@@ -934,6 +937,77 @@ class _FunctionLowerer:
         if isinstance(node, IRResultPropagate):
             return self._lower_result_propagate(node)
         raise MIRLoweringError(f"M2 does not lower expression {type(node).__name__}", span)
+
+    def _lower_fold(self, node: IRCall) -> Operand:
+        """Inline an immediate reducer into canonical CFG with value captures."""
+        span = _span(node.span)
+        if len(node.args) != 3 or not isinstance(node.args[2], IRLambda):
+            raise MIRLoweringError("fold requires an array, initial value, and lambda reducer", span)
+        collection, initial, callback = node.args
+        if collection.type.name != "Array" or len(collection.type.arguments) != 1 or len(callback.params) != 2:
+            raise MIRLoweringError("fold requires Array<T> and a two-parameter reducer", span)
+        if any(isinstance(expression, (IRResultPropagate, IRAwait)) for expression in _walk_hir(callback.body)):
+            raise MIRLoweringError("fold reducer-local Result propagation and suspension require closure control lowering", span)
+        result = self._new_temporary(node.type, span)
+        prefix = f"{self.function.symbol}::fold::{result}"
+
+        def binding(name: str, expression: IRExpr):
+            symbol = f"{prefix}::{name}"
+            reference = IRReference(node.span, expression.type, name, symbol)
+            return IRVarDecl(node.span, name, symbol, expression.type, expression), reference
+
+        source_decl, source = binding("source", collection)
+        accumulator_decl, accumulator = binding("accumulator", initial)
+        declarations = [source_decl, accumulator_decl]
+        replacements: dict[str, IRReference] = {}
+        # Capture at callback creation, after collection and initial evaluation.
+        # Copying through ordinary declarations preserves aggregate isolation.
+        parameters = {parameter.symbol for parameter in callback.params}
+        for expression in _walk_hir(callback.body):
+            if (
+                isinstance(expression, IRReference)
+                and expression.symbol in self.locals
+                and expression.symbol not in parameters
+                and expression.symbol not in replacements
+            ):
+                declaration, reference = binding(f"capture{len(replacements)}", expression)
+                declarations.append(declaration)
+                replacements[expression.symbol] = reference
+        accumulator_parameter, item_parameter = callback.params
+        argument_decl, argument = binding("argument", accumulator)
+        replacements[accumulator_parameter.symbol] = argument
+        item_symbol = f"{prefix}::item"
+        replacements[item_parameter.symbol] = IRReference(
+            node.span, item_parameter.type, "item", item_symbol,
+        )
+
+        def rewrite(value):
+            if isinstance(value, IRReference) and value.symbol in replacements:
+                return replace(replacements[value.symbol], span=value.span)
+            if isinstance(value, tuple):
+                return tuple(rewrite(item) for item in value)
+            if is_dataclass(value):
+                return replace(value, **{
+                    field.name: rewrite(getattr(value, field.name)) for field in fields(value)
+                })
+            return value
+
+        loop = IRFor(
+            node.span, "item", item_symbol, None, None, source,
+            (argument_decl, IRAssign(node.span, accumulator, rewrite(callback.body))),
+        )
+        self.defer_scopes.append([])
+        self.drop_scopes.append([])
+        try:
+            self._lower_statements(tuple(declarations) + (loop,))
+            self._push(AssignStatement(
+                Place(result), UseRValue(self._lower_expr(accumulator)), span,
+            ))
+            self._emit_cleanup_frame(len(self.defer_scopes) - 1)
+        finally:
+            self.defer_scopes.pop()
+            self.drop_scopes.pop()
+        return CopyOperand(Place(result))
 
     def _lower_safe_member(self, node: IRMemberAccess) -> Operand:
         span = _span(node.span)

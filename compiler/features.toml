@@ -143,7 +143,7 @@ evidence = ["tests/capability_suite.py"]
 id = "mir"
 status = "experimental"
 authority = "src/mir/model.py"
-evidence = ["tests/mir_suite.py", "tests/mir_lowering_suite.py", "tests/mir_cleanup_suite.py", "tests/mir_memory_abi_suite.py", "tests/mir_coroutine_suite.py"]
+evidence = ["tests/mir_suite.py", "tests/mir_lowering_suite.py", "tests/mir_cleanup_suite.py", "tests/mir_memory_abi_suite.py", "tests/mir_coroutine_suite.py", "tests/mir_fold_suite.py"]
 
 [[pipeline_stages]]
 id = "mir_legalization"
@@ -465,7 +465,7 @@ evidence = ["tests/capability_suite.py"]
 id = "collection_combinators"
 maturity = "stable"
 semantics = "defined"
-evidence = ["tests/collection_api_suite.py"]
+evidence = ["tests/collection_api_suite.py", "tests/mir_fold_suite.py"]
 [[features]]
 id = "components"
 maturity = "beta"

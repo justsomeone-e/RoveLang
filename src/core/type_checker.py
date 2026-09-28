@@ -647,7 +647,7 @@ class TypeChecker:
 
         elif isinstance(node, FunctionCallNode):
             if isinstance(node.callee, str) and node.callee in ("map", "filter", "fold"):
-                self._infer_collection_builtin(node)
+                node.inferred_type = self._infer_collection_builtin(node)
             if node.callee in ('peek', 'memdump') and not self.is_inside_unsafe:
                 DiagnosticEmitter.emit_error(
                     self.filepath, self.source, node.line, node.col,

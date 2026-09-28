@@ -1,0 +1,23 @@
+fn items() -> Array<int> { print("source"); return [1, 2, 3] }
+fn initial() -> int { print("initial"); return 0 }
+fn append_or_throw(acc: string, item: string) -> string {
+    if item == "bad" { throw "reducer failed" }
+    return acc + item
+}
+fn main() {
+    let offset = 2
+    print(fold(items(), initial(), (acc, item) => acc + item + offset))
+    let empty: Array<int> = []
+    print(fold(empty, 7, (acc, item) => acc + item))
+    print(fold(["a", "b"], "", (acc, item) => acc + item))
+    let weights = [5, 6]
+    print(fold([0, 1], 0, (acc, item) => acc + weights[item]))
+    var original = [1, 2]
+    var selected = fold([[3], [4]], original, (acc, item) => item)
+    set selected[0] = 9
+    print(original[0], selected[0])
+    print(fold([1, 2], 0, (acc, item) => acc + fold([3, 4], item, (inner, value) => inner + value + item)))
+    try {
+        print(fold(["a", "bad"], "", (acc, item) => append_or_throw(acc, item)))
+    } catch error { print(error) }
+}
