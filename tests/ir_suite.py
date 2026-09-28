@@ -216,6 +216,11 @@ def _run_rove_authored_hir_parity() -> int:
             'fn read() -> Result<int, string> { return Ok(1) }\nfn run() -> Result<int, string> { var value = read()?; return Ok(value) }\n',
         ),
         (
+            "result_array_pattern_bindings",
+            'fn make() -> Result<Array<int>, string> { return Ok([10, 11]) }\n'
+            'fn run() { match make() { Ok(values) => { set values[0] = 12 }, Err(message) => print(message) } }\n',
+        ),
+        (
             "pipeline",
             "fn increment(value: int) -> int { return value + 1 } fn run() -> int { return 41 |> increment }\n",
         ),

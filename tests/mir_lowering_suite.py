@@ -2,6 +2,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,9 +22,9 @@ def _checked(source: str, filename: str = "<m2>"):
     return result.hir
 
 
-def _run_cli_target(target: str) -> str:
+def _run_cli_target(target: str, source_path: Path = FIXTURE) -> str:
     result = subprocess.run(
-        [sys.executable, str(ROOT / "src" / "cli.py"), "run", str(FIXTURE), "--target", target],
+        [sys.executable, str(ROOT / "src" / "cli.py"), "run", str(source_path), "--target", target],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -54,6 +55,29 @@ def run_mir_lowering_suite() -> bool:
     )
     order = MIRInterpreter(lower_hir_to_mir(order_hir)).run()
     assert order.output == ("1", "2", "3"), order.output
+
+    result_array_source = (
+        "fn make() -> Result<Array<int>, string> { return Ok([10, 11]) }\n"
+        "fn main() {\n"
+        "  var outcome = make()\n"
+        "  match outcome {\n"
+        "    Ok(values) => { set values[0] = 12; print(values[0], values[1]) },\n"
+        "    Err(message) => print(message)\n"
+        "  }\n"
+        "}\n"
+    )
+    result_array_hir = _checked(result_array_source, "result-array-pattern.rove")
+    main_function = next(item for item in result_array_hir.items if item.name == "main")
+    ok_case, err_case = main_function.body[1].cases
+    assert ok_case.pattern.args[0].type.canonical() == "Array<int>"
+    assert err_case.pattern.args[0].type.canonical() == "string"
+    result_array_mir = lower_hir_to_mir(result_array_hir)
+    verify_mir(result_array_mir)
+    assert MIRInterpreter(result_array_mir).run().output == ("12 11",)
+    with tempfile.TemporaryDirectory(prefix="rove_result_pattern_") as directory:
+        source_path = Path(directory, "result-array-pattern.rove")
+        source_path.write_text(result_array_source, encoding="utf-8")
+        assert re.search(r"(?m)^12 11$", _run_cli_target("cpp", source_path))
 
     numeric_hir = _checked(
         "fn main() {\n"

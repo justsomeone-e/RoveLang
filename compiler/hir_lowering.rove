@@ -1117,6 +1117,10 @@ impl HIRLowerer {
                     payload_type = self.specialize_pattern_type(
                         symbol.type_info.parameter_types[i], variant_result, expected_type)
                 }
+                if symbol.found and expected_type.name == "Result" and len(expected_type.arguments) == 2 and i == 0 {
+                    if symbol.identity == "builtin::Ok" { payload_type = expected_type.arguments[0] }
+                    if symbol.identity == "builtin::Err" { payload_type = expected_type.arguments[1] }
+                }
                 args.push(self.lower_pattern(node.children[i], payload_type))
             }
             var result = hir_empty_node("IRCall", self.span(node))
@@ -1125,6 +1129,10 @@ impl HIRLowerer {
             if symbol.found { result.symbol = symbol.identity }
             result.first = args
             result.type_info = variant_result
+            if symbol.found and expected_type.name == "Result" and len(expected_type.arguments) == 2 and
+                (symbol.identity == "builtin::Ok" or symbol.identity == "builtin::Err") {
+                result.type_info = expected_type
+            }
             if symbol.found and contains(symbol.kind, "enum::") {
                 // A payload variant's trailing generic parameters can only be
                 // recovered from the matched subject (Success<T> cannot infer
