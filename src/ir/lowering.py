@@ -533,6 +533,15 @@ class HIRLowerer:
                 )
                 if subject_type.name == enum_name and subject_type.arguments:
                     result_type = IRType(enum_name, subject_type.arguments)
+            elif (
+                symbol is not None
+                and symbol.identity in ("builtin::Ok", "builtin::Err")
+                and subject_type.name == "Result"
+                and len(subject_type.arguments) == 2
+            ):
+                payload_index = 0 if symbol.identity == "builtin::Ok" else 1
+                parameter_types = (subject_type.arguments[payload_index],)
+                result_type = subject_type
             args = []
             for index, argument in enumerate(node.args):
                 expected = parameter_types[index] if index < len(parameter_types) else ANY
