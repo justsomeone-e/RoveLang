@@ -165,6 +165,7 @@ from tests.llvm_scalar_suite import run_llvm_scalar_suite
 from tests.feature_manifest_suite import run_feature_manifest_suite
 from tests.mir_suite import run_mir_suite
 from tests.mir_lowering_suite import run_mir_lowering_suite
+from tests.mir_fold_suite import run_mir_fold_suite
 from tests.mir_cleanup_suite import run_mir_cleanup_suite
 from tests.mir_memory_abi_suite import run_mir_memory_abi_suite
 from tests.mir_legalization_suite import run_mir_legalization_suite
@@ -260,6 +261,7 @@ def main():
 
     print()
     mir_lowering_ok = run_mir_lowering_suite()
+    mir_lowering_ok = run_mir_fold_suite() and mir_lowering_ok
 
     print()
     mir_cleanup_ok = run_mir_cleanup_suite()

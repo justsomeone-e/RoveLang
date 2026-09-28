@@ -2402,6 +2402,19 @@ differential parity.
 
 Purpose: resume source-language growth without recreating backend duplication.
 
+Initial implementation (2026-09-28): immediate `fold` lambda reducers now lower
+to canonical MIR collection loops. Collection and initial-value expressions run
+once in source order; captured locals are copied when the callback is created.
+Accumulator parameters and array elements use ordinary value-copy and lexical
+cleanup rules, including reducer-call unwind edges. Empty input preserves the
+initial value. The focused `tests/mir_fold_suite.py` covers scalar captures,
+nested folds, string/array ownership, rejection cases, and executable
+C++/JavaScript/Python parity against the MIR interpreter. This is a non-escaping
+callback slice, not general first-class closure support: stored/returned
+closures, `map`/`filter` MIR lowering, and reducer-local `?`/`await` control flow
+remain open. The latter two control operators are rejected rather than inlined
+with the enclosing function's return/suspend semantics. M5 remains in progress.
+
 Candidate order:
 
 ```text
