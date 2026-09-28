@@ -100,13 +100,34 @@ def main() -> None:
     assert _run_wasi(wasm, "main") == expected
     _run_wasi(wasm, "main", partial=True)
 
+    integer_source = (
+        "struct Counter { value: int, label: string, enabled: bool }\n"
+        "struct Packet { counter: Counter, tail: int }\n"
+        "fn main() {\n"
+        "  let minimum = -9223372036854775807 - 1\n"
+        "  let maximum = 9223372036854775807\n"
+        '  print(Packet(Counter(minimum, "Rove", true), maximum), 0, -7, 42)\n'
+        "  print(minimum, maximum)\n"
+        "}\n"
+    )
+    integer_module = _lower(integer_source, "m5-wasm-integer-struct-print.rove")
+    integer_expected = (
+        "Packet(Counter(-9223372036854775808, Rove, true), "
+        "9223372036854775807) 0 -7 42\n"
+        "-9223372036854775808 9223372036854775807\n"
+    )
+    assert "\n".join(MIRInterpreter(integer_module).run().output) + "\n" == integer_expected
+    assert not collect_legalization_issues(integer_module, "wasm", require_emitter=True)
+    assert "__rove_mir_print_int" in emit_legalized_wat(integer_module)
+    assert _run_wasi(emit_legalized_wasm(integer_module), "main") == integer_expected
+
     pure = _lower("fn answer() -> int { return 7 }\n", "m5-wasm-pure.rove")
     assert not collect_legalization_issues(pure, "wasm", require_emitter=True)
     assert "(import " not in emit_legalized_wat(pure)
 
     for name, unsupported in (
-        ("int-field", "struct Count { value: int }\nfn main() { print(Count(1)) }\n"),
-        ("int", "fn main() { print(1) }\n"),
+        ("float-field", "struct Count { value: float }\nfn main() { print(Count(1.5)) }\n"),
+        ("float", "fn main() { print(1.5) }\n"),
         ("array", "struct Label { text: string }\nfn main() { print([Label(\"x\")]) }\n"),
     ):
         rejected = _lower(unsupported, f"m5-wasm-print-{name}-reject.rove")
@@ -118,7 +139,7 @@ def main() -> None:
         except MIRLegalizationError:
             pass
 
-    print("[PASS] Conditional WASI import, nominal struct stdout parity, and display gates")
+    print("[PASS] Conditional WASI import, signed-i64/struct stdout parity, and display gates")
 
 
 if __name__ == "__main__":

@@ -2086,10 +2086,12 @@ Implementation status (through 2026-09-27):
   pass metadata/type checks on this host; executable Rust
   parity remains unverified here. C17 shares one typed display path between
   `print` and `to_string`, with an owned capture buffer tracked by its existing
-  allocation runtime. Wasm admits `print` of bool, string, and acyclic nominal
-  structs recursively containing only bool/string fields through a conditional
-  WASI preview1 `fd_write` import. The MIR Wasm pilot still rejects numeric,
-  array, tagged, optional, and `to_string` struct display before emission. The MIR
+  allocation runtime. Wasm admits `print` of signed i64, bool, string, and
+  acyclic nominal structs recursively containing those fields through a
+  conditional WASI preview1 `fd_write` import. Integer formatting covers zero,
+  negative values, and both signed-i64 bounds in executable stdout parity with
+  the MIR interpreter. The MIR Wasm pilot still rejects float, array, tagged,
+  optional, and `to_string` struct display before emission. The MIR
   interpreter, C++, LLVM, Python, C17, and Rust emitters now follow the existing
   source scalar-text contract: integral floats omit `.0`, either zero sign
   prints as `0`, and shortest round-tripping decimals
@@ -2383,7 +2385,7 @@ Implementation status (through 2026-09-27):
 - remaining multi-use/control-flow compiler-temporary lifetime elaboration, general
   place-sensitive partial-move/drop analysis, drop unwind edges, per-allocation
   reclamation for arena-backed targets,
-  remaining Wasm aggregate combinations, numeric/array/tagged nominal-struct
+  remaining Wasm aggregate combinations, float/array/tagged nominal-struct
   display, and broader
   target runtime surfaces remain
   open M5 work. Every migration-order target now has a bounded executable pilot;

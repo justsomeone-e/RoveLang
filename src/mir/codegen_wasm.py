@@ -89,6 +89,7 @@ class _WasmEmitter:
         self.tag_locals: dict[int, dict[str, int]] = {}
         self.owned_clone_helpers: dict[MIRType, FunctionIR | None] = {}
         self.wasi_print_used = False
+        self.wasi_int_print_used = False
         self.print_struct_helpers: dict[str, FunctionIR | None] = {}
 
     def lower(self) -> ModuleIR:
@@ -152,7 +153,46 @@ class _WasmEmitter:
                 *self._wasi_literal("false"), Instruction("end"),
             ], export=False,
         )
-        return [write, print_string, print_bool]
+        runtime = [write, print_string, print_bool]
+        if self.wasi_int_print_used:
+            runtime.append(FunctionIR(
+                "__rove_mir_print_int", [("value", I64)], VOID,
+                locals=[("position", I32)],
+                body=[
+                    Instruction("local.get", "value"),
+                    Instruction("i64.const", -(1 << 63)), Instruction("i64.eq"),
+                    Instruction("if"),
+                    *self._wasi_literal("-9223372036854775808"),
+                    Instruction("return"), Instruction("end"),
+                    Instruction("local.get", "value"),
+                    Instruction("i64.const", 0), Instruction("i64.lt_s"),
+                    Instruction("if"),
+                    *self._wasi_literal("-"),
+                    Instruction("i64.const", 0), Instruction("local.get", "value"),
+                    Instruction("i64.sub"), Instruction("local.set", "value"),
+                    Instruction("end"),
+                    # The shared WASI iovec uses 0..11. This synchronous
+                    # decimal scratch range stays below static data at 1024.
+                    Instruction("i32.const", 84), Instruction("local.set", "position"),
+                    Instruction("block", "rove_int_done"),
+                    Instruction("loop", "rove_int_digit"),
+                    Instruction("local.get", "position"), Instruction("i32.const", 1),
+                    Instruction("i32.sub"), Instruction("local.tee", "position"),
+                    Instruction("local.get", "value"), Instruction("i64.const", 10),
+                    Instruction("i64.rem_s"), Instruction("i32.wrap_i64"),
+                    Instruction("i32.const", 48), Instruction("i32.add"),
+                    Instruction("i32.store8"),
+                    Instruction("local.get", "value"), Instruction("i64.const", 10),
+                    Instruction("i64.div_s"), Instruction("local.tee", "value"),
+                    Instruction("i64.eqz"), Instruction("br_if", "rove_int_done"),
+                    Instruction("br", "rove_int_digit"),
+                    Instruction("end"), Instruction("end"),
+                    Instruction("local.get", "position"),
+                    Instruction("i32.const", 84), Instruction("local.get", "position"),
+                    Instruction("i32.sub"), Instruction("call", "__rove_mir_wasi_write"),
+                ], export=False,
+            ))
+        return runtime
 
     def _print_struct_helper(self, value_type: MIRType) -> str:
         name = value_type.name
@@ -174,6 +214,12 @@ class _WasmEmitter:
                 body.extend((
                     Instruction("i32.load8_u"),
                     Instruction("call", "__rove_mir_print_bool"),
+                ))
+            elif field.type == MIRType("int"):
+                self.wasi_int_print_used = True
+                body.extend((
+                    Instruction("i64.load"),
+                    Instruction("call", "__rove_mir_print_int"),
                 ))
             elif field.type.name in self.structs:
                 body.append(Instruction("call", self._print_struct_helper(field.type)))
@@ -954,6 +1000,9 @@ class _WasmEmitter:
                         helper = "__rove_mir_print_bool"
                     elif argument_type == MIRType("string"):
                         helper = "__rove_mir_print_string"
+                    elif argument_type == MIRType("int"):
+                        self.wasi_int_print_used = True
+                        helper = "__rove_mir_print_int"
                     elif argument_type.name in self.structs:
                         helper = self._print_struct_helper(argument_type)
                     else:
