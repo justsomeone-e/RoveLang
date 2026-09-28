@@ -69,6 +69,7 @@ const roveSetIndex = (value, index, item) => {
   }
   value[position] = item;
 };
+const roveArrayPush = (values, item) => { values.push(item); return values; };
 const roveField = (value, name) => value.fields[name];
 const roveSetField = (value, name, item) => { value.fields[name] = item; };
 const roveDisplay = value => {
@@ -218,6 +219,10 @@ class _JavaScriptEmitter:
                 if len(value.arguments) != 1 or value.destination is None:
                     raise MIRCodegenError("builtin::to_string requires one argument and a destination")
                 line = f"{self._place(value.destination)} = roveDisplay({self._operand(value.arguments[0])});"
+            elif value.function == "intrinsic::rove_array_push":
+                if len(value.arguments) != 2 or value.destination is None:
+                    raise MIRCodegenError("array push requires two arguments and a destination")
+                line = f"{self._place(value.destination)} = roveArrayPush({arguments});"
             elif value.function in self.function_names:
                 call = f"{self.function_names[value.function]}({arguments})"
                 callee = self.functions[value.function]

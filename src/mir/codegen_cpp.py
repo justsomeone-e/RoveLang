@@ -241,6 +241,11 @@ const Value& index(const std::vector<Value>& values, std::int64_t position) {
         throw std::out_of_range("array index out of bounds");
     return values[static_cast<std::size_t>(position)];
 }
+template <typename Value>
+std::vector<Value> array_push(std::vector<Value>&& values, Value value) {
+    values.push_back(std::move(value));
+    return values;
+}
 inline std::string to_string(const std::string& value) { return value; }
 inline std::string to_string(bool value) { return value ? "true" : "false"; }
 
@@ -551,6 +556,13 @@ void print(const Values&... values) {
                 lines = [
                     f"    {self._place(terminator.destination)} = "
                     f"rove_mir_runtime::to_string({self._operand(terminator.arguments[0])});"
+                ]
+            elif terminator.function == "intrinsic::rove_array_push":
+                if len(terminator.arguments) != 2 or terminator.destination is None:
+                    raise MIRCodegenError("array push requires two arguments and a destination")
+                lines = [
+                    f"    {self._place(terminator.destination)} = "
+                    f"rove_mir_runtime::array_push({arguments});"
                 ]
             elif terminator.function in self.function_names:
                 call = f"{self.function_names[terminator.function]}({arguments})"

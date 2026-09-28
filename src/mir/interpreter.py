@@ -260,6 +260,10 @@ class MIRInterpreter:
                 return False
         if name == "len":
             return len(arguments[0])
+        if symbol == "intrinsic::rove_array_push":
+            values = arguments[0]
+            values.append(arguments[1])
+            return values
         if name == "Ok":
             return ("Ok", arguments[0])
         if name == "Err":

@@ -12,7 +12,7 @@
 - 44 stable keywords
 - 52 AST node kinds
 - 47 Typed HIR node kinds
-- 165 diagnostic codes
+- 166 diagnostic codes
 - 18 builtins and 73 intrinsics
 
 ## Backends
@@ -43,7 +43,7 @@
 | `hir_verifier` | stable | `src/ir/verifier.py` | `tests/ir_suite.py` |
 | `runtime` | stable | `src/runtime` | `tests/numeric_semantics_suite.py`<br>`tests/cpp_e2e_suite.py`<br>`tests/js_e2e_suite.py` |
 | `backends` | stable | `src/core/backend_capabilities.py` | `tests/capability_suite.py` |
-| `mir` | experimental | `src/mir/model.py` | `tests/mir_suite.py`<br>`tests/mir_lowering_suite.py`<br>`tests/mir_cleanup_suite.py`<br>`tests/mir_memory_abi_suite.py`<br>`tests/mir_coroutine_suite.py`<br>`tests/mir_fold_suite.py` |
+| `mir` | experimental | `src/mir/model.py` | `tests/mir_suite.py`<br>`tests/mir_lowering_suite.py`<br>`tests/mir_cleanup_suite.py`<br>`tests/mir_memory_abi_suite.py`<br>`tests/mir_coroutine_suite.py`<br>`tests/mir_fold_suite.py`<br>`tests/mir_map_filter_suite.py` |
 | `mir_legalization` | experimental | `src/mir/legalization.py` | `tests/mir_legalization_suite.py` |
 
 ## Feature contracts
@@ -56,7 +56,7 @@
 | `async_tasks` | stable | defined | `cpp`, `js`, `python` | `tests/language_surface_suite.py` |
 | `canonical_scalar_text` | stable | defined | `c`, `cpp`, `js`, `llvm`, `python` | `tests/numeric_semantics_suite.py` |
 | `channels` | stable | defined | `asm`, `cpp`, `js`, `python` | `tests/capability_suite.py` |
-| `collection_combinators` | stable | defined | `cpp`, `js`, `python` | `tests/collection_api_suite.py`<br>`tests/mir_fold_suite.py` |
+| `collection_combinators` | stable | defined | `cpp`, `js`, `python` | `tests/collection_api_suite.py`<br>`tests/mir_fold_suite.py`<br>`tests/mir_map_filter_suite.py` |
 | `components` | beta | defined | `react` | `tests/test_react_target.py` |
 | `control_flow` | stable | defined | `asm`, `c`, `cpp`, `js`, `llvm`, `python`, `rust`, `wasm` | `tests/language_surface_suite.py` |
 | `encoding` | stable | defined | `js`, `python` | `tests/capability_suite.py` |

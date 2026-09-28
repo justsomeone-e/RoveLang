@@ -106,6 +106,10 @@ def rove_set_index(value, index, item):
         raise IndexError(f"index {position} out of bounds for length {len(value)}")
     value[position] = item
 
+def rove_array_push(values, item):
+    values.append(item)
+    return values
+
 def rove_field(value, name):
     return value["fields"][name]
 
@@ -288,6 +292,10 @@ class _PythonEmitter:
                 if len(value.arguments) != 1 or value.destination is None:
                     raise MIRCodegenError("builtin::to_string requires one argument and a destination")
                 line = f"{self._place(value.destination)} = rove_display({self._operand(value.arguments[0])})"
+            elif value.function == "intrinsic::rove_array_push":
+                if len(value.arguments) != 2 or value.destination is None:
+                    raise MIRCodegenError("array push requires two arguments and a destination")
+                line = f"{self._place(value.destination)} = rove_array_push({arguments})"
             elif value.function in self.function_names:
                 call = f"{self.function_names[value.function]}({arguments})"
                 callee = self.functions[value.function]

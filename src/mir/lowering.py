@@ -862,6 +862,10 @@ class _FunctionLowerer:
         if isinstance(node, IRCall):
             if node.callee_symbol == "builtin::fold":
                 return self._lower_fold(node)
+            if node.callee_symbol in ("builtin::map", "builtin::filter"):
+                return self._lower_map_filter(node)
+            if node.callee_symbol == "intrinsic::rove_array_push":
+                return self._lower_array_push(node)
             argument_nodes = (
                 ((node.receiver,) if node.receiver is not None else ()) + node.args
             )
@@ -1003,6 +1007,139 @@ class _FunctionLowerer:
             self._push(AssignStatement(
                 Place(result), UseRValue(self._lower_expr(accumulator)), span,
             ))
+            self._emit_cleanup_frame(len(self.defer_scopes) - 1)
+        finally:
+            self.defer_scopes.pop()
+            self.drop_scopes.pop()
+        return CopyOperand(Place(result))
+
+    def _lower_array_push(self, node: IRCall) -> Operand:
+        """Consume and reinitialize an array local while appending one value."""
+        span = _span(node.span)
+        if (
+            len(node.args) != 2
+            or not isinstance(node.args[0], IRReference)
+            or node.args[0].symbol not in self.locals
+        ):
+            raise MIRLoweringError("array push requires a local array and one value", span)
+        local = self.locals[node.args[0].symbol]
+        array_type = from_hir_type(node.args[0].type)
+        if array_type.name != "Array" or len(array_type.arguments) != 1:
+            raise MIRLoweringError("array push destination must have type Array<T>", span)
+        value = self._lower_expr(node.args[1])
+        value = self._consume_temporary(value, node.args[1].type)
+        continuation = self.builder.new_block()
+        place = Place(local)
+        self._terminate(CallTerminator(
+            "intrinsic::rove_array_push",
+            (MoveOperand(place), value),
+            place,
+            continuation,
+            None,
+            span,
+        ))
+        self.current = continuation
+        return ConstOperand(from_hir_type(VOID), None)
+
+    def _lower_map_filter(self, node: IRCall) -> Operand:
+        """Inline an immediate map/filter lambda into canonical collection-loop CFG."""
+        span = _span(node.span)
+        name = node.callee_symbol.removeprefix("builtin::")
+        if len(node.args) != 2 or not isinstance(node.args[1], IRLambda):
+            raise MIRLoweringError(f"{name} requires an array and lambda callback", span)
+        collection, callback = node.args
+        if collection.type.name != "Array" or len(collection.type.arguments) != 1:
+            raise MIRLoweringError(f"{name} requires Array<T>", span)
+        if len(callback.params) != 1:
+            raise MIRLoweringError(f"{name} callback must take one parameter", span)
+        if any(
+            isinstance(expression, (IRResultPropagate, IRAwait))
+            for expression in _walk_hir(callback.body)
+        ):
+            raise MIRLoweringError(
+                f"{name} callback-local Result propagation and suspension require closure control lowering",
+                span,
+            )
+
+        result = self._new_temporary(node.type, span)
+        prefix = f"{self.function.symbol}::{name}::{result}"
+        source_symbol = f"{prefix}::source"
+        source = IRReference(node.span, collection.type, "source", source_symbol)
+        result_symbol = f"{prefix}::result"
+        result_reference = IRReference(node.span, node.type, "result", result_symbol)
+        declarations: list[IRStatement] = [
+            IRVarDecl(node.span, "source", source_symbol, collection.type, collection),
+            IRVarDecl(node.span, "result", result_symbol, node.type, IRArray(node.span, node.type, ())),
+        ]
+
+        replacements: dict[str, IRReference] = {}
+        parameter = callback.params[0]
+        item_symbol = f"{prefix}::item"
+        replacements[parameter.symbol] = IRReference(node.span, parameter.type, "item", item_symbol)
+        for expression in _walk_hir(callback.body):
+            if (
+                isinstance(expression, IRReference)
+                and expression.symbol in self.locals
+                and expression.symbol not in replacements
+            ):
+                symbol = f"{prefix}::capture{len(replacements) - 1}"
+                reference = IRReference(expression.span, expression.type, expression.name, symbol)
+                declarations.append(IRVarDecl(
+                    expression.span, expression.name, symbol, expression.type, expression,
+                ))
+                replacements[expression.symbol] = reference
+
+        def rewrite(value):
+            if isinstance(value, IRReference) and value.symbol in replacements:
+                return replace(replacements[value.symbol], span=value.span)
+            if isinstance(value, tuple):
+                return tuple(rewrite(item) for item in value)
+            if is_dataclass(value):
+                return replace(value, **{
+                    field.name: rewrite(getattr(value, field.name)) for field in fields(value)
+                })
+            return value
+
+        transformed = rewrite(callback.body)
+        push = IRCall(
+            node.span, VOID, "array_push", "intrinsic::rove_array_push",
+            (result_reference, transformed),
+        )
+        if name == "map":
+            body: tuple[IRStatement, ...] = (IRExprStatement(node.span, push),)
+        else:
+            body = (IRIf(
+                node.span, transformed,
+                (IRExprStatement(node.span, IRCall(
+                    node.span,
+                    VOID,
+                    "array_push",
+                    "intrinsic::rove_array_push",
+                    (
+                        result_reference,
+                        IRReference(
+                            node.span,
+                            collection.type.arguments[0],
+                            "item",
+                            item_symbol,
+                        ),
+                    ),
+                )),),
+                (),
+                None,
+            ),)
+        loop = IRFor(node.span, "item", item_symbol, None, None, source, body)
+        self.defer_scopes.append([])
+        self.drop_scopes.append([])
+        try:
+            self._lower_statements(tuple(declarations) + (loop,))
+            result_local = self.locals[result_symbol]
+            self._push(AssignStatement(
+                Place(result), UseRValue(MoveOperand(Place(result_local))), span,
+            ))
+            for cleanup_frame in self.drop_scopes:
+                if result_local in cleanup_frame:
+                    cleanup_frame.remove(result_local)
             self._emit_cleanup_frame(len(self.defer_scopes) - 1)
         finally:
             self.defer_scopes.pop()
