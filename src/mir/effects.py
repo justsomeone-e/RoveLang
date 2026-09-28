@@ -118,6 +118,8 @@ def _direct_effects(
                 effects.add("may_block")
             elif function_name == "builtin::to_string":
                 effects.add("may_allocate")
+            elif function_name == "intrinsic::rove_array_push":
+                effects.add("may_allocate")
             elif function_name.startswith("builtin::"):
                 if function_name != "builtin::len":
                     effects.add("host_call")

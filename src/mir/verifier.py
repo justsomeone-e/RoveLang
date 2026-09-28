@@ -260,6 +260,34 @@ class MIRVerifier:
                 self._require_block(target, valid_blocks, span)
             self._require_block(terminator.otherwise, valid_blocks, span)
         elif isinstance(terminator, CallTerminator):
+            if terminator.function == "intrinsic::rove_array_push":
+                valid = (
+                    len(terminator.arguments) == 2
+                    and isinstance(terminator.arguments[0], MoveOperand)
+                    and not terminator.arguments[0].place.projections
+                    and terminator.destination == terminator.arguments[0].place
+                    and terminator.target is not None
+                    and terminator.unwind is None
+                    and terminator.error_destination is None
+                )
+                if valid:
+                    array_type = self._operand_type(terminator.arguments[0], locals_by_id, span)
+                    item_type = self._operand_type(terminator.arguments[1], locals_by_id, span)
+                    destination_type = self._place_type(terminator.destination, locals_by_id, span)
+                    valid = (
+                        array_type is not None
+                        and array_type.name == "Array"
+                        and len(array_type.arguments) == 1
+                        and item_type == array_type.arguments[0]
+                        and destination_type == array_type
+                    )
+                if not valid:
+                    self._issue(
+                        "MIR0409",
+                        "Array push requires a moved whole Array<T>, a matching T value, "
+                        "the same destination, and a non-unwinding continuation",
+                        span,
+                    )
             for argument in terminator.arguments:
                 self._operand_type(argument, locals_by_id, span)
             if terminator.destination is not None:

@@ -225,7 +225,7 @@ MIR_BACKEND_PROFILES["cpp"] = replace(
     }),
     legal_types=MIR_BACKEND_PROFILES["cpp"].legal_types | frozenset({"Array", "Option", "Result", "Task"}),
     legal_runtime_calls=MIR_BACKEND_PROFILES["cpp"].legal_runtime_calls | frozenset({
-        "builtin::len", "builtin::to_string",
+        "builtin::len", "builtin::to_string", "intrinsic::rove_array_push",
     }),
     legal_effects=MIR_BACKEND_PROFILES["cpp"].legal_effects | frozenset({
         "may_allocate", "may_suspend", "may_throw", "unsafe",
@@ -330,7 +330,7 @@ MIR_BACKEND_PROFILES["js"] = replace(
     }),
     legal_types=MIR_BACKEND_PROFILES["js"].legal_types | frozenset({"Array", "Option", "Result", "Task"}),
     legal_runtime_calls=MIR_BACKEND_PROFILES["js"].legal_runtime_calls | frozenset({
-        "builtin::len", "builtin::to_string",
+        "builtin::len", "builtin::to_string", "intrinsic::rove_array_push",
     }),
     legal_effects=MIR_BACKEND_PROFILES["js"].legal_effects | frozenset({
         "may_allocate", "may_suspend", "may_throw",
@@ -357,7 +357,7 @@ MIR_BACKEND_PROFILES["python"] = replace(
     }),
     legal_types=MIR_BACKEND_PROFILES["python"].legal_types | frozenset({"Array", "Option", "Result", "Task"}),
     legal_runtime_calls=MIR_BACKEND_PROFILES["python"].legal_runtime_calls | frozenset({
-        "builtin::len", "builtin::to_string",
+        "builtin::len", "builtin::to_string", "intrinsic::rove_array_push",
     }),
     legal_effects=MIR_BACKEND_PROFILES["python"].legal_effects | frozenset({
         "may_allocate", "may_suspend", "may_throw",
