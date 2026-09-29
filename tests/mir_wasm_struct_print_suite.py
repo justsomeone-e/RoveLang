@@ -1,4 +1,4 @@
-"""Executable WASI stdout parity for the bounded MIR struct display slice."""
+"""Executable WASI stdout parity for the bounded MIR aggregate display slice."""
 
 from __future__ import annotations
 
@@ -121,6 +121,28 @@ def main() -> None:
     assert "__rove_mir_print_int" in emit_legalized_wat(integer_module)
     assert _run_wasi(emit_legalized_wasm(integer_module), "main") == integer_expected
 
+    array_source = (
+        "struct Label { text: string }\n"
+        "struct Bucket { values: Array<int>, labels: Array<Label> }\n"
+        "fn main() {\n"
+        "  let empty: Array<int> = []\n"
+        "  let nested = [[1, 2], empty, [3]]\n"
+        '  print([1, -2, 3], [true, false], ["rö", "ve"])\n'
+        '  print(nested, [Label("x"), Label("y")])\n'
+        '  print(Bucket([4, 5], [Label("z")]), empty)\n'
+        "}\n"
+    )
+    array_module = _lower(array_source, "m5-wasm-array-print.rove")
+    array_expected = "\n".join(MIRInterpreter(array_module).run().output) + "\n"
+    assert array_expected == (
+        "[1, -2, 3] [true, false] [rö, ve]\n"
+        "[[1, 2], [], [3]] [Label(x), Label(y)]\n"
+        "Bucket([4, 5], [Label(z)]) []\n"
+    )
+    assert not collect_legalization_issues(array_module, "wasm", require_emitter=True)
+    assert "__rove_mir_print_array_" in emit_legalized_wat(array_module)
+    assert _run_wasi(emit_legalized_wasm(array_module), "main") == array_expected
+
     pure = _lower("fn answer() -> int { return 7 }\n", "m5-wasm-pure.rove")
     assert not collect_legalization_issues(pure, "wasm", require_emitter=True)
     assert "(import " not in emit_legalized_wat(pure)
@@ -128,7 +150,7 @@ def main() -> None:
     for name, unsupported in (
         ("float-field", "struct Count { value: float }\nfn main() { print(Count(1.5)) }\n"),
         ("float", "fn main() { print(1.5) }\n"),
-        ("array", "struct Label { text: string }\nfn main() { print([Label(\"x\")]) }\n"),
+        ("float-array", "fn main() { print([1.5]) }\n"),
     ):
         rejected = _lower(unsupported, f"m5-wasm-print-{name}-reject.rove")
         issues = collect_legalization_issues(rejected, "wasm", require_emitter=True)
@@ -139,7 +161,7 @@ def main() -> None:
         except MIRLegalizationError:
             pass
 
-    print("[PASS] Conditional WASI import, signed-i64/struct stdout parity, and display gates")
+    print("[PASS] Conditional WASI import, signed-i64/aggregate stdout parity, and display gates")
 
 
 if __name__ == "__main__":

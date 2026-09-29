@@ -2086,12 +2086,14 @@ Implementation status (through 2026-09-27):
   pass metadata/type checks on this host; executable Rust
   parity remains unverified here. C17 shares one typed display path between
   `print` and `to_string`, with an owned capture buffer tracked by its existing
-  allocation runtime. Wasm admits `print` of signed i64, bool, string, and
-  acyclic nominal structs recursively containing those fields through a
-  conditional WASI preview1 `fd_write` import. Integer formatting covers zero,
-  negative values, and both signed-i64 bounds in executable stdout parity with
-  the MIR interpreter. The MIR Wasm pilot still rejects float, array, tagged,
-  optional, and `to_string` struct display before emission. The MIR
+  allocation runtime. Wasm admits `print` of signed i64, bool, string, nested
+  arrays of those values, and acyclic nominal structs recursively containing
+  those fields through a conditional WASI preview1 `fd_write` import. Integer
+  formatting covers zero, negative values, and both signed-i64 bounds in
+  executable stdout parity with the MIR interpreter. Array stdout parity covers
+  empty and nested arrays, arrays of structs, and structs containing arrays.
+  The MIR Wasm pilot still rejects float, tagged, optional, and `to_string`
+  aggregate display before emission. The MIR
   interpreter, C++, LLVM, Python, C17, and Rust emitters now follow the existing
   source scalar-text contract: integral floats omit `.0`, either zero sign
   prints as `0`, and shortest round-tripping decimals
@@ -2277,8 +2279,8 @@ Implementation status (through 2026-09-27):
   including `Result<bool, bool>` where the payload begins in the next byte;
   executable tests cover both tags and Boolean values through re-homing and copy.
   A separate executable gate compares direct, nested, and empty bool/string
-  nominal-struct stdout with the MIR interpreter, including UTF-8 and runtime
-  string concatenation. Modules without `print` retain their import-free ABI;
+  nominal-struct stdout and supported array stdout with the MIR interpreter,
+  including UTF-8 and runtime string concatenation. Modules without `print` retain their import-free ABI;
   WASI write failures and short writes trap instead of silently truncating.
   When typed-HIR inference temporarily introduces `any` on the unused Result
   branch, Wasm cast legalization re-homes the tag and payload into the target

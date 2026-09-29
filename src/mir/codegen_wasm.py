@@ -91,15 +91,18 @@ class _WasmEmitter:
         self.wasi_print_used = False
         self.wasi_int_print_used = False
         self.print_struct_helpers: dict[str, FunctionIR | None] = {}
+        self.print_array_helpers: dict[MIRType, FunctionIR | None] = {}
 
     def lower(self) -> ModuleIR:
         lowered = [self._function(function) for function in self.module.functions]
         assert all(helper is not None for helper in self.owned_clone_helpers.values())
+        assert all(helper is not None for helper in self.print_array_helpers.values())
         functions = (
             self._integer_runtime() + self._array_runtime() + self._string_runtime()
             + list(self.owned_clone_helpers.values())
             + (self._wasi_print_runtime() if self.wasi_print_used else [])
-            + list(self.print_struct_helpers.values()) + lowered
+            + list(self.print_struct_helpers.values())
+            + list(self.print_array_helpers.values()) + lowered
         )
         heap_start = max(2048, (self.next_data_offset + 7) & ~7)
         imports = [ImportFunctionIR(
@@ -221,6 +224,8 @@ class _WasmEmitter:
                     Instruction("i64.load"),
                     Instruction("call", "__rove_mir_print_int"),
                 ))
+            elif field.type.name == "Array":
+                body.append(Instruction("call", self._print_array_helper(field.type)))
             elif field.type.name in self.structs:
                 body.append(Instruction("call", self._print_struct_helper(field.type)))
             else:
@@ -230,6 +235,65 @@ class _WasmEmitter:
         body.extend(self._wasi_literal(")"))
         self.print_struct_helpers[name] = FunctionIR(
             helper_name, [("value", I32)], VOID, body=body, export=False,
+        )
+        return helper_name
+
+    def _print_array_helper(self, value_type: MIRType) -> str:
+        helper_name = "__rove_mir_print_array_" + hashlib.sha256(
+            str(value_type).encode("utf-8")
+        ).hexdigest()[:12]
+        if value_type in self.print_array_helpers:
+            return helper_name
+        if value_type.name != "Array" or len(value_type.arguments) != 1:
+            raise MIRCodegenError(f"Wasm display type '{value_type}' was not legalized")
+        self.print_array_helpers[value_type] = None
+        element_type = value_type.arguments[0]
+        element_size = 4 if element_type == MIRType("bool") else self.layouts.layout_of(element_type).size
+        element_output: list[Instruction]
+        if element_type == MIRType("int"):
+            self.wasi_int_print_used = True
+            element_output = [
+                Instruction("i64.load"), Instruction("call", "__rove_mir_print_int"),
+            ]
+        elif element_type == MIRType("bool"):
+            element_output = [
+                Instruction("i32.load8_u"), Instruction("call", "__rove_mir_print_bool"),
+            ]
+        elif element_type == MIRType("string"):
+            element_output = [Instruction("call", "__rove_mir_print_string")]
+        elif element_type.name == "Array":
+            element_output = [Instruction("call", self._print_array_helper(element_type))]
+        elif element_type.name in self.structs:
+            element_output = [Instruction("call", self._print_struct_helper(element_type))]
+        else:
+            raise MIRCodegenError(f"Wasm array display element '{element_type}' was not legalized")
+        body = self._wasi_literal("[") + [
+            Instruction("local.get", "value"), Instruction("i32.load"),
+            Instruction("local.set", "data"),
+            Instruction("local.get", "value"), Instruction("i32.const", 4),
+            Instruction("i32.add"), Instruction("i32.load"),
+            Instruction("local.set", "length"),
+            Instruction("block", "rove_array_done"),
+            Instruction("loop", "rove_array_item"),
+            Instruction("local.get", "index"), Instruction("local.get", "length"),
+            Instruction("i32.ge_s"), Instruction("br_if", "rove_array_done"),
+            Instruction("local.get", "index"), Instruction("if"),
+            *self._wasi_literal(", "),
+            Instruction("end"),
+            Instruction("local.get", "data"), Instruction("local.get", "index"),
+            Instruction("i32.const", element_size), Instruction("i32.mul"),
+            Instruction("i32.add"),
+            *element_output,
+            Instruction("local.get", "index"), Instruction("i32.const", 1),
+            Instruction("i32.add"), Instruction("local.set", "index"),
+            Instruction("br", "rove_array_item"),
+            Instruction("end"), Instruction("end"),
+            *self._wasi_literal("]"),
+        ]
+        self.print_array_helpers[value_type] = FunctionIR(
+            helper_name, [("value", I32)], VOID,
+            locals=[("data", I32), ("length", I32), ("index", I32)],
+            body=body, export=False,
         )
         return helper_name
 
@@ -1003,6 +1067,8 @@ class _WasmEmitter:
                     elif argument_type == MIRType("int"):
                         self.wasi_int_print_used = True
                         helper = "__rove_mir_print_int"
+                    elif argument_type.name == "Array":
+                        helper = self._print_array_helper(argument_type)
                     elif argument_type.name in self.structs:
                         helper = self._print_struct_helper(argument_type)
                     else:

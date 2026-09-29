@@ -874,8 +874,8 @@ class _Legalizer:
                 if unsupported:
                     self._issue(
                         "MIRG1007",
-                        "Wasm WASI display supports int, bool, string, and acyclic "
-                        "nominal structs containing only those fields; got "
+                        "Wasm WASI display supports int, bool, string, and arrays "
+                        "or acyclic nominal structs containing only those values; got "
                         + ", ".join(str(item) for item in unsupported),
                         value.span,
                     )
@@ -1630,6 +1630,8 @@ class _Legalizer:
             return False
         if value_type in (MIRType("int"), MIRType("bool"), MIRType("string")):
             return True
+        if value_type.name == "Array" and len(value_type.arguments) == 1:
+            return self._wasm_print_compatible(value_type.arguments[0], stack)
         if value_type.arguments or value_type.name in stack:
             return False
         definition = self.type_definitions.get(value_type.name)
