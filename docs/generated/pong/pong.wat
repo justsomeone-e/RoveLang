@@ -39,8 +39,8 @@
 
   (func $__nyx_alloc (export "__nyx_alloc") (param $size i32) (result i32)
     (local $old_ptr i32)
-    (local $new_ptr i32)
-    (local $current_bytes i32)
+    (local $new_ptr i64)
+    (local $current_bytes i64)
     (local $pages i32)
     local.get $size
     i32.const 0
@@ -51,33 +51,38 @@
     end
     global.get $heap_ptr
     local.tee $old_ptr
+    i64.extend_i32_u
     local.get $size
-    i32.add
-    i32.const 7
-    i32.add
-    i32.const -8
-    i32.and
+    i64.extend_i32_u
+    i64.add
+    i64.const 7
+    i64.add
+    i64.const -8
+    i64.and
     local.tee $new_ptr
-    local.get $old_ptr
-    i32.lt_s
+    i64.const 4294967295
+    i64.gt_u
     if
       i32.const 0
       return
     end
     memory.size
-    i32.const 16
-    i32.shl
-    local.tee $current_bytes
+    i64.extend_i32_u
+    i64.const 16
+    i64.shl
+    local.set $current_bytes
     local.get $new_ptr
-    i32.lt_s
+    local.get $current_bytes
+    i64.gt_u
     if
       local.get $new_ptr
       local.get $current_bytes
-      i32.sub
-      i32.const 65535
-      i32.add
-      i32.const 16
-      i32.shr_s
+      i64.sub
+      i64.const 65535
+      i64.add
+      i64.const 16
+      i64.shr_u
+      i32.wrap_i64
       local.tee $pages
       memory.grow
       i32.const -1
@@ -88,6 +93,7 @@
       end
     end
     local.get $new_ptr
+    i32.wrap_i64
     global.set $heap_ptr
     local.get $old_ptr
     return

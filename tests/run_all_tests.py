@@ -134,6 +134,7 @@ from tests.bootstrap_parser_corpus_test import run_parser_validation_corpus
 from tests.bootstrap_typechecker_test import run_bootstrap_typechecker_test
 from tests.cli_process_suite import run_cli_process_suite
 from tests.bundle_suite import run_bundle_suite
+from tests.wasm_allocator_suite import run_wasm_allocator_suite
 from tests.web_bundle_suite import run_web_bundle_suite
 from tests.docs_site_suite import run_docs_site_suite
 from tests.self_host_suite import run_self_host_suite
@@ -190,6 +191,7 @@ def main():
     toolchain_cli_ok = run_toolchain_cli_suite()
 
     bundle_ok = run_bundle_suite()
+    wasm_alloc_ok = run_wasm_allocator_suite()
 
     print()
     web_bundle_ok = run_web_bundle_suite()
@@ -369,7 +371,7 @@ def main():
                   diff_ok and js_ok and rs_ok and e2e_ok and ffi_ok and
                   natlib_ok and man_ok and link_ok and plat_ok and sdk_ok and interop_ok and boot_lex_ok and boot_parse_ok and boot_corpus_ok and boot_tc_ok and battery_ok)
     print("=" * 70)
-    all_passed = all_passed and docs_site_ok
+    all_passed = all_passed and docs_site_ok and wasm_alloc_ok
     if all_passed:
         print("🏆 ALL TEST SUITES PASSED (100% SUCCESS RATE)")
     else:

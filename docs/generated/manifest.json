@@ -16,11 +16,11 @@
     },
     {
       "path": "generated/metrics/metrics.wasm",
-      "sha256": "e9773d4311353a526f880df90419297d00d2a017667a4f8ff27dff82b8681ed1"
+      "sha256": "bd37dca77117754196e9c512836e2dbb9c266309e08370072c1ffd816d9a89d9"
     },
     {
       "path": "generated/metrics/metrics.wat",
-      "sha256": "6fe3f0289eadbe04a9f3f124ebe954c3ed2e514d33cd5953e09e8a0f14010541"
+      "sha256": "4033ccd4f955bad6f27224dd0e6ea2f186cea10cef3a4cdc08d13d4c45bcbf91"
     },
     {
       "path": "generated/metrics/package.json",
@@ -44,11 +44,11 @@
     },
     {
       "path": "generated/pong/pong.wasm",
-      "sha256": "4a3394f1896824de0a4c6345d4749522e289147573ff511707e36c90c1016e9d"
+      "sha256": "98a85b1add360e1a3ad182e49a5fb3b0401ebac61bb2d52a0222674cb719a9f0"
     },
     {
       "path": "generated/pong/pong.wat",
-      "sha256": "2d7571d991c7c674391c6f6bc279c5d51594e9552b55f8b09d3085b528f75ad5"
+      "sha256": "217e9987fa9c803ee67a78ee7fcfe5808e57273fd8fe9426d3271d2e37aa44e9"
     }
   ]
 }

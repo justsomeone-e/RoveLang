@@ -2214,6 +2214,10 @@ Implementation status (through 2026-09-27):
   Wasm clears local descriptors and legalized projected field/index storage
   while its current bump arena retains module-lifetime ownership. This is
   operation parity, not a claim of equivalent reclamation timing;
+  the bundle and MIR wasm32 allocators use 64-bit intermediate arithmetic for
+  aligned pointers and memory growth, rejecting an end pointer beyond the
+  32-bit address range before it wraps. An executable boundary gate checks
+  normal growth and wrap rejection without allocating gigabytes of memory;
 - the first Wasm slice accepts pure `int`/`bool` functions, user calls, and
   dispatcher-based CFG. It emits both WAT and binary Wasm; the later bounded
   aggregate runtime described below admits specific strings, casts, and heap
