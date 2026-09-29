@@ -1469,7 +1469,13 @@ def _wasi_runtime_functions() -> List[FunctionIR]:
                 Instruction("i32.const", 1),
                 Instruction("i32.const", 8),
                 Instruction("call", "fd_write"),
-                Instruction("drop"),
+                Instruction("i32.eqz"),
+                Instruction("if"),
+                Instruction("else"), Instruction("unreachable"), Instruction("end"),
+                Instruction("i32.const", 8), Instruction("i32.load"),
+                Instruction("local.get", "len"), Instruction("i32.eq"),
+                Instruction("if"),
+                Instruction("else"), Instruction("unreachable"), Instruction("end"),
             ],
         )
     ]

@@ -99,11 +99,13 @@ def run_bundle_suite() -> bool:
             runner.write(
                 "import fs from 'node:fs';\n"
                 "const bytes = fs.readFileSync(process.argv[2]);\n"
+                "const mode = process.argv[3] || 'success';\n"
                 "let instance; let output = '';\n"
                 "const imports = { wasi_snapshot_preview1: { fd_write(fd, iovs, count, nwritten) {\n"
                 "  if (fd !== 1) return 8; const memory = instance.exports.memory; const view = new DataView(memory.buffer); let written = 0;\n"
                 "  for (let i = 0; i < count; i++) { const ptr = view.getUint32(iovs + i * 8, true); const len = view.getUint32(iovs + i * 8 + 4, true); output += new TextDecoder().decode(new Uint8Array(memory.buffer, ptr, len)); written += len; }\n"
-                "  view.setUint32(nwritten, written, true); return 0;\n"
+                "  if (mode === 'error') return 8;\n"
+                "  view.setUint32(nwritten, mode === 'partial' ? written - 1 : written, true); return 0;\n"
                 "} } };\n"
                 "({ instance } = await WebAssembly.instantiate(bytes, imports));\n"
                 "instance.exports._start();\n"
@@ -118,6 +120,15 @@ def run_bundle_suite() -> bool:
             errors="replace",
         )
         assert wasi_runtime.returncode == 0, wasi_runtime.stderr or wasi_runtime.stdout
+        for mode in ("error", "partial"):
+            failed_write = subprocess.run(
+                [node, wasi_runner_path, wasi_wasm_path, mode],
+                cwd=ROOT_DIR, capture_output=True, text=True,
+                encoding="utf-8", errors="replace",
+            )
+            assert failed_write.returncode != 0 and "RuntimeError" in failed_write.stderr, (
+                mode, failed_write.stdout, failed_write.stderr
+            )
 
         struct_source = os.path.join(output_dir, "struct_abi.rove")
         struct_output = os.path.join(output_dir, "struct_bundle")
