@@ -42,7 +42,9 @@ Changing value widths, packed-string layout, allocation ownership, or required
 exports requires Bundle ABI v2. Adding a new optional export is compatible.
 
 The current beta WASM lowerer also uses i32 for Rove integer arithmetic; it does
-not claim the stable hosted backends' full signed-i64 contract. Numeric-array
+not claim the stable hosted backends' full signed-i64 contract. Integer literals
+and literal global initializers outside the signed i32 range fail bundle
+compilation before artifacts are written; i32 arithmetic still wraps. Numeric-array
 parameter reads check logical indices and descriptor memory ranges before
 loading; violations trap (`WebAssembly.RuntimeError` in JavaScript). This does
 not enable array assignment, owned arrays, or catchable Rove exceptions. See

@@ -12,7 +12,7 @@ SOURCE_PATH = os.path.join(ROOT_DIR, "tests", "test_bundle.rove")
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
-from src.codegen.wasm_ir import BundleCompileError, DataSegment, ModuleIR
+from src.codegen.wasm_ir import BundleCompileError, DataSegment, FunctionIR, Instruction, ModuleIR
 
 
 def run_bundle_suite() -> bool:
@@ -42,6 +42,37 @@ def run_bundle_suite() -> bool:
             encoding="utf-8", errors="replace", timeout=30,
         )
         assert large_runtime.returncode == 0, large_runtime.stderr or large_runtime.stdout
+
+        bit_pattern = ModuleIR(
+            "i32_bit_pattern",
+            [FunctionIR("high_bit", [], "i32", body=[Instruction("i32.const", 1 << 31)])],
+            [], 2048,
+        )
+        bit_pattern_path = os.path.join(output_dir, "i32_bit_pattern.wasm")
+        with open(bit_pattern_path, "wb") as handle:
+            handle.write(bit_pattern.to_wasm())
+        bit_pattern_runtime = subprocess.run(
+            [node, "-e",
+             "const fs = require('node:fs'); const bytes = fs.readFileSync(process.argv[1]); "
+             "const exports = new WebAssembly.Instance(new WebAssembly.Module(bytes)).exports; "
+             "if (exports.high_bit() !== -2147483648) process.exit(1);",
+             bit_pattern_path],
+            cwd=ROOT_DIR, capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=30,
+        )
+        assert bit_pattern_runtime.returncode == 0, bit_pattern_runtime.stderr or bit_pattern_runtime.stdout
+
+        for out_of_range in (-(1 << 31) - 1, 1 << 32):
+            invalid = ModuleIR(
+                "invalid_i32_immediate",
+                [FunctionIR("value", [], "i32", body=[Instruction("i32.const", out_of_range)])],
+                [], 2048,
+            )
+            try:
+                invalid.to_wasm()
+                raise AssertionError(f"Wasm encoded out-of-range i32 immediate {out_of_range}")
+            except BundleCompileError:
+                pass
         try:
             ModuleIR("oversized_static", [], [DataSegment(1 << 32, b"x")], 2048).to_wasm()
             raise AssertionError("Wasm accepted static data beyond the wasm32 address space")
@@ -246,9 +277,36 @@ def run_bundle_suite() -> bool:
         )
         assert host_bundle.returncode == 0, host_bundle.stderr or host_bundle.stdout
 
+        edge_source = os.path.join(output_dir, "i32_edges.rove")
+        edge_output = os.path.join(output_dir, "i32_edges_bundle")
+        with open(edge_source, "w", encoding="utf-8") as source_file:
+            source_file.write(
+                "var minimum: int = -2147483648\n"
+                "fn min_value() -> int { return minimum }\n"
+                "fn max_value() -> int { return 2147483647 }\n"
+            )
+        edge_bundle = subprocess.run(
+            [sys.executable, CLI_PATH, "bundle", edge_source, "--output", edge_output],
+            cwd=ROOT_DIR, capture_output=True, text=True, encoding="utf-8", errors="replace",
+        )
+        assert edge_bundle.returncode == 0, edge_bundle.stderr or edge_bundle.stdout
+        edge_runtime = subprocess.run(
+            [node, "-e",
+             "const fs = require('node:fs'); const bytes = fs.readFileSync(process.argv[1]); "
+             "const exports = new WebAssembly.Instance(new WebAssembly.Module(bytes)).exports; "
+             "if (exports.min_value() !== -2147483648 || exports.max_value() !== 2147483647) process.exit(1);",
+             os.path.join(edge_output, "i32_edges.wasm")],
+            cwd=ROOT_DIR, capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=30,
+        )
+        assert edge_runtime.returncode == 0, edge_runtime.stderr or edge_runtime.stdout
+
         for name, source, diagnostic in (
             ("struct_index", "struct Point { x: int }\nfn at(p: Point, index: int) -> int { return p[index]; }", "cannot be indexed"),
             ("struct_write", "struct Point { x: int }\nfn write(p: Point) -> void { set p.x = 3; }", "Bundle assignment currently requires"),
+            ("large_literal", "fn high() -> int { return 3000000000 }", "outside the signed i32 range"),
+            ("large_global", "var high: int = 2147483648\nfn value() -> int { return high }", "outside the signed i32 range"),
+            ("small_literal", "fn low() -> int { return -2147483649 }", "outside the signed i32 range"),
         ):
             rejected_source = os.path.join(output_dir, name + ".rove")
             rejected_output = os.path.join(output_dir, name + "_bundle")

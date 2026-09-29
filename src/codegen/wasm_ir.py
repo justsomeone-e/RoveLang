@@ -556,6 +556,8 @@ class BundleLowerer:
                     f"WASM global '{item.name}' requires a numeric or bool literal initializer"
                 )
             initial = 1 if item.expr.type.name == "bool" and item.expr.value else item.expr.value
+            if item.expr.type.name == "int":
+                initial = _bundle_i32_literal(initial)
             globals_.append(GlobalIR(item.name, value_type, initial, not item.is_const))
             self.global_types[item.name] = value_type
         return globals_
@@ -867,7 +869,7 @@ class BundleLowerer:
             if node.type.name == "float":
                 return [Instruction("f64.const", node.value)]
             if node.type.name == "int":
-                return [Instruction("i32.const", node.value)]
+                return [Instruction("i32.const", _bundle_i32_literal(node.value))]
             raise BundleCompileError(f"Literal type '{node.type}' is not a numeric WASM value")
         if isinstance(node, IRReference):
             value_type = symbols.get(node.name)
@@ -1577,6 +1579,14 @@ def _align8(value: int) -> int:
     return (value + 7) & -8
 
 
+def _bundle_i32_literal(value: int) -> int:
+    if not -(1 << 31) <= value < (1 << 31):
+        raise BundleCompileError(
+            f"WASM Bundle ABI v1 int literal {value} is outside the signed i32 range"
+        )
+    return value
+
+
 def _u32(value: int) -> bytes:
     if value < 0:
         raise ValueError("u32 LEB128 cannot encode a negative value")
@@ -1592,6 +1602,8 @@ def _u32(value: int) -> bytes:
 
 
 def _signed_leb(value: int, bits: int) -> bytes:
+    if not -(1 << (bits - 1)) <= value < (1 << (bits - 1)):
+        raise BundleCompileError(f"WASM signed {bits}-bit immediate is out of range: {value}")
     output = bytearray()
     more = True
     while more:
@@ -1606,6 +1618,8 @@ def _signed_leb(value: int, bits: int) -> bytes:
 
 
 def _s32(value: int) -> bytes:
+    if 1 << 31 <= value < 1 << 32:
+        value -= 1 << 32
     return _signed_leb(value, 32)
 
 
