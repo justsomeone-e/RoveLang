@@ -2222,7 +2222,10 @@ Implementation status (through 2026-09-27):
   dispatcher-based CFG. It emits both WAT and binary Wasm; the later bounded
   aggregate runtime described below admits specific strings, casts, and heap
   values while unrelated host calls and unsupported heap shapes remain rejected
-  at legalization.
+  at legalization. Shared WAT and binary emission size initial linear memory
+  from static segments and the heap start; an executable test instantiates a
+  module with more than two pages of static data, while data beyond the wasm32
+  address space is rejected before emission.
   String `+` allocates a fresh UTF-8 descriptor and copies both byte ranges;
   equality and ordering compare descriptor contents byte by byte, so equal
   strings in distinct allocations compare equal. The executable gate covers

@@ -9,6 +9,10 @@ import tempfile
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLI_PATH = os.path.join(ROOT_DIR, "src", "cli.py")
 SOURCE_PATH = os.path.join(ROOT_DIR, "tests", "test_bundle.rove")
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
+
+from src.codegen.wasm_ir import BundleCompileError, DataSegment, ModuleIR
 
 
 def run_bundle_suite() -> bool:
@@ -21,6 +25,34 @@ def run_bundle_suite() -> bool:
         return False
 
     with tempfile.TemporaryDirectory(prefix="rove_bundle_ir_") as output_dir:
+        large_data = DataSegment(2048, b"x" * 130000)
+        large_module = ModuleIR("large_static", [], [large_data], 132048)
+        assert '(memory (export "memory") 3)' in large_module.to_wat()
+        large_wasm_path = os.path.join(output_dir, "large_static.wasm")
+        with open(large_wasm_path, "wb") as handle:
+            handle.write(large_module.to_wasm())
+        large_runtime = subprocess.run(
+            [node, "--input-type=module", "-e",
+             "import fs from 'node:fs'; const bytes = fs.readFileSync(process.argv[1]); "
+             "const {instance} = await WebAssembly.instantiate(bytes); "
+             "const memory = new Uint8Array(instance.exports.memory.buffer); "
+             "if (memory.length !== 3 * 65536 || memory[132047] !== 120) process.exit(1);",
+             large_wasm_path],
+            cwd=ROOT_DIR, capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=30,
+        )
+        assert large_runtime.returncode == 0, large_runtime.stderr or large_runtime.stdout
+        try:
+            ModuleIR("oversized_static", [], [DataSegment(1 << 32, b"x")], 2048).to_wasm()
+            raise AssertionError("Wasm accepted static data beyond the wasm32 address space")
+        except BundleCompileError:
+            pass
+        try:
+            ModuleIR("oversized_heap", [], [], 1 << 32).to_wasm()
+            raise AssertionError("Wasm accepted a heap start beyond the wasm32 address space")
+        except BundleCompileError:
+            pass
+
         bundle = subprocess.run(
             [sys.executable, CLI_PATH, "bundle", SOURCE_PATH, "--output", output_dir, "--react", "--vue", "--svelte", "--package"],
             cwd=ROOT_DIR,
@@ -360,7 +392,7 @@ def run_bundle_suite() -> bool:
         assert "i32.mul" in wat
         assert "call $echo_inner" in wat
 
-    print("[PASS] Typed lowering, checked array reads and in-place writes, string indexing and char returns, lazy Boolean guards, build/bundle artifacts, definite returns, UTF-8 ABI, isolated instances, and 100k allocation stress")
+    print("[PASS] Typed lowering, checked arrays and strings, large static data, build/bundle artifacts, UTF-8 ABI, isolated instances, and 100k allocation stress")
     return True
 
 
