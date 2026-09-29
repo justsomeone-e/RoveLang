@@ -1800,8 +1800,7 @@ def run_mir_legalization_suite() -> bool:
     wasm_struct_result_bytes = emit_legalized_wasm(wasm_struct_result)
     assert _run_wasm_export(wasm_struct_result_bytes, "struct_result_ok_probe") == "73\n"
     assert _run_wasm_export(wasm_struct_result_bytes, "struct_result_err_probe") == "7\n"
-    rejected_wasm = {issue.code for issue in collect_legalization_issues(scalar, "wasm")}
-    assert "MIRG1007" in rejected_wasm, rejected_wasm
+    assert not collect_legalization_issues(scalar, "wasm", require_emitter=True)
 
     unsupported_operation = _unsupported_operation_module()
     for target in MIR_BACKEND_MIGRATION_ORDER:
@@ -1849,7 +1848,7 @@ def run_mir_legalization_suite() -> bool:
             issues = collect_legalization_issues(
                 struct_display, target, require_emitter=True
             )
-            if target in {"cpp", "llvm", "rust", "js", "python", "c"}:
+            if target != "wasm" or name in {"direct", "array"}:
                 assert not issues, (name, issues)
                 continue
             assert any(
