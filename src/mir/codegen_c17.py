@@ -969,6 +969,33 @@ static void *rove_box_array_{outer_suffix}({outer} value) {{
                 return [
                     f"l{value.destination.local} = (int64_t)({length});"
                 ] + self._goto(value.target)
+            if value.function == "intrinsic::rove_array_push":
+                if len(value.arguments) != 2 or value.destination is None:
+                    raise MIRCodegenError("array push requires two arguments and a destination")
+                array_type = self._operand_type(value.arguments[0])
+                if not self._is_supported_array(array_type):
+                    raise MIRCodegenError(f"C17 array push requires a supported Array<T>, got '{array_type}'")
+                element_type = self._type(array_type.arguments[0])
+                array_name = self._type(array_type)
+                return [
+                    "{",
+                    f"    {array_name} rove_source = {self._operand(value.arguments[0])};",
+                    f"    {element_type} rove_item = {self._operand(value.arguments[1])};",
+                    "    if (rove_source.length >= SIZE_MAX / sizeof(*rove_source.data)) {",
+                    '        fputs("Rove C17 array is too large\\n", stderr);',
+                    "        exit(1);",
+                    "    }",
+                    f"    {array_name} rove_result = {{ NULL, rove_source.length + 1 }};",
+                    f"    rove_result.data = ({element_type} *)rove_track_string(",
+                    "        rove_result.length * sizeof(*rove_result.data));",
+                    "    if (rove_source.length != 0) {",
+                    "        memcpy(rove_result.data, rove_source.data,",
+                    "               rove_source.length * sizeof(*rove_source.data));",
+                    "    }",
+                    "    rove_result.data[rove_source.length] = rove_item;",
+                    f"    {self._place(value.destination)} = rove_result;",
+                    "}",
+                ] + self._goto(value.target)
             if value.function not in self.function_names:
                 raise MIRCodegenError(f"illegal runtime call reached C17 emitter: {value.function}")
             call = f"{self.function_names[value.function]}({arguments})"

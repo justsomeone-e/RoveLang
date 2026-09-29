@@ -14,6 +14,7 @@ from src.mir import (
     MIRLegalizationError,
     MIRVerificationError,
     emit_legalized_cpp,
+    emit_legalized_c17,
     emit_legalized_javascript,
     emit_legalized_python,
     emit_legalized_rust,
@@ -24,7 +25,8 @@ from src.mir import (
 from src.mir.model import CallTerminator, ConstOperand
 from src.mir.types import MIRType
 from tests.mir_legalization_suite import (
-    _assert_rust_runtime, _compile_and_run_cpp, _run_javascript, _run_python,
+    _assert_rust_runtime, _compile_and_run_c17, _compile_and_run_cpp,
+    _run_javascript, _run_python,
 )
 
 
@@ -46,6 +48,21 @@ fn main() {
 '''
 
 EXPECTED = "source\n6 7 2\n0\n1 9\n"
+C17_SOURCE = '''
+struct Cell { label: string, nums: Array<int> }
+fn main() {
+    print(map([true, false], item => !item))
+    print(filter([1.5, 2.5], item => item > 2.0))
+    print(map(["a", "b"], item => item + "!"))
+    var cells = [Cell("a", [1]), Cell("b", [2])]
+    var picked = filter(cells, item => item.nums[0] > 1)
+    print(picked[0].label)
+    var copied = map(cells, item => item)
+    set copied[0].nums[0] = 9
+    print(cells[0].nums[0], copied[0].nums[0])
+}
+'''
+C17_EXPECTED = "[false, true]\n[2.5]\n[a!, b!]\nb\n1 9\n"
 THROW_SOURCE = '''
 fn fail_map(value: int) -> int {
     if value == 2 { throw "map failed" }
@@ -112,7 +129,7 @@ def run_mir_map_filter_suite() -> bool:
         raise AssertionError("MIR verifier accepted an array push with the wrong element type")
     except MIRVerificationError as error:
         assert any(issue.code == "MIR0409" for issue in error.issues), error.issues
-    for target in ("wasm", "c", "llvm"):
+    for target in ("wasm", "llvm"):
         try:
             legalize_mir(module, target)
             raise AssertionError(f"{target} unexpectedly legalized array push")
@@ -121,17 +138,36 @@ def run_mir_map_filter_suite() -> bool:
     assert "\n".join(MIRInterpreter(module).run().output) + "\n" == EXPECTED
     for emit, run in (
         (emit_legalized_cpp, _compile_and_run_cpp),
+        (emit_legalized_c17, _compile_and_run_c17),
         (emit_legalized_javascript, _run_javascript),
         (emit_legalized_python, _run_python),
     ):
         assert run(emit(module)) == EXPECTED
     _assert_rust_runtime(emit_legalized_rust(module), EXPECTED)
+    c17_checked = compiler.check_source(
+        C17_SOURCE, filename="m6_c17_map_filter.rove", target="cpp",
+    )
+    assert c17_checked.success, c17_checked.diagnostics
+    c17_module = lower_hir_to_mir(c17_checked.hir)
+    assert "\n".join(MIRInterpreter(c17_module).run().output) + "\n" == C17_EXPECTED
+    assert _compile_and_run_c17(emit_legalized_c17(c17_module)) == C17_EXPECTED
+    bad_unary = compiler.check_source(
+        "fn main() { print(map([true], item => ~item)) }",
+        filename="m6_map_invalid_unary.rove", target="cpp",
+    )
+    assert not bad_unary.success
+    assert any(item.code == "E2005" for item in bad_unary.diagnostics), bad_unary.diagnostics
     throwing = compiler.check_source(
         THROW_SOURCE, filename="m6_map_filter_throw.rove", target="cpp",
     )
     assert throwing.success, throwing.diagnostics
     throwing_module = lower_hir_to_mir(throwing.hir)
     assert "\n".join(MIRInterpreter(throwing_module).run().output) + "\n" == THROW_EXPECTED
+    try:
+        legalize_mir(throwing_module, "c")
+        raise AssertionError("C17 unexpectedly legalized map/filter unwind")
+    except MIRLegalizationError as error:
+        assert any(issue.code == "MIRG1011" for issue in error.issues), error.issues
     for emit, run in (
         (emit_legalized_cpp, _compile_and_run_cpp),
         (emit_legalized_javascript, _run_javascript),
@@ -139,7 +175,7 @@ def run_mir_map_filter_suite() -> bool:
     ):
         assert run(emit(throwing_module)) == THROW_EXPECTED
     _assert_rust_runtime(emit_legalized_rust(throwing_module), THROW_EXPECTED)
-    print("[PASS] MIR map/filter typing, target gates, source order, empty input, ownership, and C++/Rust/JS/Python gates")
+    print("[PASS] MIR map/filter typing, target gates, source order, nested ownership, C17/C++/JS/Python parity, and Rust gate")
     return True
 
 

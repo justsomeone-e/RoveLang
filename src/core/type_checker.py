@@ -747,6 +747,10 @@ class TypeChecker:
             self.visit(node.left)
             self.visit(node.right)
 
+        elif isinstance(node, UnaryOpNode):
+            self.infer_type(node)
+            self.visit(node.expr)
+
         elif isinstance(node, (ConditionalExprNode, MatchExprNode)):
             self.infer_type(node)
 
@@ -799,6 +803,25 @@ class TypeChecker:
                     help_msg=f"Variable '{node.name}' is referenced before declaration or outside its scope."
                 )
             inferred = t if t else 'any'
+            node.inferred_type = inferred
+            return inferred
+        if isinstance(node, UnaryOpNode):
+            operand_type = self.infer_type(node.expr)
+            if node.op in ('!', 'not'):
+                inferred = 'bool'
+                valid = operand_type in ('bool', 'int', 'any')
+            elif node.op == '~':
+                inferred = operand_type
+                valid = operand_type in ('int', 'any')
+            else:
+                inferred = operand_type
+                valid = node.op == '*' or operand_type in ('int', 'float', 'any')
+            if not valid:
+                DiagnosticEmitter.emit_error(
+                    self.filepath, self.source, node.line, node.col,
+                    "E2005", f"Operator '{node.op}' is not supported for type '{operand_type}'",
+                    expected="a compatible unary operand", found=operand_type,
+                )
             node.inferred_type = inferred
             return inferred
         if isinstance(node, BinaryOpNode):

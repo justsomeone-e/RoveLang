@@ -387,7 +387,7 @@ MIR_BACKEND_PROFILES["c"] = replace(
     }),
     legal_types=MIR_BACKEND_PROFILES["c"].legal_types | frozenset({"Array", "Option", "Result"}),
     legal_runtime_calls=MIR_BACKEND_PROFILES["c"].legal_runtime_calls | frozenset({
-        "builtin::len", "builtin::to_string",
+        "builtin::len", "builtin::to_string", "intrinsic::rove_array_push",
     }),
     legal_effects=MIR_BACKEND_PROFILES["c"].legal_effects | frozenset({"may_allocate"}),
 )
