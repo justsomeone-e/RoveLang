@@ -303,7 +303,7 @@ MIR_BACKEND_PROFILES["rust"] = replace(
     }),
     legal_types=MIR_BACKEND_PROFILES["rust"].legal_types | frozenset({"Array", "Result", "Task"}),
     legal_runtime_calls=MIR_BACKEND_PROFILES["rust"].legal_runtime_calls | frozenset({
-        "builtin::len", "builtin::to_string",
+        "builtin::len", "builtin::to_string", "intrinsic::rove_array_push",
     }),
     legal_effects=MIR_BACKEND_PROFILES["rust"].legal_effects | frozenset({
         "may_allocate", "may_suspend", "may_throw", "unsafe",

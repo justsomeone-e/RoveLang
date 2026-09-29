@@ -8,10 +8,12 @@ if str(ROOT) not in sys.path:
 from src.api import RoveCompiler
 from src.mir import (
     MIRInterpreter, MIRLoweringError, emit_legalized_cpp, emit_legalized_javascript,
-    emit_legalized_python, lower_hir_to_mir,
+    emit_legalized_python, emit_legalized_rust, lower_hir_to_mir,
 )
 from src.mir.model import CallTerminator
-from tests.mir_legalization_suite import _compile_and_run_cpp, _run_javascript, _run_python
+from tests.mir_legalization_suite import (
+    _assert_rust_runtime, _compile_and_run_cpp, _run_javascript, _run_python,
+)
 
 
 def run_mir_fold_suite() -> bool:
@@ -33,6 +35,7 @@ def run_mir_fold_suite() -> bool:
         (emit_legalized_python, _run_python),
     ):
         assert run(emit(module)) == expected
+    _assert_rust_runtime(emit_legalized_rust(module), expected)
     for source, code in (
         ('fn main() { print(fold(1, 0, (a, b) => a + b)) }', "E2040"),
         ('fn main() { print(fold([1], 0, item => item)) }', "E2042"),
@@ -53,7 +56,7 @@ def run_mir_fold_suite() -> bool:
         raise AssertionError("Reducer-local return was inlined into the enclosing function")
     except MIRLoweringError as error:
         assert "closure control lowering" in str(error)
-    print("[PASS] MIR fold captures, evaluation order, empty/nested/owned reducers, unwind, and C++/JS/Python parity")
+    print("[PASS] MIR fold captures, evaluation order, empty/nested/owned reducers, unwind, and C++/Rust/JS/Python gates")
     return True
 
 

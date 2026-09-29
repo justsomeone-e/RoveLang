@@ -16,13 +16,16 @@ from src.mir import (
     emit_legalized_cpp,
     emit_legalized_javascript,
     emit_legalized_python,
+    emit_legalized_rust,
     legalize_mir,
     lower_hir_to_mir,
     verify_mir,
 )
 from src.mir.model import CallTerminator, ConstOperand
 from src.mir.types import MIRType
-from tests.mir_legalization_suite import _compile_and_run_cpp, _run_javascript, _run_python
+from tests.mir_legalization_suite import (
+    _assert_rust_runtime, _compile_and_run_cpp, _run_javascript, _run_python,
+)
 
 
 SOURCE = '''
@@ -109,7 +112,7 @@ def run_mir_map_filter_suite() -> bool:
         raise AssertionError("MIR verifier accepted an array push with the wrong element type")
     except MIRVerificationError as error:
         assert any(issue.code == "MIR0409" for issue in error.issues), error.issues
-    for target in ("wasm", "rust", "c", "llvm"):
+    for target in ("wasm", "c", "llvm"):
         try:
             legalize_mir(module, target)
             raise AssertionError(f"{target} unexpectedly legalized array push")
@@ -122,6 +125,7 @@ def run_mir_map_filter_suite() -> bool:
         (emit_legalized_python, _run_python),
     ):
         assert run(emit(module)) == EXPECTED
+    _assert_rust_runtime(emit_legalized_rust(module), EXPECTED)
     throwing = compiler.check_source(
         THROW_SOURCE, filename="m6_map_filter_throw.rove", target="cpp",
     )
@@ -134,7 +138,8 @@ def run_mir_map_filter_suite() -> bool:
         (emit_legalized_python, _run_python),
     ):
         assert run(emit(throwing_module)) == THROW_EXPECTED
-    print("[PASS] MIR map/filter typing, target gates, source order, empty input, ownership, and C++/JS/Python parity")
+    _assert_rust_runtime(emit_legalized_rust(throwing_module), THROW_EXPECTED)
+    print("[PASS] MIR map/filter typing, target gates, source order, empty input, ownership, and C++/Rust/JS/Python gates")
     return True
 
 

@@ -2419,13 +2419,15 @@ and initial-value expressions run once in source order; captured locals are
 copied when the callback is created. Fold accumulator parameters and collection
 elements use ordinary value-copy and lexical cleanup rules. Map/filter append
 through a verifier-checked, allocating MIR runtime call that consumes and
-reinitializes its destination array; C++, JavaScript, and Python implement this
-call, while other backend profiles keep it gated. The focused
+reinitializes its destination array; C++, Rust, JavaScript, and Python implement
+this call, while other backend profiles keep it gated. The focused
 `tests/mir_fold_suite.py` and `tests/mir_map_filter_suite.py` cover empty input,
 nested callbacks, source evaluation order, array ownership, malformed-MIR
 verification, backend gates, and executable C++/JavaScript/Python parity against
-the MIR interpreter. This is a non-escaping callback slice, not general
-first-class closure support: stored
+the MIR interpreter. Rust source passes local metadata/type checking; its
+runtime parity still requires a host with a working Rust linker. Both suites
+are included in `tests/run_all_tests.py`. This is a non-escaping callback slice,
+not general first-class closure support: stored
 or returned closures and callback-local `?`/`await` control flow remain open.
 Those control operators are rejected rather than inlined with the enclosing
 function's return/suspend semantics. M5 remains in progress.

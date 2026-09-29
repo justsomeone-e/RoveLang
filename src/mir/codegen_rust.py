@@ -520,6 +520,15 @@ class _RustEmitter:
                 if len(value.arguments) != 1 or value.destination is None:
                     raise MIRCodegenError("builtin::to_string requires one argument and a destination")
                 line = f"{self._place(value.destination)} = rove_display(&{self._operand(value.arguments[0])});"
+            elif value.function == "intrinsic::rove_array_push":
+                if len(value.arguments) != 2 or value.destination is None:
+                    raise MIRCodegenError("array push requires two arguments and a destination")
+                line = (
+                    f"{self._place(value.destination)} = {{ "
+                    f"let mut rove_values = {self._operand(value.arguments[0])}; "
+                    f"rove_values.push({self._operand(value.arguments[1])}); "
+                    "rove_values };"
+                )
             elif value.function in self.function_names:
                 call = f"{self.function_names[value.function]}({arguments})"
                 callee = self.functions[value.function]
