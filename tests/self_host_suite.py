@@ -10,6 +10,31 @@ if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
 from src.codegen.cpp_toolchain import CppToolchain
+from src.api import RoveCompiler
+
+
+def _run_lexer_regressions(native_compiler: str, temp_dir: str) -> None:
+    compiler = RoveCompiler(ROOT_DIR)
+    cases = (
+        ("closed-comment", "fn main() { /* ok */ print(1) }\n", True),
+        ("unclosed-comment", "fn main() { print(1) }\n/*", False),
+        ("unclosed-string", 'fn main() { print("oops', False),
+        ("unexpected-character", "fn main() { print(1) }\n§", False),
+    )
+    for name, source, valid in cases:
+        checked = compiler.check_source(source, filename=f"{name}.rove", target="cpp")
+        assert checked.success is valid, (name, checked.diagnostics)
+        source_path = os.path.join(temp_dir, f"{name}.rove")
+        with open(source_path, "w", encoding="utf-8") as handle:
+            handle.write(source)
+        native = subprocess.run(
+            [native_compiler, "check", source_path],
+            cwd=ROOT_DIR, capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=30,
+        )
+        assert (native.returncode == 0) is valid, (name, native.stdout, native.stderr)
+        if not valid:
+            assert "ROVE_PARSE_ERROR:" in native.stdout, (name, native.stdout, native.stderr)
 
 
 def _run_reported_example_regressions(native_compiler: str, temp_dir: str) -> None:
@@ -107,6 +132,7 @@ def run_self_host_suite() -> bool:
             timeout=300,
         )
         assert native_build.returncode == 0, native_build.stderr or native_build.stdout
+        _run_lexer_regressions(native_compiler, temp_dir)
         _run_reported_example_regressions(native_compiler, temp_dir)
 
         source_path = os.path.join(temp_dir, "sample.rove")

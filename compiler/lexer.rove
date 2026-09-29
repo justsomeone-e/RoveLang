@@ -227,6 +227,8 @@ impl Lexer {
 
             // Block comment /* ... */
             if self.match_str("/*") {
+                var start_line = self.line
+                var start_col = self.col
                 self.pos = self.pos + 2
                 self.col = self.col + 2
                 while self.pos + 1 < length and not (self.peek_char() == "*" and self.peek_ahead(1) == "/") {
@@ -237,6 +239,10 @@ impl Lexer {
                         self.col = self.col + 1
                     }
                     self.pos = self.pos + 1
+                }
+                if self.pos + 1 >= length {
+                    tokens.push(Token("INVALID", "Unterminated block comment", start_line, start_col))
+                    break
                 }
                 self.pos = self.pos + 2
                 self.col = self.col + 2
@@ -419,6 +425,7 @@ impl Lexer {
 
             // Strings
             if ch == "\"" or ch == "'" {
+                var start_line = self.line
                 var quote = ch
                 var start_col = self.col
                 self.pos = self.pos + 1
@@ -462,6 +469,10 @@ impl Lexer {
                         str_val = str_val + self.peek_char()
                         self.pos = self.pos + 1
                     }
+                }
+                if self.pos >= length {
+                    tokens.push(Token("INVALID", "Unterminated string literal", start_line, start_col))
+                    break
                 }
                 self.pos = self.pos + 1
                 self.col = self.col + 1
@@ -610,9 +621,8 @@ impl Lexer {
                 continue
             }
 
-            // Unexpected char - skip with warning
-            self.pos = self.pos + 1
-            self.col = self.col + 1
+            tokens.push(Token("INVALID", "Unexpected character: " + ch, self.line, self.col))
+            break
         }
 
         tokens.push(Token("EOF", "EOF", self.line, self.col))

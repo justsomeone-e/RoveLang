@@ -57,6 +57,8 @@ class Lexer:
                     else:
                         self.col += 1
                     self.pos += 1
+                if self.pos + 1 >= length:
+                    self.error("Unterminated block comment")
                 self.pos += 2; self.col += 2
                 continue
 
