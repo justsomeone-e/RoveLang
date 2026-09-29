@@ -8,7 +8,7 @@
     },
     {
       "path": "generated/metrics/metrics.mjs",
-      "sha256": "c663490d1bdeda1ab2bf671883bcbaa671639b2085d62127fa355f8c34bfe9be"
+      "sha256": "10454781dedf5e1aa5d204418f2f6aa35902fe3aa2d59c43c8d999fdb024c959"
     },
     {
       "path": "generated/metrics/metrics.rove",
@@ -36,7 +36,7 @@
     },
     {
       "path": "generated/pong/pong.mjs",
-      "sha256": "eba01c54c264869b19ad065e665aba50a39e8bdc056ef6563701fc9a8e380adf"
+      "sha256": "6d2191e305becf8f61e82dbec6b811ba9483c4bf1383b46e74d2e118c6be810e"
     },
     {
       "path": "generated/pong/pong.rove",

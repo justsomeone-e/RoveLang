@@ -170,6 +170,13 @@ function createPublicApi(instance) {
 
   const memoryView = () => new Uint8Array(memory.buffer);
 
+  function requireI32(value) {
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < -2147483648 || value > 2147483647) {
+      throw new RangeError('Rove WASM int value must be a signed 32-bit integer');
+    }
+    return value;
+  }
+
   function passString(value) {
     const encoded = new TextEncoder().encode(String(value ?? ''));
     if (encoded.length === 0) return { ptr: 0, len: 0 };
@@ -195,10 +202,15 @@ function createPublicApi(instance) {
     if (ptr === 0) throw new RangeError(`Rove WASM allocation failed for ${size} bytes`);
     const view = memoryView();
     if (ptr > view.byteLength || size > view.byteLength - ptr) { dealloc(ptr, size); throw new RangeError('Rove WASM array allocation is outside linear memory'); }
-    const data = new DataView(view.buffer, view.byteOffset + ptr, size);
-    for (let index = 0; index < length; index++) {
-      if (kind === 'f64') data.setFloat64(index * stride, Number(value[index]), true);
-      else data.setInt32(index * stride, Number(value[index]) | 0, true);
+    try {
+      const data = new DataView(view.buffer, view.byteOffset + ptr, size);
+      for (let index = 0; index < length; index++) {
+        if (kind === 'f64') data.setFloat64(index * stride, Number(value[index]), true);
+        else data.setInt32(index * stride, requireI32(value[index]), true);
+      }
+    } catch (error) {
+      dealloc(ptr, size);
+      throw error;
     }
     return { ptr, len: length, size };
   }
@@ -220,11 +232,16 @@ function createPublicApi(instance) {
     if (ptr === 0) throw new RangeError(`Rove WASM allocation failed for ${size} bytes`);
     const bytes = memoryView();
     if (ptr > bytes.byteLength || size > bytes.byteLength - ptr) { dealloc(ptr, size); throw new RangeError('Rove WASM struct allocation is outside linear memory'); }
-    const data = new DataView(bytes.buffer, bytes.byteOffset + ptr, size);
-    for (const field of fields) {
-      if (!(field.name in value)) { dealloc(ptr, size); throw new TypeError(`Missing Rove struct field: ${field.name}`); }
-      if (field.kind === 'f64') data.setFloat64(field.offset, Number(value[field.name]), true);
-      else data.setInt32(field.offset, field.kind === 'bool' ? (value[field.name] ? 1 : 0) : (Number(value[field.name]) | 0), true);
+    try {
+      const data = new DataView(bytes.buffer, bytes.byteOffset + ptr, size);
+      for (const field of fields) {
+        if (!(field.name in value)) throw new TypeError(`Missing Rove struct field: ${field.name}`);
+        if (field.kind === 'f64') data.setFloat64(field.offset, Number(value[field.name]), true);
+        else data.setInt32(field.offset, field.kind === 'bool' ? (value[field.name] ? 1 : 0) : requireI32(value[field.name]), true);
+      }
+    } catch (error) {
+      dealloc(ptr, size);
+      throw error;
     }
     return { ptr, size };
   }
@@ -272,7 +289,7 @@ function createPublicApi(instance) {
     web_set_text(element, value) {
       const _valueBoxed = passString(value);
       try {
-        wasm.web_set_text((element | 0), _valueBoxed.ptr, _valueBoxed.len);
+        wasm.web_set_text(requireI32(element), _valueBoxed.ptr, _valueBoxed.len);
       } finally {
         if (_valueBoxed.ptr !== 0) dealloc(_valueBoxed.ptr, _valueBoxed.len);
       }
@@ -281,56 +298,56 @@ function createPublicApi(instance) {
       const _nameBoxed = passString(name);
       const _valueBoxed = passString(value);
       try {
-        wasm.web_set_attribute((element | 0), _nameBoxed.ptr, _nameBoxed.len, _valueBoxed.ptr, _valueBoxed.len);
+        wasm.web_set_attribute(requireI32(element), _nameBoxed.ptr, _nameBoxed.len, _valueBoxed.ptr, _valueBoxed.len);
       } finally {
         if (_valueBoxed.ptr !== 0) dealloc(_valueBoxed.ptr, _valueBoxed.len);
         if (_nameBoxed.ptr !== 0) dealloc(_nameBoxed.ptr, _nameBoxed.len);
       }
     },
     web_append(parent, child) {
-      wasm.web_append((parent | 0), (child | 0));
+      wasm.web_append(requireI32(parent), requireI32(child));
     },
     web_remove(element) {
-      wasm.web_remove((element | 0));
+      wasm.web_remove(requireI32(element));
     },
     web_release(element) {
-      wasm.web_release((element | 0));
+      wasm.web_release(requireI32(element));
     },
     web_listen(element, event_name, callback_id) {
       const _event_nameBoxed = passString(event_name);
       try {
-        return wasm.web_listen((element | 0), _event_nameBoxed.ptr, _event_nameBoxed.len, (callback_id | 0));
+        return wasm.web_listen(requireI32(element), _event_nameBoxed.ptr, _event_nameBoxed.len, requireI32(callback_id));
       } finally {
         if (_event_nameBoxed.ptr !== 0) dealloc(_event_nameBoxed.ptr, _event_nameBoxed.len);
       }
     },
     web_unlisten(listener) {
-      wasm.web_unlisten((listener | 0));
+      wasm.web_unlisten(requireI32(listener));
     },
     web_request_animation_frame(callback_id) {
-      wasm.web_request_animation_frame((callback_id | 0));
+      wasm.web_request_animation_frame(requireI32(callback_id));
     },
     web_event_key(event) {
-      return wasm.web_event_key((event | 0));
+      return wasm.web_event_key(requireI32(event));
     },
     web_canvas_clear(canvas) {
-      wasm.web_canvas_clear((canvas | 0));
+      wasm.web_canvas_clear(requireI32(canvas));
     },
     web_canvas_set_fill_style(canvas, color) {
       const _colorBoxed = passString(color);
       try {
-        wasm.web_canvas_set_fill_style((canvas | 0), _colorBoxed.ptr, _colorBoxed.len);
+        wasm.web_canvas_set_fill_style(requireI32(canvas), _colorBoxed.ptr, _colorBoxed.len);
       } finally {
         if (_colorBoxed.ptr !== 0) dealloc(_colorBoxed.ptr, _colorBoxed.len);
       }
     },
     web_canvas_fill_rect(canvas, x, y, width, height) {
-      wasm.web_canvas_fill_rect((canvas | 0), Number(x), Number(y), Number(width), Number(height));
+      wasm.web_canvas_fill_rect(requireI32(canvas), Number(x), Number(y), Number(width), Number(height));
     },
     web_canvas_draw_line(canvas, x1, y1, x2, y2, color, width) {
       const _colorBoxed = passString(color);
       try {
-        wasm.web_canvas_draw_line((canvas | 0), Number(x1), Number(y1), Number(x2), Number(y2), _colorBoxed.ptr, _colorBoxed.len, Number(width));
+        wasm.web_canvas_draw_line(requireI32(canvas), Number(x1), Number(y1), Number(x2), Number(y2), _colorBoxed.ptr, _colorBoxed.len, Number(width));
       } finally {
         if (_colorBoxed.ptr !== 0) dealloc(_colorBoxed.ptr, _colorBoxed.len);
       }
@@ -338,7 +355,7 @@ function createPublicApi(instance) {
     web_canvas_draw_circle(canvas, x, y, radius, color) {
       const _colorBoxed = passString(color);
       try {
-        wasm.web_canvas_draw_circle((canvas | 0), Number(x), Number(y), Number(radius), _colorBoxed.ptr, _colorBoxed.len);
+        wasm.web_canvas_draw_circle(requireI32(canvas), Number(x), Number(y), Number(radius), _colorBoxed.ptr, _colorBoxed.len);
       } finally {
         if (_colorBoxed.ptr !== 0) dealloc(_colorBoxed.ptr, _colorBoxed.len);
       }
@@ -347,19 +364,19 @@ function createPublicApi(instance) {
       const _inner_colorBoxed = passString(inner_color);
       const _outer_colorBoxed = passString(outer_color);
       try {
-        wasm.web_canvas_draw_glow_circle((canvas | 0), Number(x), Number(y), Number(radius), _inner_colorBoxed.ptr, _inner_colorBoxed.len, _outer_colorBoxed.ptr, _outer_colorBoxed.len);
+        wasm.web_canvas_draw_glow_circle(requireI32(canvas), Number(x), Number(y), Number(radius), _inner_colorBoxed.ptr, _inner_colorBoxed.len, _outer_colorBoxed.ptr, _outer_colorBoxed.len);
       } finally {
         if (_outer_colorBoxed.ptr !== 0) dealloc(_outer_colorBoxed.ptr, _outer_colorBoxed.len);
         if (_inner_colorBoxed.ptr !== 0) dealloc(_inner_colorBoxed.ptr, _inner_colorBoxed.len);
       }
     },
     web_canvas_set_global_alpha(canvas, alpha) {
-      wasm.web_canvas_set_global_alpha((canvas | 0), Number(alpha));
+      wasm.web_canvas_set_global_alpha(requireI32(canvas), Number(alpha));
     },
     web_canvas_set_blend_mode(canvas, mode) {
       const _modeBoxed = passString(mode);
       try {
-        wasm.web_canvas_set_blend_mode((canvas | 0), _modeBoxed.ptr, _modeBoxed.len);
+        wasm.web_canvas_set_blend_mode(requireI32(canvas), _modeBoxed.ptr, _modeBoxed.len);
       } finally {
         if (_modeBoxed.ptr !== 0) dealloc(_modeBoxed.ptr, _modeBoxed.len);
       }
@@ -371,10 +388,10 @@ function createPublicApi(instance) {
       wasm.update_game();
     },
     handle_key(event) {
-      wasm.handle_key((event | 0));
+      wasm.handle_key(requireI32(event));
     },
     rove_dispatch(callback_id, event) {
-      return wasm.rove_dispatch((callback_id | 0), (event | 0));
+      return wasm.rove_dispatch(requireI32(callback_id), requireI32(event));
     },
     pong_start() {
       return wasm.pong_start();

@@ -228,7 +228,12 @@ def run_bundle_suite() -> bool:
                     f"const {{initRoveModule}}=await import(pathToFileURL({json.dumps(struct_module)}).href); "
                     "const api=await initRoveModule(); "
                     "if(api.score({x:7,y:0.5,active:true})!==7.5)throw new Error('struct true'); "
-                    "if(api.score({x:7,y:0.5,active:false})!==0)throw new Error('struct false');"
+                    "if(api.score({x:7,y:0.5,active:false})!==0)throw new Error('struct false'); "
+                    "for(const x of [3000000000,1.5,'7',NaN]) { "
+                    "  try { api.score({x,y:0.5,active:true}); throw new Error('accepted invalid struct int'); } "
+                    "  catch(error) { if(!(error instanceof RangeError)) throw error; } "
+                    "} "
+                    "if(api.score({x:-2147483648,y:0,active:true})!==-2147483648)throw new Error('struct int edge');"
                 ),
             ],
             cwd=ROOT_DIR,
@@ -358,6 +363,13 @@ def run_bundle_suite() -> bool:
                 "const unicodeInput = 'İstanbul 🌙 çığ ğüşö\\u0000é';\n"
                 "const expected = `Hello from Rove WebAssembly, ${unicodeInput}!`;\n"
                 "if (api.add_numbers(15, 27) !== 42) throw new Error('numeric lowering failed');\n"
+                "if (api.add_numbers(-2147483648, 0) !== -2147483648 || api.add_numbers(2147483647, 0) !== 2147483647) throw new Error('i32 scalar edges failed');\n"
+                "for (const value of [3000000000, -2147483649, 1.5, '7', NaN, Infinity]) {\n"
+                "  for (const call of [() => api.add_numbers(value, 0), () => api.int_at([value], 0)]) {\n"
+                "    try { call(); throw new Error('accepted invalid i32 input'); } catch (error) { if (!(error instanceof RangeError)) throw error; }\n"
+                "  }\n"
+                "}\n"
+                "try { api.int_at(new Float64Array([3000000000]), 0); throw new Error('accepted invalid typed array i32'); } catch (error) { if (!(error instanceof RangeError)) throw error; }\n"
                 "if (api.next_counter() !== 1 || api.next_counter() !== 2) throw new Error('WASM mutable global failed');\n"
                 "if (api.is_positive(1) !== true || api.is_positive(0) !== false) throw new Error('boolean ABI failed');\n"
                 "if (typeof api.is_positive(1) !== 'boolean') throw new Error('boolean ABI leaked i32');\n"

@@ -50,6 +50,10 @@ loading; violations trap (`WebAssembly.RuntimeError` in JavaScript). This does
 not enable array assignment, owned arrays, or catchable Rove exceptions. See
 the [v5 migration plan](V4_5_V5_PREPARATION.md) before changing integer widths.
 
+The generated JavaScript loader rejects `int` arguments, `Array<int>` elements,
+and scalar struct `int` fields that are not signed i32 integers instead of
+silently truncating or wrapping them at the host boundary.
+
 ## Browser host ABI v1
 
 Browser imports live under the `nyx_host_v1` WebAssembly namespace. Handles are

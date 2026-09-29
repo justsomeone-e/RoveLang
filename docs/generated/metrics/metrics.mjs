@@ -170,6 +170,13 @@ function createPublicApi(instance) {
 
   const memoryView = () => new Uint8Array(memory.buffer);
 
+  function requireI32(value) {
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < -2147483648 || value > 2147483647) {
+      throw new RangeError('Rove WASM int value must be a signed 32-bit integer');
+    }
+    return value;
+  }
+
   function passString(value) {
     const encoded = new TextEncoder().encode(String(value ?? ''));
     if (encoded.length === 0) return { ptr: 0, len: 0 };
@@ -195,10 +202,15 @@ function createPublicApi(instance) {
     if (ptr === 0) throw new RangeError(`Rove WASM allocation failed for ${size} bytes`);
     const view = memoryView();
     if (ptr > view.byteLength || size > view.byteLength - ptr) { dealloc(ptr, size); throw new RangeError('Rove WASM array allocation is outside linear memory'); }
-    const data = new DataView(view.buffer, view.byteOffset + ptr, size);
-    for (let index = 0; index < length; index++) {
-      if (kind === 'f64') data.setFloat64(index * stride, Number(value[index]), true);
-      else data.setInt32(index * stride, Number(value[index]) | 0, true);
+    try {
+      const data = new DataView(view.buffer, view.byteOffset + ptr, size);
+      for (let index = 0; index < length; index++) {
+        if (kind === 'f64') data.setFloat64(index * stride, Number(value[index]), true);
+        else data.setInt32(index * stride, requireI32(value[index]), true);
+      }
+    } catch (error) {
+      dealloc(ptr, size);
+      throw error;
     }
     return { ptr, len: length, size };
   }
@@ -220,11 +232,16 @@ function createPublicApi(instance) {
     if (ptr === 0) throw new RangeError(`Rove WASM allocation failed for ${size} bytes`);
     const bytes = memoryView();
     if (ptr > bytes.byteLength || size > bytes.byteLength - ptr) { dealloc(ptr, size); throw new RangeError('Rove WASM struct allocation is outside linear memory'); }
-    const data = new DataView(bytes.buffer, bytes.byteOffset + ptr, size);
-    for (const field of fields) {
-      if (!(field.name in value)) { dealloc(ptr, size); throw new TypeError(`Missing Rove struct field: ${field.name}`); }
-      if (field.kind === 'f64') data.setFloat64(field.offset, Number(value[field.name]), true);
-      else data.setInt32(field.offset, field.kind === 'bool' ? (value[field.name] ? 1 : 0) : (Number(value[field.name]) | 0), true);
+    try {
+      const data = new DataView(bytes.buffer, bytes.byteOffset + ptr, size);
+      for (const field of fields) {
+        if (!(field.name in value)) throw new TypeError(`Missing Rove struct field: ${field.name}`);
+        if (field.kind === 'f64') data.setFloat64(field.offset, Number(value[field.name]), true);
+        else data.setInt32(field.offset, field.kind === 'bool' ? (value[field.name] ? 1 : 0) : requireI32(value[field.name]), true);
+      }
+    } catch (error) {
+      dealloc(ptr, size);
+      throw error;
     }
     return { ptr, size };
   }
