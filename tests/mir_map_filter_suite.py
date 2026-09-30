@@ -153,11 +153,7 @@ def run_mir_map_filter_suite() -> bool:
         raise AssertionError("MIR verifier accepted an array push with the wrong element type")
     except MIRVerificationError as error:
         assert any(issue.code == "MIR0409" for issue in error.issues), error.issues
-    try:
-        legalize_mir(module, "wasm")
-        raise AssertionError("Wasm unexpectedly legalized array push")
-    except MIRLegalizationError as error:
-        assert any(issue.code == "MIRG1007" for issue in error.issues), error.issues
+    legalize_mir(module, "wasm")
     assert "\n".join(MIRInterpreter(module).run().output) + "\n" == EXPECTED
     for emit, run in (
         (emit_legalized_cpp, _compile_and_run_cpp),

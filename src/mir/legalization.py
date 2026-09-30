@@ -277,7 +277,9 @@ MIR_BACKEND_PROFILES["wasm"] = replace(
         FieldProjection.__name__, IndexProjection.__name__, ConstantIndexProjection.__name__,
     }),
     legal_types=frozenset({"void", "bool", "int", "float", "f64", "string", "Array"}),
-    legal_runtime_calls=frozenset({"builtin::len", "builtin::print"}),
+    legal_runtime_calls=frozenset({
+        "builtin::len", "builtin::print", "intrinsic::rove_array_push",
+    }),
     legal_effects=MIR_BACKEND_PROFILES["wasm"].legal_effects | frozenset({"may_allocate"}),
 )
 

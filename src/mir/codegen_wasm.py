@@ -92,6 +92,7 @@ class _WasmEmitter:
         self.wasi_int_print_used = False
         self.print_struct_helpers: dict[str, FunctionIR | None] = {}
         self.print_array_helpers: dict[MIRType, FunctionIR | None] = {}
+        self.array_push_used = False
 
     def lower(self) -> ModuleIR:
         lowered = [self._function(function) for function in self.module.functions]
@@ -99,6 +100,7 @@ class _WasmEmitter:
         assert all(helper is not None for helper in self.print_array_helpers.values())
         functions = (
             self._integer_runtime() + self._array_runtime() + self._string_runtime()
+            + (self._array_push_runtime() if self.array_push_used else [])
             + list(self.owned_clone_helpers.values())
             + (self._wasi_print_runtime() if self.wasi_print_used else [])
             + list(self.print_struct_helpers.values())
@@ -918,6 +920,100 @@ class _WasmEmitter:
             get_i32, set_i32, get_string, set_string, get_blob, set_blob, clone_bytes,
         ]
 
+    @staticmethod
+    def _array_push_runtime() -> list[FunctionIR]:
+        reserve = FunctionIR(
+            "__rove_mir_array_append_slot", [("desc", I32), ("stride", I32)], I32,
+            locals=[
+                ("length", I32), ("capacity", I32), ("allocation_stride", I32),
+                ("max_capacity", I64), ("new_length", I64), ("new_capacity", I64),
+                ("new_data", I32),
+            ],
+            body=[
+                Instruction("local.get", "desc"), Instruction("i32.eqz"),
+                Instruction("if"), Instruction("unreachable"), Instruction("end"),
+                Instruction("local.get", "stride"), Instruction("local.set", "allocation_stride"),
+                Instruction("local.get", "stride"), Instruction("i32.eqz"), Instruction("if"),
+                Instruction("i32.const", 1), Instruction("local.set", "allocation_stride"),
+                Instruction("end"),
+                # The allocator accepts positive signed-i32 sizes. Compute growth
+                # in i64 before narrowing, including zero-sized struct elements.
+                Instruction("i64.const", 0x7FFFFFFF),
+                Instruction("local.get", "allocation_stride"), Instruction("i64.extend_i32_u"),
+                Instruction("i64.div_s"), Instruction("local.set", "max_capacity"),
+                Instruction("local.get", "desc"), Instruction("i32.const", 4),
+                Instruction("i32.add"), Instruction("i32.load"), Instruction("local.set", "length"),
+                Instruction("local.get", "desc"), Instruction("i32.const", 8),
+                Instruction("i32.add"), Instruction("i32.load"), Instruction("local.set", "capacity"),
+                Instruction("local.get", "length"), Instruction("i64.extend_i32_u"),
+                Instruction("i64.const", 1), Instruction("i64.add"),
+                Instruction("local.tee", "new_length"), Instruction("local.get", "max_capacity"),
+                Instruction("i64.gt_u"), Instruction("if"), Instruction("unreachable"), Instruction("end"),
+                Instruction("local.get", "length"), Instruction("i64.extend_i32_u"),
+                Instruction("local.get", "capacity"), Instruction("i64.extend_i32_u"),
+                Instruction("i64.gt_s"), Instruction("if"), Instruction("unreachable"), Instruction("end"),
+                Instruction("local.get", "length"), Instruction("local.get", "capacity"),
+                Instruction("i32.eq"), Instruction("if"),
+                Instruction("local.get", "capacity"), Instruction("i64.extend_i32_u"),
+                Instruction("i64.const", 2), Instruction("i64.mul"), Instruction("local.set", "new_capacity"),
+                Instruction("local.get", "new_capacity"), Instruction("local.get", "new_length"),
+                Instruction("i64.lt_s"), Instruction("if"),
+                Instruction("local.get", "new_length"), Instruction("local.set", "new_capacity"),
+                Instruction("end"),
+                Instruction("local.get", "new_capacity"), Instruction("local.get", "max_capacity"),
+                Instruction("i64.gt_u"), Instruction("if"),
+                Instruction("local.get", "max_capacity"), Instruction("local.set", "new_capacity"),
+                Instruction("end"),
+                Instruction("local.get", "new_capacity"), Instruction("local.get", "allocation_stride"),
+                Instruction("i64.extend_i32_u"), Instruction("i64.mul"), Instruction("i32.wrap_i64"),
+                Instruction("call", "__rove_mir_alloc"), Instruction("local.set", "new_data"),
+                Instruction("local.get", "new_data"), Instruction("local.get", "desc"),
+                Instruction("i32.load"), Instruction("local.get", "length"),
+                Instruction("i64.extend_i32_u"), Instruction("local.get", "stride"),
+                Instruction("i64.extend_i32_u"), Instruction("i64.mul"), Instruction("i32.wrap_i64"),
+                Instruction("memory.copy"),
+                Instruction("local.get", "desc"), Instruction("local.get", "new_data"),
+                Instruction("i32.store"),
+                Instruction("local.get", "desc"), Instruction("i32.const", 8), Instruction("i32.add"),
+                Instruction("local.get", "new_capacity"), Instruction("i32.wrap_i64"), Instruction("i32.store"),
+                Instruction("end"),
+                Instruction("local.get", "desc"), Instruction("i32.const", 4), Instruction("i32.add"),
+                Instruction("local.get", "new_length"), Instruction("i32.wrap_i64"), Instruction("i32.store"),
+                Instruction("local.get", "desc"), Instruction("i32.load"),
+                Instruction("local.get", "length"), Instruction("local.get", "stride"),
+                Instruction("i32.mul"), Instruction("i32.add"), Instruction("return"),
+            ],
+            export=False,
+        )
+        helpers = [reserve]
+        for suffix, kind, stride, store in (
+            ("i64", I64, 8, "i64.store"),
+            ("i32", I32, 4, "i32.store"),
+            ("f64", F64, 8, "f64.store"),
+        ):
+            helpers.append(FunctionIR(
+                f"__rove_mir_array_push_{suffix}", [("desc", I32), ("value", kind)], I32,
+                body=[
+                    Instruction("local.get", "desc"), Instruction("i32.const", stride),
+                    Instruction("call", "__rove_mir_array_append_slot"),
+                    Instruction("local.get", "value"), Instruction(store),
+                    Instruction("local.get", "desc"), Instruction("return"),
+                ],
+                export=False,
+            ))
+        helpers.append(FunctionIR(
+            "__rove_mir_array_push_blob", [("desc", I32), ("value", I32), ("stride", I32)], I32,
+            body=[
+                Instruction("local.get", "desc"), Instruction("local.get", "stride"),
+                Instruction("call", "__rove_mir_array_append_slot"),
+                Instruction("local.get", "value"), Instruction("local.get", "stride"),
+                Instruction("memory.copy"),
+                Instruction("local.get", "desc"), Instruction("return"),
+            ],
+            export=False,
+        ))
+        return helpers
+
     def _function(self, function: MIRFunction) -> FunctionIR:
         self.current = function
         self.local_types = {local.id: local.type for local in function.locals}
@@ -1098,6 +1194,34 @@ class _WasmEmitter:
                     Instruction("i64.extend_i32_u"),
                     Instruction("local.set", self.local_names[value.destination.local]),
                 ))
+                self._goto(value.target, body)
+                return
+            if value.function == "intrinsic::rove_array_push":
+                if (
+                    len(value.arguments) != 2
+                    or not isinstance(value.arguments[0], MoveOperand)
+                    or value.destination != value.arguments[0].place
+                    or value.destination.projections
+                ):
+                    raise MIRCodegenError("Wasm array push requires a moved whole array destination")
+                element_type = self._operand_type(value.arguments[0]).arguments[0]
+                for argument in value.arguments:
+                    body.extend(self._operand(argument))
+                if element_type == MIRType("int"):
+                    helper = "__rove_mir_array_push_i64"
+                elif element_type == MIRType("bool"):
+                    helper = "__rove_mir_array_push_i32"
+                elif element_type.name in ("float", "f64"):
+                    helper = "__rove_mir_array_push_f64"
+                elif element_type.name in ("string", "Array") or element_type.name in self.structs:
+                    stride = 12 if element_type.name == "Array" else self.layouts.layout_of(element_type).size
+                    body.append(Instruction("i32.const", stride))
+                    helper = "__rove_mir_array_push_blob"
+                else:
+                    raise MIRCodegenError(f"Wasm array push element '{element_type}' was not legalized")
+                self.array_push_used = True
+                body.append(Instruction("call", helper))
+                body.append(Instruction("local.set", self.local_names[value.destination.local]))
                 self._goto(value.target, body)
                 return
             callee = self.functions.get(value.function)
