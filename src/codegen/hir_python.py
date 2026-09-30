@@ -116,8 +116,7 @@ class Result:
         return self.value
 
     def __repr__(self):
-        name = "Ok" if self.is_ok else "Err"
-        return f"{name}({self.value!r})"
+        return _rove_display(self)
 
 
 class _RoveResultPropagation(Exception):
@@ -187,7 +186,7 @@ class RoveEnumValue:
         self.payload = payload
 
     def __repr__(self):
-        return f"{self.enum_name}::{self.variant_name}"
+        return _rove_display(self)
 
 
 class _RoveTask:
@@ -270,11 +269,25 @@ def _rove_f64_to_string(value):
 
 
 def _rove_display(value):
+    if value is None:
+        return "null"
     if isinstance(value, float):
         return _rove_f64_to_string(value)
     if isinstance(value, bool):
         return "true" if value else "false"
-    return value
+    if isinstance(value, Result):
+        name = "Ok" if value.is_ok else "Err"
+        return f"{name}({_rove_display(value.value)})"
+    if isinstance(value, list):
+        return "[" + ", ".join(_rove_display(item) for item in value) + "]"
+    if isinstance(value, RoveEnumValue):
+        payload = ", ".join(_rove_display(item) for item in value.payload)
+        return f"{value.variant_name}({payload})"
+    fields = getattr(type(value), "__rove_field_names__", None)
+    if fields is not None:
+        payload = ", ".join(_rove_display(getattr(value, name)) for name in fields)
+        return f"{type(value).__rove_type_name__}({payload})"
+    return str(value)
 
 
 def print(*values):
@@ -282,11 +295,7 @@ def print(*values):
 
 
 def to_string(value):
-    if isinstance(value, float):
-        return _rove_f64_to_string(value)
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    return str(value)
+    return _rove_display(value)
 
 
 to_str = to_string
@@ -971,6 +980,10 @@ class HIRPythonEmitter:
     def _emit_struct(self, node: IRStruct) -> List[str]:
         name = self._symbol(node.symbol, node.name)
         lines = [f"class {name}:"]
+        lines.extend((
+            f"    __rove_type_name__ = {node.name!r}",
+            f"    __rove_field_names__ = {tuple(self._identifier(field.name) for field in node.fields)!r}",
+        ))
         fields = []
         for field in node.fields:
             field_name = self._identifier(field.name)

@@ -90,6 +90,8 @@ class Result {
         if (!this.is_ok) throw new Error(`Called unwrap on an Err: ${this.error}`);
         return this.value;
     }
+
+    toString() { return _roveDisplay(this); }
 }
 
 class _RoveResultPropagation {
@@ -108,7 +110,11 @@ class RoveEnumValue {
         this.variant_name = variantName;
         this.payload = payload;
     }
+
+    toString() { return _roveDisplay(this); }
 }
+
+const _roveStructFields = Symbol("rove.struct.fields");
 
 function _roveCloneValue(value, seen = new Map()) {
     if (value === null || typeof value !== "object") return value;
@@ -199,13 +205,21 @@ function _roveNormalizeDecimal(text) {
 }
 function _roveF64ToString(value) { return _roveNormalizeDecimal(String(value)); }
 function _roveDisplay(value) {
+    if (value === null) return "null";
     if (typeof value === "bigint") return value.toString();
     if (typeof value === "number") return _roveF64ToString(value);
-    return value;
+    if (value instanceof Result) return `${value.is_ok ? "Ok" : "Err"}(${_roveDisplay(value.value)})`;
+    if (Array.isArray(value)) return `[${value.map(_roveDisplay).join(", ")}]`;
+    if (value instanceof RoveEnumValue) return `${value.variant_name}(${value.payload.map(_roveDisplay).join(", ")})`;
+    if (value && value[_roveStructFields]) {
+        const layout = value[_roveStructFields];
+        return `${layout.name}(${layout.fields.map(field => _roveDisplay(value[field])).join(", ")})`;
+    }
+    return String(value);
 }
 function print(...args) { console.log(...args.map(_roveDisplay)); }
 function to_string(value) {
-    return typeof value === "number" ? _roveF64ToString(value) : String(value);
+    return _roveDisplay(value);
 }
 const to_str = to_string;
 function to_int(value) {
@@ -665,6 +679,11 @@ class HIRJavaScriptEmitter:
             for method in impl.methods:
                 lines.extend(self._emit_method(method, 1))
         lines.append("}")
+        fields = ", ".join(self._string(self._identifier(field.name)) for field in node.fields)
+        lines.append(
+            f"Object.defineProperty({name}.prototype, _roveStructFields, "
+            f"{{value: {{name: {self._string(node.name)}, fields: [{fields}]}}}});"
+        )
         return lines
 
     def _emit_method(self, node: IRFunction, indent: int, *, abstract: bool = False) -> List[str]:

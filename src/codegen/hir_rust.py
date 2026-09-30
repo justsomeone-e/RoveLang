@@ -13,6 +13,7 @@ import math
 import re
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
+from src.core.scalar_text import RUST_F64_RUNTIME
 from src.codegen.hir_cpp import ModuleTypeInference
 from src.ir import (
     ANY,
@@ -75,7 +76,7 @@ class RustEmissionError(ValueError):
     """Raised when verified HIR cannot be represented by the Rust contract."""
 
 
-_RUST_RUNTIME = r'''
+_RUST_RUNTIME = RUST_F64_RUNTIME + r'''
 use std::fmt::Debug;
 use std::io::{self, Write};
 use std::sync::{Arc, LazyLock, Mutex};
@@ -88,18 +89,6 @@ trait RoveDisplay {
 
 fn _rove_display<T: RoveDisplay + ?Sized>(value: &T) -> String {
     value.rove_display()
-}
-
-fn _rove_f64_to_string(value: f64) -> String {
-    if value.is_nan() { return "nan".to_string(); }
-    if value == f64::INFINITY { return "inf".to_string(); }
-    if value == f64::NEG_INFINITY { return "-inf".to_string(); }
-    if value == 0.0 { return "0".to_string(); }
-    let magnitude = value.abs();
-    if magnitude < 0.000001 || magnitude >= 1.0e21 {
-        return format!("{:e}", value);
-    }
-    value.to_string()
 }
 
 impl RoveDisplay for i64 { fn rove_display(&self) -> String { self.to_string() } }
@@ -528,12 +517,12 @@ class HIRRustEmitter:
         lines.append("    fn rove_display(&self) -> String {")
         if node.fields:
             rendered = ", ".join(
-                f'format!("{field.name}: {{}}", self.{self._identifier(field.name)}.rove_display())'
+                f'self.{self._identifier(field.name)}.rove_display()'
                 for field, _ in field_types
             )
-            lines.append(f"        format!(\"{name} {{{{ {{}} }}}}\", [{rendered}].join(\", \"))")
+            lines.append(f"        format!(\"{node.name}({{}})\", [{rendered}].join(\", \"))")
         else:
-            lines.append(f'        "{name} {{}}".to_string()')
+            lines.append(f'        "{node.name}()".to_string()')
         lines.append("    }")
         lines.append("}")
 

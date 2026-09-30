@@ -110,6 +110,7 @@ class _CppEmitter:
             "#include <sstream>",
             "#include <stdexcept>",
             "#include <string>",
+            "#include <type_traits>",
             "#include <utility>",
             "#include <vector>",
             "",
@@ -294,10 +295,15 @@ inline std::string rove_f64_to_string(double value) {
 inline void rove_print_value(std::ostream& output, double value) {
     output << rove_f64_to_string(value);
 }
+inline void rove_print_value(std::ostream& output, bool value) {
+    output << (value ? "true" : "false");
+}
 template <typename Value>
 void rove_print_value(std::ostream& output, const Value& value);
 template <typename Value>
 void rove_print_value(std::ostream& output, const std::vector<Value>& values);
+template <typename Value>
+void rove_print_value(std::ostream& output, const std::optional<Value>& value);
 template <typename Value>
 void rove_print_value(std::ostream& output, const Value& value) {
     if constexpr (requires { output << value; }) {
@@ -311,9 +317,17 @@ void rove_print_value(std::ostream& output, const std::vector<Value>& values) {
     output << '[';
     for (std::size_t index = 0; index < values.size(); ++index) {
         if (index) output << ", ";
-        rove_print_value(output, values[index]);
+        if constexpr (std::is_same_v<Value, bool>)
+            rove_print_value(output, static_cast<bool>(values[index]));
+        else
+            rove_print_value(output, values[index]);
     }
     output << ']';
+}
+template <typename Value>
+void rove_print_value(std::ostream& output, const std::optional<Value>& value) {
+    if (value) rove_print_value(output, *value);
+    else output << "null";
 }
 template <typename Value>
 std::string to_string(const Value& value) {
@@ -382,7 +396,7 @@ void print(const Values&... values) {
         payload_types = [
             "std::int64_t", "double", "bool", "std::string", "rove_tagged_value",
             *(f"rove_type_{_identifier(name)}" for name in self.structs),
-            *(self._type(value) for value in self._display_array_types()),
+            *(self._type(value) for value in self._display_container_types()),
         ]
         payload_lines = [
             "inline void rove_print_payload(std::ostream& output, const std::any& item) {"
@@ -412,7 +426,7 @@ void print(const Values&... values) {
         )
         return definitions
 
-    def _display_array_types(self) -> tuple[MIRType, ...]:
+    def _display_container_types(self) -> tuple[MIRType, ...]:
         found: dict[str, MIRType] = {}
 
         def visit(value_type: MIRType) -> None:
@@ -436,7 +450,9 @@ void print(const Values&... values) {
                 visit(local.type)
         return tuple(
             found[key] for key in sorted(found)
-            if found[key].name == "Array" and len(found[key].arguments) == 1
+            if found[key].optional or (
+                found[key].name == "Array" and len(found[key].arguments) == 1
+            )
         )
 
     def _entry_point(self) -> str:

@@ -148,6 +148,8 @@ def rove_f64_to_string(value):
     return ("-" if negative else "") + result
 
 def rove_display(value):
+    if value is None:
+        return "null"
     if value is True:
         return "true"
     if value is False:
