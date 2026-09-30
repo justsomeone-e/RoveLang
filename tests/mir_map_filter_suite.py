@@ -16,6 +16,7 @@ from src.mir import (
     emit_legalized_cpp,
     emit_legalized_c17,
     emit_legalized_javascript,
+    emit_legalized_llvm,
     emit_legalized_python,
     emit_legalized_rust,
     legalize_mir,
@@ -25,7 +26,7 @@ from src.mir import (
 from src.mir.model import CallTerminator, ConstOperand
 from src.mir.types import MIRType
 from tests.mir_legalization_suite import (
-    _assert_rust_runtime, _compile_and_run_c17, _compile_and_run_cpp,
+    _assert_rust_runtime, _compile_and_run_c17, _compile_and_run_cpp, _compile_and_run_llvm,
     _run_javascript, _run_python,
 )
 
@@ -63,6 +64,29 @@ fn main() {
 }
 '''
 C17_EXPECTED = "[false, true]\n[2.5]\n[a!, b!]\nb\n1 9\n"
+LLVM_SOURCE = '''
+struct Cell { label: string, nums: Array<int> }
+fn main() {
+    print(map([true, false], item => !item))
+    print(filter([1.5, 2.5], item => item > 2.0))
+    print(map(["a", "b"], item => item))
+    var cells = [Cell("a", [1]), Cell("b", [2])]
+    var picked = filter(cells, item => item.nums[0] > 1)
+    print(picked[0].label)
+    var copied = map(cells, item => item)
+    set copied[0].nums[0] = 9
+    print(cells[0].nums[0], copied[0].nums[0])
+}
+'''
+LLVM_EXPECTED = "[false, true]\n[2.5]\n[a, b]\nb\n1 9\n"
+LLVM_ZERO_SIZED_SOURCE = '''
+struct Empty {}
+fn main() {
+    var values = map([Empty(), Empty()], item => item)
+    print(len(values))
+    print(len(filter(values, item => true)))
+}
+'''
 THROW_SOURCE = '''
 fn fail_map(value: int) -> int {
     if value == 2 { throw "map failed" }
@@ -129,16 +153,16 @@ def run_mir_map_filter_suite() -> bool:
         raise AssertionError("MIR verifier accepted an array push with the wrong element type")
     except MIRVerificationError as error:
         assert any(issue.code == "MIR0409" for issue in error.issues), error.issues
-    for target in ("wasm", "llvm"):
-        try:
-            legalize_mir(module, target)
-            raise AssertionError(f"{target} unexpectedly legalized array push")
-        except MIRLegalizationError as error:
-            assert any(issue.code == "MIRG1007" for issue in error.issues), error.issues
+    try:
+        legalize_mir(module, "wasm")
+        raise AssertionError("Wasm unexpectedly legalized array push")
+    except MIRLegalizationError as error:
+        assert any(issue.code == "MIRG1007" for issue in error.issues), error.issues
     assert "\n".join(MIRInterpreter(module).run().output) + "\n" == EXPECTED
     for emit, run in (
         (emit_legalized_cpp, _compile_and_run_cpp),
         (emit_legalized_c17, _compile_and_run_c17),
+        (emit_legalized_llvm, _compile_and_run_llvm),
         (emit_legalized_javascript, _run_javascript),
         (emit_legalized_python, _run_python),
     ):
@@ -151,6 +175,20 @@ def run_mir_map_filter_suite() -> bool:
     c17_module = lower_hir_to_mir(c17_checked.hir)
     assert "\n".join(MIRInterpreter(c17_module).run().output) + "\n" == C17_EXPECTED
     assert _compile_and_run_c17(emit_legalized_c17(c17_module)) == C17_EXPECTED
+    llvm_checked = compiler.check_source(
+        LLVM_SOURCE, filename="m6_llvm_map_filter.rove", target="cpp",
+    )
+    assert llvm_checked.success, llvm_checked.diagnostics
+    llvm_module = lower_hir_to_mir(llvm_checked.hir)
+    assert "\n".join(MIRInterpreter(llvm_module).run().output) + "\n" == LLVM_EXPECTED
+    assert _compile_and_run_llvm(emit_legalized_llvm(llvm_module)) == LLVM_EXPECTED
+    empty_checked = compiler.check_source(
+        LLVM_ZERO_SIZED_SOURCE, filename="m6_llvm_empty_struct.rove", target="cpp",
+    )
+    assert empty_checked.success, empty_checked.diagnostics
+    empty_module = lower_hir_to_mir(empty_checked.hir)
+    assert "\n".join(MIRInterpreter(empty_module).run().output) + "\n" == "2\n2\n"
+    assert _compile_and_run_llvm(emit_legalized_llvm(empty_module)) == "2\n2\n"
     bad_unary = compiler.check_source(
         "fn main() { print(map([true], item => ~item)) }",
         filename="m6_map_invalid_unary.rove", target="cpp",
@@ -163,11 +201,12 @@ def run_mir_map_filter_suite() -> bool:
     assert throwing.success, throwing.diagnostics
     throwing_module = lower_hir_to_mir(throwing.hir)
     assert "\n".join(MIRInterpreter(throwing_module).run().output) + "\n" == THROW_EXPECTED
-    try:
-        legalize_mir(throwing_module, "c")
-        raise AssertionError("C17 unexpectedly legalized map/filter unwind")
-    except MIRLegalizationError as error:
-        assert any(issue.code == "MIRG1011" for issue in error.issues), error.issues
+    for target in ("c", "llvm"):
+        try:
+            legalize_mir(throwing_module, target)
+            raise AssertionError(f"{target} unexpectedly legalized map/filter unwind")
+        except MIRLegalizationError as error:
+            assert any(issue.code == "MIRG1011" for issue in error.issues), error.issues
     for emit, run in (
         (emit_legalized_cpp, _compile_and_run_cpp),
         (emit_legalized_javascript, _run_javascript),
@@ -175,7 +214,7 @@ def run_mir_map_filter_suite() -> bool:
     ):
         assert run(emit(throwing_module)) == THROW_EXPECTED
     _assert_rust_runtime(emit_legalized_rust(throwing_module), THROW_EXPECTED)
-    print("[PASS] MIR map/filter typing, target gates, source order, nested ownership, C17/C++/JS/Python parity, and Rust gate")
+    print("[PASS] MIR map/filter typing, target gates, source order, nested ownership, C17/C++/LLVM/JS/Python parity, and Rust gate")
     return True
 
 

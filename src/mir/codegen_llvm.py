@@ -137,6 +137,9 @@ class _LLVMEmitter:
             parts.append("")
             parts.extend(self._struct_clone_helpers())
             parts.append("")
+        if self.array_types:
+            parts.extend(self._array_push_helpers())
+            parts.append("")
         tagged_helpers = self._tagged_lifecycle_helpers()
         if tagged_helpers:
             parts.extend(tagged_helpers)
@@ -571,6 +574,54 @@ done:
   call void @free(ptr %data)
   store {descriptor_type} zeroinitializer, ptr %descriptor
   ret void
+}}""")
+        return helpers
+
+    def _array_push_helpers(self) -> list[str]:
+        helpers: list[str] = []
+        seen: set[str] = set()
+        for value_type in self.array_types:
+            array = self._array_spec(value_type)
+            if array is None:
+                continue
+            descriptor_type, element_type, stride, suffix = array
+            if suffix in seen:
+                continue
+            seen.add(suffix)
+            if stride is None:
+                size = (
+                    f"  %size_ptr = getelementptr {element_type}, ptr null, i32 1\n"
+                    "  %element_size = ptrtoint ptr %size_ptr to i64"
+                )
+            else:
+                size = f"  %element_size = add i64 0, {stride}"
+            helpers.append(f"""define {descriptor_type} @rove_array_{suffix}_push({descriptor_type} %value, {element_type} %item) {{
+entry:
+  %data = extractvalue {descriptor_type} %value, 0
+  %length = extractvalue {descriptor_type} %value, 1
+{size}
+  %zero_sized = icmp eq i64 %element_size, 0
+  %allocation_stride = select i1 %zero_sized, i64 1, i64 %element_size
+  %max_length = sdiv i64 9223372036854775807, %allocation_stride
+  %negative = icmp slt i64 %length, 0
+  %too_long = icmp sge i64 %length, %max_length
+  %invalid = or i1 %negative, %too_long
+  br i1 %invalid, label %fail, label %grow
+grow:
+  %new_length = add nsw i64 %length, 1
+  %bytes = mul nsw i64 %new_length, %allocation_stride
+  %new_data = call ptr @realloc(ptr %data, i64 %bytes)
+  %allocation_failed = icmp eq ptr %new_data, null
+  br i1 %allocation_failed, label %fail, label %write
+write:
+  %element_ptr = getelementptr inbounds {element_type}, ptr %new_data, i64 %length
+  store {element_type} %item, ptr %element_ptr
+  %with_data = insertvalue {descriptor_type} poison, ptr %new_data, 0
+  %result = insertvalue {descriptor_type} %with_data, i64 %new_length, 1
+  ret {descriptor_type} %result
+fail:
+  call void @exit(i32 1)
+  unreachable
 }}""")
         return helpers
 
@@ -1087,6 +1138,32 @@ entry:
                     and self._type_requires_drop(argument_type)
                 ):
                     self._destroy_place(argument.place)
+            elif terminator.function == "intrinsic::rove_array_push":
+                if (
+                    len(terminator.arguments) != 2
+                    or not isinstance(terminator.arguments[0], MoveOperand)
+                    or terminator.destination != terminator.arguments[0].place
+                ):
+                    raise MIRCodegenError("LLVM array push requires a moved array destination")
+                array_type = self._operand_mir_type(terminator.arguments[0])
+                array = self._array_spec(array_type)
+                if array is None:
+                    raise MIRCodegenError(f"LLVM array push does not support '{array_type}'")
+                descriptor_type, element_type, _stride, suffix = array
+                _, descriptor = self._operand(terminator.arguments[0])
+                item_type, item = self._operand(terminator.arguments[1])
+                if item_type != element_type:
+                    raise MIRCodegenError(
+                        f"LLVM array push expects {element_type}, got {item_type}"
+                    )
+                result = self._temp()
+                self.lines.append(
+                    f"  {result} = call {descriptor_type} @rove_array_{suffix}_push("
+                    f"{descriptor_type} {descriptor}, {element_type} {item})"
+                )
+                self.lines.append(
+                    f"  store {descriptor_type} {result}, ptr {self._place(terminator.destination)}"
+                )
             elif terminator.function in self.function_names:
                 arguments = [self._operand(argument) for argument in terminator.arguments]
                 rendered = ", ".join(f"{kind} {value}" for kind, value in arguments)

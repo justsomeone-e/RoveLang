@@ -251,7 +251,7 @@ MIR_BACKEND_PROFILES["llvm"] = replace(
     }),
     legal_types=MIR_BACKEND_PROFILES["llvm"].legal_types | frozenset({"Array"}),
     legal_runtime_calls=MIR_BACKEND_PROFILES["llvm"].legal_runtime_calls | frozenset({
-        "builtin::len", "builtin::to_string",
+        "builtin::len", "builtin::to_string", "intrinsic::rove_array_push",
     }),
     legal_effects=MIR_BACKEND_PROFILES["llvm"].legal_effects | frozenset({"may_allocate"}),
 )
