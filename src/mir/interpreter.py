@@ -291,6 +291,8 @@ class MIRInterpreter:
             raise MIRTrap(f"Unsupported unary operation '{value.op}'")
         if isinstance(value, CastRValue):
             operand = self._operand(value.operand, locals_)
+            if value.kind == "optional-unwrap" or value.type.optional:
+                return operand
             if value.type.name in ("float", "f32", "f64"):
                 return float(operand)
             if value.type.name == "bool":
