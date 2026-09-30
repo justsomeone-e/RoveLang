@@ -257,10 +257,18 @@ class _RustEmitter:
 
     def _struct_definition(self, definition: MIRStructDef) -> str:
         type_name = f"RoveType_{_identifier(definition.name)}"
-        lines = ["#[derive(Clone, Debug, Default, PartialEq)]", f"struct {type_name} {{"]
+        lines = ["#[derive(Clone, Debug, PartialEq)]", f"struct {type_name} {{"]
         for field in definition.fields:
             lines.append(f"    {_identifier(field.name)}: {self._type(field.type)},")
         lines.append("}")
+        lines.extend((
+            f"impl Default for {type_name} {{",
+            "    fn default() -> Self {",
+            "        Self {",
+        ))
+        for field in definition.fields:
+            lines.append(f"            {_identifier(field.name)}: {self._default(field.type)},")
+        lines.extend(("        }", "    }", "}"))
         if definition.name in self.display_names:
             fields = ", ".join(
                 f"self.{_identifier(field.name)}.rove_display()"
@@ -286,7 +294,7 @@ class _RustEmitter:
         lines.append("}")
         if definition.variants:
             first = definition.variants[0]
-            defaults = ", ".join("Default::default()" for _ in first.payload_types)
+            defaults = ", ".join(self._default(value) for value in first.payload_types)
             suffix = f"({defaults})" if defaults else ""
             lines.extend((
                 f"impl Default for {type_name} {{",
@@ -837,7 +845,7 @@ class _RustEmitter:
         if value.name == "Task":
             return "Default::default()"
         if value.name == "Result" and len(value.arguments) == 2:
-            return "Ok(Default::default())"
+            return f"Ok({_RustEmitter._default(value.arguments[0])})"
         return {"bool": "false", "int": "0", "float": "0.0", "f64": "0.0", "string": "String::new()"}.get(value.name, "Default::default()")
 
     def _place(self, place: Place, *, mutable: bool = False) -> str:
