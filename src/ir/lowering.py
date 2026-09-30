@@ -747,7 +747,8 @@ class HIRLowerer:
                 body = self._lower_expr(node.body)
             finally:
                 self.scopes.pop()
-            return IRLambda(span, function_type((param.type for param in params), body.type), tuple(params), body)
+            return_type = from_inferred_name(getattr(node, "inferred_return_type", None), body.type)
+            return IRLambda(span, function_type((param.type for param in params), return_type), tuple(params), body)
         raise IRLoweringError(f"Unsupported expression node '{type(node).__name__}'", span)
 
     def _lower_pipeline(self, node: ast.BinaryOpNode) -> IRCall:

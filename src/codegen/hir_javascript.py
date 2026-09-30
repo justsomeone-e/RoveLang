@@ -1038,6 +1038,14 @@ class HIRJavaScriptEmitter:
             return f"(({temporary}) => {rendered})({self._expr(node.subject)})"
         if isinstance(node, IRLambda):
             parameters = [self._parameter_name(param.symbol, param.name) for param in node.params]
+            return_type = node.type.return_type or node.body.type
+            if return_type.name == "Result" and len(return_type.arguments) == 2:
+                caught = self._temporary("propagated")
+                return (
+                    f"(({', '.join(parameters)}) => {{ try {{ return {self._expr_as(node.body, return_type)}; }} "
+                    f"catch ({caught}) {{ if ({caught} instanceof _RoveResultPropagation) "
+                    f"return Err({caught}.error); throw {caught}; }} }})"
+                )
             return f"(({', '.join(parameters)}) => {self._expr(node.body)})"
         raise JavaScriptEmissionError(f"Unsupported HIR expression: {type(node).__name__}")
 

@@ -2431,11 +2431,15 @@ verification, backend gates, and executable C++/C17/LLVM/JavaScript/Python parit
 against the MIR interpreter. Their Rust fold/map/filter runtime fixtures also
 compiled and executed in local Debian, including throwing callbacks; Windows
 validation still uses metadata/type checking when the SDK linker is absent. Both suites
-are included in `tests/run_all_tests.py`. This is a non-escaping callback slice,
-not general first-class closure support: stored
-or returned closures and callback-local `?`/`await` control flow remain open.
-Those control operators are rejected rather than inlined with the enclosing
-function's return/suspend semantics. M5 remains in progress.
+are included in `tests/run_all_tests.py`. Immediate callbacks now have their own
+Result return and cleanup boundary: `?` produces the callback's `Err` value and
+continues the collection loop. The production C++, Rust, JavaScript, and Python
+HIR emitters preserve that Result boundary. Within an enclosing async function,
+callback `await` lowers through ordinary MIR suspension and coroutine frame
+elaboration, retaining the loop state across suspension. Production HIR
+JavaScript/Python async callbacks still require explicit adapters. This is a
+non-escaping callback slice; stored or returned closures remain open. M5 remains
+in progress.
 
 Candidate order:
 

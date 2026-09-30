@@ -1050,9 +1050,51 @@ class TypeChecker:
             for name, value_type in zip(node.params, parameter_types):
                 self.declare(name, value_type)
             result = self.infer_type(node.body)
+
+            def propagations(value):
+                if isinstance(value, LambdaNode):
+                    return
+                if isinstance(value, ResultPropagateNode):
+                    yield value
+                if isinstance(value, ASTNode):
+                    for child in vars(value).values():
+                        yield from propagations(child)
+                elif isinstance(value, (list, tuple)):
+                    for child in value:
+                        yield from propagations(child)
+
+            result_name, result_arguments = _generic_type_parts(result)
+            for propagation in propagations(node.body):
+                operand = self.infer_type(propagation.expr)
+                operand_name, operand_arguments = _generic_type_parts(operand)
+                if operand_name != "Result" or len(operand_arguments) != 2:
+                    DiagnosticEmitter.emit_error(
+                        self.filepath, self.source, propagation.line, propagation.col,
+                        "E2037", "The '?' operand must have type Result<T, E>",
+                        expected="Result<T, E>", found=operand,
+                    )
+                if result_name != "Result" or len(result_arguments) != 2:
+                    DiagnosticEmitter.emit_error(
+                        self.filepath, self.source, propagation.line, propagation.col,
+                        "E2038", "A callback using '?' must return Result<T, E>",
+                        expected="Result<T, E>", found=result,
+                    )
+                success_type, error_type = result_arguments
+                propagated_error = operand_arguments[1]
+                if error_type == "any" and propagated_error != "any":
+                    result_arguments = (success_type, propagated_error)
+                    result = f"Result<{success_type}, {propagated_error}>"
+                elif not self.is_compatible(error_type, propagated_error):
+                    DiagnosticEmitter.emit_error(
+                        self.filepath, self.source, propagation.line, propagation.col,
+                        "E2039", "Propagated callback error type is incompatible",
+                        expected=error_type, found=propagated_error,
+                    )
+            node.body.inferred_type = result
         finally:
             self.exit_scope()
         node.inferred_param_types = list(parameter_types)
+        node.inferred_return_type = result
         node.inferred_type = f"fn({', '.join(parameter_types)}) -> {result}"
         return result
 

@@ -7,7 +7,7 @@ if str(ROOT) not in sys.path:
 
 from src.api import RoveCompiler
 from src.mir import (
-    MIRInterpreter, MIRLoweringError, emit_legalized_cpp, emit_legalized_javascript,
+    MIRInterpreter, emit_legalized_cpp, emit_legalized_javascript,
     emit_legalized_python, emit_legalized_rust, lower_hir_to_mir,
 )
 from src.mir.model import CallTerminator
@@ -51,11 +51,7 @@ def run_mir_fold_suite() -> bool:
         filename="fold-local-return.rove", target="cpp",
     )
     assert local_return.success, local_return.diagnostics
-    try:
-        lower_hir_to_mir(local_return.hir)
-        raise AssertionError("Reducer-local return was inlined into the enclosing function")
-    except MIRLoweringError as error:
-        assert "closure control lowering" in str(error)
+    lower_hir_to_mir(local_return.hir)
     print("[PASS] MIR fold captures, evaluation order, empty/nested/owned reducers, unwind, and C++/Rust/JS/Python gates")
     return True
 

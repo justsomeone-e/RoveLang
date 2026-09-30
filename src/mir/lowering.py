@@ -216,6 +216,7 @@ class _FunctionLowerer:
         self.temporary_locals: set[int] = set()
         self.temporary_counter = 0
         self.suspend_counter = 0
+        self.callback_return_targets: list[tuple[int, int, IRType, int]] = []
 
     def lower(self):
         parameter_drops: list[int] = []
@@ -866,6 +867,8 @@ class _FunctionLowerer:
                 return self._lower_map_filter(node)
             if node.callee_symbol == "intrinsic::rove_array_push":
                 return self._lower_array_push(node)
+            if node.callee_symbol == "intrinsic::rove_callback_body":
+                return self._lower_callback_body(node)
             argument_nodes = (
                 ((node.receiver,) if node.receiver is not None else ()) + node.args
             )
@@ -950,8 +953,6 @@ class _FunctionLowerer:
         collection, initial, callback = node.args
         if collection.type.name != "Array" or len(collection.type.arguments) != 1 or len(callback.params) != 2:
             raise MIRLoweringError("fold requires Array<T> and a two-parameter reducer", span)
-        if any(isinstance(expression, (IRResultPropagate, IRAwait)) for expression in _walk_hir(callback.body)):
-            raise MIRLoweringError("fold reducer-local Result propagation and suspension require closure control lowering", span)
         result = self._new_temporary(node.type, span)
         prefix = f"{self.function.symbol}::fold::{result}"
 
@@ -998,7 +999,10 @@ class _FunctionLowerer:
 
         loop = IRFor(
             node.span, "item", item_symbol, None, None, source,
-            (argument_decl, IRAssign(node.span, accumulator, rewrite(callback.body))),
+            (argument_decl, IRAssign(node.span, accumulator, IRCall(
+                callback.span, callback.type.return_type or callback.body.type,
+                "callback", "intrinsic::rove_callback_body", (rewrite(callback.body),),
+            ))),
         )
         self.defer_scopes.append([])
         self.drop_scopes.append([])
@@ -1011,6 +1015,33 @@ class _FunctionLowerer:
         finally:
             self.defer_scopes.pop()
             self.drop_scopes.pop()
+        return CopyOperand(Place(result))
+
+    def _lower_callback_body(self, node: IRCall) -> Operand:
+        """Give an immediate callback its own Result return and cleanup boundary."""
+        span = _span(node.span)
+        if len(node.args) != 1:
+            raise MIRLoweringError("Callback body requires one expression", span)
+        expression = node.args[0]
+        result = self._new_temporary(node.type, span)
+        join = self.builder.new_block()
+        keep_depth = len(self.defer_scopes)
+        self.defer_scopes.append([])
+        self.drop_scopes.append([])
+        self.callback_return_targets.append((result, join, node.type, keep_depth))
+        try:
+            value = self._lower_expr(expression)
+            value = self._coerce(value, expression.type, node.type, span)
+            self._push(AssignStatement(
+                Place(result), UseRValue(self._consume_temporary(value, node.type)), span,
+            ))
+            self._emit_cleanups(keep_depth)
+            self._goto_if_open(join, span)
+        finally:
+            self.callback_return_targets.pop()
+            self.defer_scopes.pop()
+            self.drop_scopes.pop()
+        self.current = join
         return CopyOperand(Place(result))
 
     def _lower_array_push(self, node: IRCall) -> Operand:
@@ -1052,14 +1083,6 @@ class _FunctionLowerer:
             raise MIRLoweringError(f"{name} requires Array<T>", span)
         if len(callback.params) != 1:
             raise MIRLoweringError(f"{name} callback must take one parameter", span)
-        if any(
-            isinstance(expression, (IRResultPropagate, IRAwait))
-            for expression in _walk_hir(callback.body)
-        ):
-            raise MIRLoweringError(
-                f"{name} callback-local Result propagation and suspension require closure control lowering",
-                span,
-            )
 
         result = self._new_temporary(node.type, span)
         prefix = f"{self.function.symbol}::{name}::{result}"
@@ -1100,7 +1123,10 @@ class _FunctionLowerer:
                 })
             return value
 
-        transformed = rewrite(callback.body)
+        transformed = IRCall(
+            callback.span, callback.type.return_type or callback.body.type,
+            "callback", "intrinsic::rove_callback_body", (rewrite(callback.body),),
+        )
         push = IRCall(
             node.span, VOID, "array_push", "intrinsic::rove_array_push",
             (result_reference, transformed),
@@ -1350,14 +1376,30 @@ class _FunctionLowerer:
         self._terminate(GotoTerminator(join, span))
         self.current = error_block
         self._push(DeinitStatement(Place(tag), span))
-        propagated: Operand = (
-            MoveOperand(result_value.place)
-            if result_drop is not None and isinstance(result_value, CopyOperand)
-            else result_value
+        if self.callback_return_targets:
+            destination, callback_join, return_type, keep_depth = self.callback_return_targets[-1]
+        else:
+            destination, callback_join, return_type, keep_depth = 0, None, self.function.return_type, 0
+        error_type = node.expr.type.arguments[1]
+        error_local = self._new_temporary(error_type, span)
+        self._push(AssignStatement(
+            Place(error_local), PayloadRValue(result_value, 0, from_hir_type(error_type)), span,
+        ))
+        error = self._coerce(
+            CopyOperand(Place(error_local)), error_type, return_type.arguments[1], span,
         )
-        self._push(AssignStatement(Place(0), UseRValue(propagated), span))
-        self._emit_cleanups(0)
-        self._terminate(ReturnTerminator(span))
+        self._push(AssignStatement(
+            Place(destination), AggregateRValue(
+                "result", "Err", (self._consume_temporary(error, return_type.arguments[1]),),
+                from_hir_type(return_type),
+            ), span,
+        ))
+        if result_drop is not None:
+            self._push(DeinitStatement(Place(result_drop), span))
+        self._emit_cleanups(keep_depth)
+        self._terminate(
+            GotoTerminator(callback_join, span) if callback_join is not None else ReturnTerminator(span)
+        )
         self.current = join
         return CopyOperand(Place(payload))
 

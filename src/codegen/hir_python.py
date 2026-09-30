@@ -133,6 +133,15 @@ def _rove_propagate(result):
     return result.value
 
 
+def _rove_result_callback(callback):
+    def invoke(*arguments):
+        try:
+            return callback(*arguments)
+        except _RoveResultPropagation as propagated:
+            return Err(propagated.error)
+    return invoke
+
+
 def _rove_map(items, transform):
     return [transform(item) for item in items]
 
@@ -1313,7 +1322,11 @@ class HIRPythonEmitter:
             return f"(lambda {temporary}: {rendered})({self._expr(node.subject)})"
         if isinstance(node, IRLambda):
             parameters = [self._parameter_name(param.symbol, param.name) for param in node.params]
-            return f"(lambda {', '.join(parameters)}: {self._expr(node.body)})"
+            return_type = node.type.return_type or node.body.type
+            rendered = f"(lambda {', '.join(parameters)}: {self._expr_as(node.body, return_type)})"
+            if return_type.name == "Result" and len(return_type.arguments) == 2:
+                return f"_rove_result_callback({rendered})"
+            return rendered
         raise PythonEmissionError(f"Unsupported HIR expression: {type(node).__name__}")
 
     def _expr_as(self, node: IRExpr, expected: IRType | None) -> str:

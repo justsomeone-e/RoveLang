@@ -2449,6 +2449,27 @@ class HIRCppEmitter:
                     f"{self._cpp_type(value_type, role='parameter')} "
                     f"{self._parameter_name(parameter.symbol, parameter.name)}"
                 )
+            return_type = node.type.return_type or node.body.type
+            if (
+                return_type.name == "Result" and len(return_type.arguments) == 2
+                and all(_is_known(argument) for argument in return_type.arguments)
+            ):
+                previous_return_type = self.current_return_type
+                self.current_return_type = return_type
+                try:
+                    body = self._expr(node.body, return_type)
+                finally:
+                    self.current_return_type = previous_return_type
+                result_type = self._cpp_type(return_type, role="result")
+                success_type = self._cpp_type(return_type.arguments[0], role="result")
+                error_type = self._cpp_type(return_type.arguments[1], role="result")
+                return (
+                    f"[=]({', '.join(parameters)}) -> {result_type} {{ "
+                    f"try {{ return {body}; }} "
+                    "catch (const _RoveResultPropagation& propagated) { "
+                    f"return {{false, {success_type}{{}}, std::any_cast<{error_type}>(propagated.error)}}; "
+                    "} }"
+                )
             return f"[=]({', '.join(parameters)}) {{ return {self._expr(node.body)}; }}"
         raise CppEmissionError(f"Unsupported HIR expression: {type(node).__name__}")
 

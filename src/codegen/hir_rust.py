@@ -969,7 +969,13 @@ class HIRRustEmitter:
                 params.append(
                     f"{self._parameter_name(parameter)}: {self._rust_type(parameter.type)}"
                 )
-            return f"Arc::new(move |{', '.join(params)}| {self._expr(node.body)})"
+            previous_defers = self.active_defers
+            self.active_defers = []
+            try:
+                body = self._expr_as(node.body, node.type.return_type or node.body.type)
+            finally:
+                self.active_defers = previous_defers
+            return f"Arc::new(move |{', '.join(params)}| {body})"
         raise RustEmissionError(f"Unsupported Rust HIR expression: {type(node).__name__}")
 
     def _emit_binary(self, node: IRBinary) -> str:

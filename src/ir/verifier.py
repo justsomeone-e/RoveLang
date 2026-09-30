@@ -1076,7 +1076,12 @@ class IRVerifier:
             for parameter in expr.params:
                 self._visit_parameter_default(parameter, lambda_active)
                 lambda_active.add(parameter.symbol)
-            self._visit_expr(expr.body, lambda_active)
+            previous_return_type = self._current_return_type
+            self._current_return_type = expr.type.return_type if expr.type.is_function else None
+            try:
+                self._visit_expr(expr.body, lambda_active)
+            finally:
+                self._current_return_type = previous_return_type
             if expr.type.is_function:
                 if len(expr.type.parameter_types) != len(expr.params):
                     self._issue("HIR0003", "Lambda parameter count does not match its function type", expr.span)
