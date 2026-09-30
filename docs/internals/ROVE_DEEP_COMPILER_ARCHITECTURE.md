@@ -2437,7 +2437,11 @@ continues the collection loop. The production C++, Rust, JavaScript, and Python
 HIR emitters preserve that Result boundary. Within an enclosing async function,
 callback `await` lowers through ordinary MIR suspension and coroutine frame
 elaboration, retaining the loop state across suspension. Production HIR
-JavaScript/Python async callbacks still require explicit adapters. This is a
+JavaScript/Python adapters now await these callbacks sequentially, copy the
+collection and local captures at callback creation, and preserve callback-local
+Result errors. Python emits async callback functions rather than lambdas
+containing `await`; nested collection calls, lazy null-coalescing, and match
+expression arms retain their suspension and evaluation order. This is a
 non-escaping callback slice; stored or returned closures remain open. M5 remains
 in progress.
 

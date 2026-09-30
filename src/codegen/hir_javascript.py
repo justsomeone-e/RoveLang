@@ -55,6 +55,7 @@ from src.ir.model import (
     IRWhile,
 )
 from src.ir.builtins import BUILTINS, INTRINSICS
+from src.ir.control import expression_suspends, free_local_references, immediate_callback_suspends
 from src.ir.types import FLOAT, IRType
 
 
@@ -126,6 +127,21 @@ function Err(error) { return new Result(false, error); }
 function _roveMap(items, transform) { return items.map(transform); }
 function _roveFilter(items, predicate) { return items.filter(predicate); }
 function _roveFold(items, initial, reducer) { return items.reduce(reducer, initial); }
+async function _roveMapAsync(items, transform) {
+    const result = [];
+    for (const item of items) result.push(await transform(item));
+    return result;
+}
+async function _roveFilterAsync(items, predicate) {
+    const result = [];
+    for (const item of items) if (await predicate(item)) result.push(item);
+    return result;
+}
+async function _roveFoldAsync(items, initial, reducer) {
+    let accumulator = initial;
+    for (const item of items) accumulator = await reducer(accumulator, item);
+    return accumulator;
+}
 function _roveI64(value) { return BigInt.asIntN(64, typeof value === "bigint" ? value : BigInt(value)); }
 function _roveI64Add(left, right) { return _roveI64(left + right); }
 function _roveI64Sub(left, right) { return _roveI64(left - right); }
@@ -1002,6 +1018,8 @@ class HIRJavaScriptEmitter:
             }
             if node.callee_symbol.startswith("builtin::") and node.callee in collection_builtins:
                 callee = collection_builtins[node.callee]
+                if immediate_callback_suspends(node):
+                    return f"(await {callee}Async({args}))"
             else:
                 callee = self._symbol(node.callee_symbol, node.callee)
             if node.callee_symbol.startswith("type::struct::"):
@@ -1035,18 +1053,41 @@ class HIRJavaScriptEmitter:
                     f"({temporary} === {self._expr(case.pattern)} ? "
                     f"{self._expr_as(case.value, node.type)} : {rendered})"
                 )
-            return f"(({temporary}) => {rendered})({self._expr(node.subject)})"
+            suspends = any(expression_suspends(case) for case in node.cases)
+            call = f"({'async ' if suspends else ''}({temporary}) => {rendered})({self._expr(node.subject)})"
+            return f"(await {call})" if suspends else call
         if isinstance(node, IRLambda):
             parameters = [self._parameter_name(param.symbol, param.name) for param in node.params]
             return_type = node.type.return_type or node.body.type
+            suspends = expression_suspends(node.body)
+            body = self._expr_as(node.body, return_type)
+            copies = ""
+            if suspends:
+                body = self._copy_value(body, return_type)
+                for parameter, name in zip(node.params, parameters):
+                    copied = self._copy_value(name, parameter.type)
+                    if copied != name:
+                        copies += f"{name} = {copied}; "
+            async_prefix = "async " if suspends else ""
             if return_type.name == "Result" and len(return_type.arguments) == 2:
                 caught = self._temporary("propagated")
-                return (
-                    f"(({', '.join(parameters)}) => {{ try {{ return {self._expr_as(node.body, return_type)}; }} "
+                error = self._copy_value(f"Err({caught}.error)", return_type)
+                rendered = (
+                    f"({async_prefix}({', '.join(parameters)}) => {{ {copies}try {{ return {body}; }} "
                     f"catch ({caught}) {{ if ({caught} instanceof _RoveResultPropagation) "
-                    f"return Err({caught}.error); throw {caught}; }} }})"
+                    f"return {error}; throw {caught}; }} }})"
                 )
-            return f"(({', '.join(parameters)}) => {self._expr(node.body)})"
+            elif copies:
+                rendered = f"({async_prefix}({', '.join(parameters)}) => {{ {copies}return {body}; }})"
+            else:
+                rendered = f"({async_prefix}({', '.join(parameters)}) => {body})"
+            if suspends:
+                captures = free_local_references(node.body, (param.symbol for param in node.params))
+                if captures:
+                    names = ", ".join(self._symbol(ref.symbol, ref.name) for ref in captures)
+                    values = ", ".join(self._copy_value(self._expr(ref), ref.type) for ref in captures)
+                    rendered = f"(({names}) => {rendered})({values})"
+            return rendered
         raise JavaScriptEmissionError(f"Unsupported HIR expression: {type(node).__name__}")
 
     def _expr_as(self, node: IRExpr, expected: IRType | None) -> str:
@@ -1068,6 +1109,8 @@ class HIRJavaScriptEmitter:
         return rendered
 
     def _call_parameter_types(self, node: IRCall) -> Sequence[IRType]:
+        if immediate_callback_suspends(node):
+            return tuple(argument.type for argument in node.args)
         if node.receiver is not None:
             method = self.methods.get((node.receiver.type.name, node.callee))
             if method is None:

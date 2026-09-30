@@ -13,6 +13,7 @@ import re
 from typing import Dict, List, Sequence
 
 from src.ir.builtins import BUILTINS, INTRINSICS
+from src.ir.control import expression_suspends, free_local_references, immediate_callback_suspends
 from src.ir.model import (
     IRAssign,
     IRArray,
@@ -154,6 +155,28 @@ def _rove_fold(items, initial, reducer):
     accumulator = initial
     for item in items:
         accumulator = reducer(accumulator, item)
+    return accumulator
+
+
+async def _rove_map_async(items, transform):
+    result = []
+    for item in items:
+        result.append(await transform(item))
+    return result
+
+
+async def _rove_filter_async(items, predicate):
+    result = []
+    for item in items:
+        if await predicate(item):
+            result.append(item)
+    return result
+
+
+async def _rove_fold_async(items, initial, reducer):
+    accumulator = initial
+    for item in items:
+        accumulator = await reducer(accumulator, item)
     return accumulator
 
 
@@ -796,6 +819,7 @@ class HIRPythonEmitter:
             for member in item.members if member.is_variant
         }
         self.current_return_type: IRType | None = None
+        self.callback_definitions: List[str] = []
         self.counter = 0
         for item in module.items:
             if isinstance(item, IRImpl):
@@ -818,6 +842,7 @@ class HIRPythonEmitter:
                 lines.append(f"import {item.module} as {self._symbol(item.symbol, item.alias)}")
         if any(isinstance(item, IRForeignImport) for item in self.module.items):
             lines.append("")
+        callback_insertion = len(lines)
 
         declarations: List[IRNode] = []
         statements: List[IRStatement] = []
@@ -875,6 +900,7 @@ class HIRPythonEmitter:
             else:
                 lines.append(f"    {self._symbol(main.symbol, main.name)}()")
 
+        lines[callback_insertion:callback_insertion] = self.callback_definitions
         return "\n".join(lines).rstrip() + "\n"
 
     def _register_declarations(self) -> None:
@@ -1283,6 +1309,8 @@ class HIRPythonEmitter:
             }
             if node.callee_symbol.startswith("builtin::") and node.callee in collection_builtins:
                 callee = collection_builtins[node.callee]
+                if immediate_callback_suspends(node):
+                    return f"(await {callee}_async({args}))"
             else:
                 callee = self._symbol(node.callee_symbol, node.callee)
             if node.callee_symbol == "builtin::len":
@@ -1304,6 +1332,16 @@ class HIRPythonEmitter:
                 self._expr_as(element, element_type) for element in node.elements
             ) + "]"
         if isinstance(node, IRNullCoalesce):
+            if expression_suspends(node.right):
+                temporary = self._temporary("coalesce")
+                body = [
+                    f"{temporary} = {self._expr(node.left)}",
+                    f"if {temporary} is not None:",
+                    f"    return {temporary}",
+                    f"return {self._expr_as(node.right, node.type)}",
+                ]
+                callback = self._async_callable((), free_local_references(node), body)
+                return f"(await {callback}())"
             return f"_rove_coalesce({self._expr(node.left)}, lambda: {self._expr(node.right)})"
         if isinstance(node, IRConditional):
             return (
@@ -1319,15 +1357,52 @@ class HIRPythonEmitter:
                     f"({self._expr_as(case.value, node.type)} if "
                     f"{temporary} == {self._expr(case.pattern)} else {rendered})"
                 )
+            if any(expression_suspends(case) for case in node.cases):
+                body = [f"{temporary} = {self._expr(node.subject)}", f"return {rendered}"]
+                callback = self._async_callable((), free_local_references(node), body)
+                return f"(await {callback}())"
             return f"(lambda {temporary}: {rendered})({self._expr(node.subject)})"
         if isinstance(node, IRLambda):
             parameters = [self._parameter_name(param.symbol, param.name) for param in node.params]
             return_type = node.type.return_type or node.body.type
+            if expression_suspends(node.body):
+                body = []
+                for parameter, name in zip(node.params, parameters):
+                    copied = self._copy_value(name, parameter.type)
+                    if copied != name:
+                        body.append(f"{name} = {copied}")
+                value = self._copy_value(self._expr_as(node.body, return_type), return_type)
+                if return_type.name == "Result" and len(return_type.arguments) == 2:
+                    caught = self._temporary("propagated")
+                    error = self._copy_value(f"Err({caught}.error)", return_type)
+                    body.extend((
+                        "try:", f"    return {value}",
+                        f"except _RoveResultPropagation as {caught}:", f"    return {error}",
+                    ))
+                else:
+                    body.append(f"return {value}")
+                captures = free_local_references(node.body, (param.symbol for param in node.params))
+                return self._async_callable(parameters, captures, body)
             rendered = f"(lambda {', '.join(parameters)}: {self._expr_as(node.body, return_type)})"
             if return_type.name == "Result" and len(return_type.arguments) == 2:
                 return f"_rove_result_callback({rendered})"
             return rendered
         raise PythonEmissionError(f"Unsupported HIR expression: {type(node).__name__}")
+
+    def _async_callable(
+        self, parameters: Sequence[str], captures: Sequence[IRReference], body: Sequence[str],
+    ) -> str:
+        factory = self._temporary("callback_factory")
+        callback = self._temporary("callback")
+        names = ", ".join(self._symbol(ref.symbol, ref.name) for ref in captures)
+        values = ", ".join(self._copy_value(self._expr(ref), ref.type) for ref in captures)
+        self.callback_definitions.extend((
+            f"def {factory}({names}):",
+            f"    async def {callback}({', '.join(parameters)}):",
+            *("        " + line for line in body),
+            f"    return {callback}", "",
+        ))
+        return f"{factory}({values})"
 
     def _expr_as(self, node: IRExpr, expected: IRType | None) -> str:
         rendered = self._expr(node)
@@ -1348,6 +1423,8 @@ class HIRPythonEmitter:
         return rendered
 
     def _call_parameter_types(self, node: IRCall) -> Sequence[IRType]:
+        if immediate_callback_suspends(node):
+            return tuple(argument.type for argument in node.args)
         if node.receiver is not None:
             method = self.methods.get((node.receiver.type.name, node.callee))
             if method is None:
