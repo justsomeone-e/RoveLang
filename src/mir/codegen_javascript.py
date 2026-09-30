@@ -382,6 +382,8 @@ class _JavaScriptEmitter:
 
     @staticmethod
     def _typed_constant(value: ConstOperand) -> str:
+        if value.type.optional and value.value is None:
+            return "null"
         if value.type.name == "int":
             return f"{value.value}n"
         if value.type.name == "string":

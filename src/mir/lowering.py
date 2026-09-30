@@ -1480,6 +1480,11 @@ class _FunctionLowerer:
             return operand
         if not is_coercible(source_type, target_type):
             raise MIRLoweringError(f"Cannot convert {source_type} to {target_type}", span)
+        if (
+            source_type.name == "null" and target_type.optional
+            and isinstance(operand, ConstOperand) and operand.value is None
+        ):
+            return ConstOperand(from_hir_type(target_type), None)
         local = self._new_temporary(target_type, span)
         self._push(AssignStatement(
             Place(local),

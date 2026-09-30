@@ -459,6 +459,8 @@ class _PythonEmitter:
 
     @staticmethod
     def _typed_constant(value: ConstOperand) -> str:
+        if value.type.optional and value.value is None:
+            return "None"
         if value.type.name == "int":
             return f"rove_i64({value.value})"
         if value.type.name == "string":
