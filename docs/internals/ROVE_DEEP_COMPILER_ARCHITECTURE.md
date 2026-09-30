@@ -17,8 +17,10 @@ foundation release. After the Rust throw/catch and typed `Result<T, E>` slices,
 plus the first C++, Rust, JavaScript, and Python `async` task adapters,
 the M1-M4 targeted suites and the full M5 legalization suite are green. C++,
 LLVM, Wasm, JavaScript, Python, and C17 runtime gates executed locally; every
-Rust artifact passed `rustc` metadata/type checking, while Rust runtime linking
-remains unverified locally. The default `link.exe` is unavailable; an explicit
+Rust artifact passed `rustc` metadata/type checking, while the broad Rust runtime
+gate remains unverified on the Windows host. Focused M6 fold/map/filter fixtures,
+including callback unwind, also compiled and executed in local Debian with stdout
+parity against the MIR interpreter. The default Windows `link.exe` is unavailable; an explicit
 bundled `lld-link` attempt also failed because Windows SDK import libraries
 such as `kernel32.lib` are absent.
 This is repository regression evidence, not hosted multi-platform release evidence.
@@ -2425,8 +2427,9 @@ callbacks that require unwind edges; Wasm keeps array push gated. The focused
 `tests/mir_fold_suite.py` and `tests/mir_map_filter_suite.py` cover empty input,
 nested callbacks, source evaluation order, array ownership, malformed-MIR
 verification, backend gates, and executable C++/C17/LLVM/JavaScript/Python parity
-against the MIR interpreter. Rust source passes local metadata/type checking; its
-runtime parity still requires a host with a working Rust linker. Both suites
+against the MIR interpreter. Their Rust fold/map/filter runtime fixtures also
+compiled and executed in local Debian, including throwing callbacks; Windows
+validation still uses metadata/type checking when the SDK linker is absent. Both suites
 are included in `tests/run_all_tests.py`. This is a non-escaping callback slice,
 not general first-class closure support: stored
 or returned closures and callback-local `?`/`await` control flow remain open.
