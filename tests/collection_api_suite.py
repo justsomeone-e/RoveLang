@@ -83,7 +83,7 @@ def run_collection_api_suite() -> bool:
     _assert_error("fn main() { var value = filter([1], item => item) }", "E2043")
     _assert_error("fn main() { var value = fold([1], 0, (sum, item) => \"bad\") }", "E2044")
 
-    unsupported = _compile("fn main() { print(fold([1, 2], 0, (a, b) => a + b)) }", "rust")
+    unsupported = _compile("fn main() { print(fold([1, 2], 0, (a, b) => a + b)) }", "wasm")
     assert not unsupported.success
     assert any(
         "does not support collection combinators" in (diagnostic.note or diagnostic.rendered)

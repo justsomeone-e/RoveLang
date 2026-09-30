@@ -2406,6 +2406,17 @@ Implementation status (through 2026-09-27):
   `may_suspend` with `MIRG1011`; emitters may not improvise async semantics
   independently.
 
+Hosted HIR `print` and `to_string` now use the same recursive display forms as
+the MIR interpreter for Result values, arrays, optionals, structs, and admitted
+payload enums. C++ enum payloads carry typed display functions, and their
+constructors are defined after struct definitions. JavaScript/Python struct
+display follows declared field order through compiler-owned layout metadata.
+Rust HIR and MIR share one binary64 text helper rather than separate exponent
+formatting rules. MIR lowering materializes `null` as a typed optional constant;
+JavaScript/Python preserve that empty value, and C++ recursively displays empty
+optionals and Boolean containers. Rust MIR initializes nested Result values and
+Result-valued struct/enum fields through recursive placeholders.
+
 Therefore M5 infrastructure, the broad C++ slice, LLVM scalar path, and first
 executable Wasm, Rust, JavaScript, Python, and C17 slices are implemented. The M5 exit gate
 remains open until the full MIR surface and each listed backend complete
@@ -2444,6 +2455,11 @@ containing `await`; nested collection calls, lazy null-coalescing, and match
 expression arms retain their suspension and evaluation order. This is a
 non-escaping callback slice; stored or returned closures remain open. M5 remains
 in progress.
+
+The production Rust HIR path also implements synchronous `map`, `filter`, and
+`fold` with value captures and callback-local Result propagation. Its capability
+registry admits this collection slice; async callbacks and throwing callbacks
+remain gated by the existing Rust async/exception boundaries.
 
 Candidate order:
 

@@ -91,7 +91,7 @@ BACKENDS: Dict[str, BackendSpec] = {
     ),
     "rust": BackendSpec(
         "rust", "Rust 2021", "native", "rust", "beta",
-        ("rs",), CORE_FEATURES | HIR_V1_FEATURES | frozenset({"result_propagation", "unsafe_memory"}),
+        ("rs",), CORE_FEATURES | HIR_V1_FEATURES | frozenset({"collection_combinators", "result_propagation", "unsafe_memory"}),
     ),
     "react": BackendSpec(
         "react", "React 19 TSX", "web", "tsx", "beta",

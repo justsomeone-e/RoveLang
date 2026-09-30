@@ -15,6 +15,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 from src.core.scalar_text import RUST_F64_RUNTIME
 from src.codegen.hir_cpp import ModuleTypeInference
+from src.ir.control import free_local_references
 from src.ir import (
     ANY,
     BOOL,
@@ -196,6 +197,27 @@ impl<T: RoveDisplay, E: RoveDisplay> RoveDisplay for RoveResult<T, E> {
 
 fn _rove_print(values: &[String]) {
     println!("{}", values.join(" "));
+}
+
+fn _rove_map<T: Clone, U, F: Fn(T) -> U + ?Sized>(items: Vec<T>, transform: Arc<F>) -> Vec<U> {
+    let mut result = Vec::with_capacity(items.len());
+    for item in &items { result.push(transform(item.clone())); }
+    result
+}
+
+fn _rove_filter<T: Clone, F: Fn(T) -> bool + ?Sized>(items: Vec<T>, predicate: Arc<F>) -> Vec<T> {
+    let mut result = Vec::new();
+    for item in &items {
+        if predicate(item.clone()) { result.push(item.clone()); }
+    }
+    result
+}
+
+fn _rove_fold<T: Clone, A: Clone, F: Fn(A, T) -> A + ?Sized>(
+    items: Vec<T>, mut accumulator: A, reducer: Arc<F>,
+) -> A {
+    for item in &items { accumulator = reducer(accumulator.clone(), item.clone()); }
+    accumulator
 }
 
 fn _rove_input(prompt: Option<&String>) -> String {
@@ -960,11 +982,25 @@ class HIRRustEmitter:
                 )
             previous_defers = self.active_defers
             self.active_defers = []
+            captures = free_local_references(node.body, (param.symbol for param in node.params))
+            bindings = []
+            previous_names = {}
             try:
+                # Evaluate each value capture before rendering the closure's scope.
+                values = [(reference, self._expr(reference)) for reference in captures]
+                for reference, value in values:
+                    name = self._reserve_symbol(
+                        f"capture::{self.temporary_index + 1}", self._temporary("capture"),
+                    )
+                    previous_names[reference.symbol] = self.symbol_names[reference.symbol]
+                    self.symbol_names[reference.symbol] = name
+                    bindings.append(f"let {name} = {value};")
                 body = self._expr_as(node.body, node.type.return_type or node.body.type)
             finally:
                 self.active_defers = previous_defers
-            return f"Arc::new(move |{', '.join(params)}| {body})"
+                self.symbol_names.update(previous_names)
+            rendered = f"Arc::new(move |{', '.join(params)}| {body})"
+            return f"{{ {' '.join(bindings)} {rendered} }}" if bindings else rendered
         raise RustEmissionError(f"Unsupported Rust HIR expression: {type(node).__name__}")
 
     def _emit_binary(self, node: IRBinary) -> str:
@@ -1017,6 +1053,9 @@ class HIRRustEmitter:
         return f"({self._expr(node.left)} {node.op} {self._expr(node.right)})"
 
     def _emit_call(self, node: IRCall, expected: Optional[IRType]) -> str:
+        if node.callee_symbol in ("builtin::map", "builtin::filter", "builtin::fold"):
+            arguments = ", ".join(self._expr(argument) for argument in node.args)
+            return f"_rove_{node.callee}({arguments})"
         if node.receiver is not None:
             receiver_type = _strip_optional(self.inference.expression_type(node.receiver))
             if node.callee in ("is_ok", "is_err"):
